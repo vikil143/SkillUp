@@ -6,6 +6,7 @@ import {
   SafeAreaView,
   View,
   Text,
+  Image,
   ScrollView,
   TouchableOpacity,
   Pressable,
@@ -15,8 +16,11 @@ import {
   StatusBar,
   Platform,
   Alert,
+  Linking,
+  Dimensions,
   KeyboardAvoidingView,
 } from 'react-native';
+import { WebView } from 'react-native-webview';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // ============================================================
@@ -74,6 +78,20 @@ const saveStreak = (s) =>
   AsyncStorage.setItem(STREAK_KEY, JSON.stringify(s)).catch(() => {});
 
 // ============================================================
+// LINK / YOUTUBE UTILITIES
+// ============================================================
+const getYouTubeId = (url) => {
+  if (!url) return null;
+  const m = url.match(
+    /(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|v\/|shorts\/))([A-Za-z0-9_-]{11})/
+  );
+  return m ? m[1] : null;
+};
+const isYouTubeUrl = (url) => Boolean(getYouTubeId(url));
+const openLink = (url) =>
+  Linking.openURL(url).catch(() => Alert.alert('Cannot open link', url));
+
+// ============================================================
 // SEED DATA (from CV)
 // ============================================================
 const uid = () => Math.random().toString(36).slice(2, 10) + Date.now().toString(36).slice(-4);
@@ -117,6 +135,7 @@ const SEED = () => {
     },
     flashcards: depth.flashcards || [],
     apis: depth.apis || [],
+    refs: depth.refs || [],
     relatedProjectIds: depth.relatedProjectIds || [],
   });
 
@@ -376,6 +395,12 @@ const SEED = () => {
     definition: 'JavaScript 3D library wrapping WebGL. Provides a scene graph (Scene, Mesh, Camera, Light) so you can render 3D without raw WebGL boilerplate.',
     whenUsed: 'Portfolio 3D effects, product configurators, interactive data viz, immersive UIs.',
     gotchas: 'Always dispose() geometries, materials, and textures when removing objects — Three.js does not GC GPU memory automatically.',
+    refs: [
+      { id: uid(), title: 'Three.js Official Docs', url: 'https://threejs.org/docs/' },
+      { id: uid(), title: 'Three.js Examples Gallery', url: 'https://threejs.org/examples/' },
+      { id: uid(), title: 'Three.js in 100 Seconds – Fireship', url: 'https://www.youtube.com/watch?v=Q7AOvWpIVHU' },
+      { id: uid(), title: 'Three.js Journey – Bruno Simon (trailer)', url: 'https://www.youtube.com/watch?v=y4ctEhB5F3s' },
+    ],
     flashcards: [
       { id: uid(), q: 'Three.js rendering pipeline?', a: 'Scene + Camera → WebGLRenderer.render(scene, camera) → draws to <canvas>. Run every frame in a loop.' },
       { id: uid(), q: 'What is a Mesh?', a: 'Mesh = Geometry (shape/vertices) + Material (appearance). The fundamental renderable object in Three.js.' },
@@ -1012,9 +1037,10 @@ export default function App() {
             stored.categories.push(sc);
           }
         });
-        // Migration: ensure every skill has an apis array
+        // Migration: ensure every skill has apis and refs arrays
         stored.skills.forEach((s) => {
           if (!Array.isArray(s.apis)) s.apis = [];
+          if (!Array.isArray(s.refs)) s.refs = [];
         });
         // Migration: update auth category name if still old value
         const authCat = stored.categories.find((c) => c.id === 'auth');
@@ -1359,6 +1385,7 @@ function SkillDetail({ data, skillId, navigate, goBack, onEdit, onAddSubtopic })
   const [tab, setTab] = useState('tree');
   const [revealed, setRevealed] = useState({});
   const [apiExpanded, setApiExpanded] = useState({});
+  const [ytId, setYtId] = useState(null);
   const skill = data.skills.find((s) => s.id === skillId);
   const cat = skill ? data.categories.find((c) => c.id === skill.categoryId) : null;
   if (!skill || !cat) return <Text style={styles.emptyText}>Skill not found.</Text>;
@@ -1376,6 +1403,7 @@ function SkillDetail({ data, skillId, navigate, goBack, onEdit, onAddSubtopic })
     { key: 'apis', label: `🔧 APIs (${(skill.apis || []).length})` },
     { key: 'cards', label: `🎴 Cards (${(skill.flashcards || []).length})` },
     { key: 'used', label: `🚀 Used (${relatedProjects.length})` },
+    { key: 'links', label: `🔗 Links (${(skill.refs || []).length})` },
   ];
 
   return (
@@ -1569,6 +1597,27 @@ function SkillDetail({ data, skillId, navigate, goBack, onEdit, onAddSubtopic })
           ))}
         </View>
       )}
+
+      {tab === 'links' && (
+        <View>
+          {(skill.refs || []).length === 0 ? (
+            <View style={styles.panel}>
+              <Text style={styles.emptyText}>
+                No references yet. Tap ✏️ Edit to add links and YouTube videos.
+              </Text>
+            </View>
+          ) : (
+            (skill.refs || []).map((item) => {
+              const vid = getYouTubeId(item.url);
+              return vid
+                ? <YouTubeRefCard key={item.id} item={item} onPlay={() => setYtId(vid)} />
+                : <LinkRefCard key={item.id} item={item} />;
+            })
+          )}
+        </View>
+      )}
+
+      {ytId && <YouTubePlayerModal videoId={ytId} onClose={() => setYtId(null)} />}
     </View>
   );
 }
@@ -1766,6 +1815,88 @@ function ExperienceScreen({ data, onAdd, onEdit }) {
         </View>
       ))}
     </View>
+  );
+}
+
+// ============================================================
+// YOUTUBE PLAYER MODAL
+// ============================================================
+// Chrome Mobile UA — makes YouTube treat the WebView as a real browser,
+// avoiding Error 153 (embed blocked in non-browser WebViews).
+const CHROME_UA =
+  'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36';
+
+function YouTubePlayerModal({ videoId, onClose }) {
+  const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+  return (
+    <Modal
+      visible
+      animationType="slide"
+      statusBarTranslucent
+      supportedOrientations={['portrait', 'landscape', 'landscape-left', 'landscape-right']}
+      onRequestClose={onClose}
+    >
+      <View style={{ flex: 1, backgroundColor: '#000' }}>
+        <TouchableOpacity
+          onPress={onClose}
+          style={styles.ytCloseBtn}
+          hitSlop={{ top: 12, bottom: 12, left: 12, right: 12 }}
+        >
+          <Text style={styles.ytCloseTxt}>✕  Close</Text>
+        </TouchableOpacity>
+        <WebView
+          source={{ uri: watchUrl }}
+          style={{ flex: 1 }}
+          userAgent={CHROME_UA}
+          javaScriptEnabled
+          domStorageEnabled
+          allowsFullscreenVideo
+          allowsInlineMediaPlayback
+          mixedContentMode="always"
+          startInLoadingState
+          renderLoading={() => (
+            <View style={styles.ytLoading}>
+              <Text style={{ color: '#fff', fontWeight: '700' }}>Loading…</Text>
+            </View>
+          )}
+        />
+        <Text style={styles.ytHint}>Rotate phone or tap ⛶ for landscape</Text>
+      </View>
+    </Modal>
+  );
+}
+
+// ============================================================
+// REF CARDS  (YouTube thumbnail card + plain link card)
+// ============================================================
+function YouTubeRefCard({ item, onPlay }) {
+  const videoId = getYouTubeId(item.url);
+  const thumb = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+  return (
+    <TouchableOpacity style={styles.refCard} onPress={onPlay} activeOpacity={0.85}>
+      <Image source={{ uri: thumb }} style={styles.ytThumb} resizeMode="cover" />
+      <View style={styles.refCardBody}>
+        <View style={styles.ytBadge}>
+          <Text style={styles.ytBadgeText}>▶  YouTube</Text>
+        </View>
+        <Text style={styles.refTitle} numberOfLines={2}>{item.title || 'Watch video'}</Text>
+      </View>
+    </TouchableOpacity>
+  );
+}
+
+function LinkRefCard({ item }) {
+  return (
+    <TouchableOpacity style={styles.refCard} onPress={() => openLink(item.url)} activeOpacity={0.85}>
+      <View style={styles.linkIconWrap}>
+        <Text style={{ fontSize: 26 }}>🔗</Text>
+      </View>
+      <View style={styles.refCardBody}>
+        <Text style={styles.refTitle} numberOfLines={2}>{item.title || item.url}</Text>
+        <Text style={styles.refUrl} numberOfLines={1}>{item.url}</Text>
+      </View>
+      <Text style={{ fontSize: 20, color: COLORS.textLight, alignSelf: 'center' }}>›</Text>
+    </TouchableOpacity>
   );
 }
 
@@ -2019,6 +2150,7 @@ function SkillEditModal({ data, skill, update, onClose }) {
     },
     flashcards: skill.flashcards || [],
     apis: skill.apis || [],
+    refs: skill.refs || [],
     relatedProjectIds: skill.relatedProjectIds || [],
   });
 
@@ -2042,6 +2174,13 @@ function SkillEditModal({ data, skill, update, onClose }) {
   const removeApi = (id) =>
     setForm((f) => ({ ...f, apis: f.apis.filter((a) => a.id !== id) }));
 
+  const addRef = () =>
+    setForm((f) => ({ ...f, refs: [...f.refs, { id: uid(), title: '', url: '' }] }));
+  const updateRef = (id, k, v) =>
+    setForm((f) => ({ ...f, refs: f.refs.map((r) => (r.id === id ? { ...r, [k]: v } : r)) }));
+  const removeRef = (id) =>
+    setForm((f) => ({ ...f, refs: f.refs.filter((r) => r.id !== id) }));
+
   const toggleProject = (pid) =>
     setForm((f) => ({
       ...f,
@@ -2059,6 +2198,7 @@ function SkillEditModal({ data, skill, update, onClose }) {
       ...form,
       flashcards: form.flashcards.filter((fc) => fc.q.trim()),
       apis: form.apis.filter((a) => a.name.trim()),
+      refs: form.refs.filter((r) => r.url.trim()),
     };
     update((d) => {
       if (isNew) d.skills.push(cleaned);
@@ -2322,6 +2462,41 @@ function SkillEditModal({ data, skill, update, onClose }) {
                   </View>
                 ))}
                 <PressBtn small ghost onPress={addApi}>+ Add API</PressBtn>
+              </Field>
+
+              <Field label="🔗 REFERENCE LINKS & YOUTUBE VIDEOS">
+                <Text style={{ fontSize: 12, color: COLORS.textLight, marginBottom: 8, fontWeight: '600' }}>
+                  Paste any URL or YouTube link. YouTube videos get a thumbnail player.
+                </Text>
+                {form.refs.map((r) => (
+                  <View key={r.id} style={styles.flashEdit}>
+                    <TextInput
+                      style={[styles.input, { marginBottom: 6 }]}
+                      value={r.title}
+                      onChangeText={(v) => updateRef(r.id, 'title', v)}
+                      placeholder="Title (e.g. Official Docs, Tutorial)"
+                      placeholderTextColor={COLORS.textLight}
+                    />
+                    <TextInput
+                      style={[styles.input, { marginBottom: 6 }]}
+                      value={r.url}
+                      onChangeText={(v) => updateRef(r.id, 'url', v)}
+                      placeholder="https://... or https://youtube.com/watch?v=..."
+                      placeholderTextColor={COLORS.textLight}
+                      autoCapitalize="none"
+                      keyboardType="url"
+                    />
+                    {isYouTubeUrl(r.url) && (
+                      <Text style={{ fontSize: 11, color: COLORS.primary, fontWeight: '800', marginBottom: 4 }}>
+                        ▶ YouTube video detected
+                      </Text>
+                    )}
+                    <PressBtn small ghost style={{ marginTop: 4 }} onPress={() => removeRef(r.id)}>
+                      Remove
+                    </PressBtn>
+                  </View>
+                ))}
+                <PressBtn small ghost onPress={addRef}>+ Add link / video</PressBtn>
               </Field>
 
               <Field label="🚀 LINKED PROJECTS">
@@ -2760,4 +2935,51 @@ const styles = StyleSheet.create({
   },
   searchResultName: { fontWeight: '800', fontSize: 15, color: COLORS.text },
   searchResultMeta: { fontSize: 12, color: COLORS.textLight, fontWeight: '600' },
+
+  // Reference / link cards
+  refCard: {
+    flexDirection: 'row', backgroundColor: 'white',
+    borderWidth: 2, borderColor: COLORS.border,
+    borderRadius: 16, marginBottom: 10, overflow: 'hidden',
+  },
+  ytThumb: {
+    width: 110, height: 72,
+    backgroundColor: '#000',
+  },
+  refCardBody: {
+    flex: 1, padding: 10, justifyContent: 'center',
+  },
+  refTitle: {
+    fontWeight: '800', fontSize: 14, color: COLORS.text, lineHeight: 20,
+  },
+  refUrl: {
+    fontSize: 11, color: COLORS.textLight, fontWeight: '600', marginTop: 3,
+  },
+  ytBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: '#FF0000', borderRadius: 4,
+    paddingHorizontal: 6, paddingVertical: 2, marginBottom: 5,
+  },
+  ytBadgeText: { color: 'white', fontSize: 10, fontWeight: '800' },
+  linkIconWrap: {
+    width: 64, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: COLORS.panel,
+  },
+
+  // YouTube player modal
+  ytCloseBtn: {
+    position: 'absolute', top: 44, right: 16, zIndex: 20,
+    backgroundColor: 'rgba(0,0,0,0.7)', borderRadius: 20,
+    paddingHorizontal: 14, paddingVertical: 8,
+  },
+  ytCloseTxt: { color: 'white', fontWeight: '800', fontSize: 14 },
+  ytHint: {
+    textAlign: 'center', color: 'rgba(255,255,255,0.5)',
+    fontSize: 12, fontWeight: '600',
+    paddingBottom: Platform.OS === 'ios' ? 34 : 16,
+  },
+  ytLoading: {
+    position: 'absolute', top: 0, left: 0, right: 0, bottom: 0,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: '#111',
+  },
 });
