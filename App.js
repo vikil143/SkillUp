@@ -114,6 +114,26 @@ const fmtTime = (t) => {
   return `${m}:${String(s).padStart(2, '0')}`;
 };
 
+// Extract ?t= / &t= from a YouTube URL (handles 90, 1m30s, 1h30m45s)
+const extractTFromUrl = (url) => {
+  if (!url) return null;
+  const m = url.match(/[?&]t=([0-9hms]+)/i);
+  if (!m) return null;
+  const raw = m[1];
+  const hm = raw.match(/(\d+)h/i);
+  const mm = raw.match(/(\d+)m/i);
+  const sm = raw.match(/(\d+)s/i);
+  let secs = 0;
+  if (hm || mm || sm) {
+    if (hm) secs += parseInt(hm[1], 10) * 3600;
+    if (mm) secs += parseInt(mm[1], 10) * 60;
+    if (sm) secs += parseInt(sm[1], 10);
+  } else {
+    secs = parseInt(raw, 10) || 0;
+  }
+  return secs > 0 ? String(secs) : null;
+};
+
 // ============================================================
 // SEED DATA (from CV)
 // ============================================================
@@ -1891,6 +1911,49 @@ function YouTubePlayerModal({ videoId, startTime, onClose }) {
 }
 
 // ============================================================
+// TIME STEPPER  (H : MM : SS tap +/- input)
+// ============================================================
+function TimeStepperInput({ value, onChange }) {
+  const total = parseStartTime(value);
+  const hv = Math.floor(total / 3600);
+  const mv = Math.floor((total % 3600) / 60);
+  const sv = total % 60;
+
+  const set = (h, m, s) => {
+    const t = Math.max(0, h) * 3600 + Math.max(0, Math.min(59, m)) * 60 + Math.max(0, Math.min(59, s));
+    onChange(String(t));
+  };
+
+  const UnitCol = ({ label, val, onInc, onDec }) => (
+    <View style={styles.stepperUnit}>
+      <TouchableOpacity onPress={onInc} style={styles.stepperBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <Text style={styles.stepperArrow}>▲</Text>
+      </TouchableOpacity>
+      <Text style={styles.stepperVal}>{String(val).padStart(2, '0')}</Text>
+      <TouchableOpacity onPress={onDec} style={styles.stepperBtn} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
+        <Text style={styles.stepperArrow}>▼</Text>
+      </TouchableOpacity>
+      <Text style={styles.stepperLabel}>{label}</Text>
+    </View>
+  );
+
+  return (
+    <View style={styles.stepperRow}>
+      <UnitCol label="H" val={hv} onInc={() => set(hv + 1, mv, sv)} onDec={() => set(hv - 1, mv, sv)} />
+      <Text style={styles.stepperSep}>:</Text>
+      <UnitCol label="M" val={mv} onInc={() => set(hv, mv + 1, sv)} onDec={() => set(hv, mv - 1, sv)} />
+      <Text style={styles.stepperSep}>:</Text>
+      <UnitCol label="S" val={sv} onInc={() => set(hv, mv, sv + 1)} onDec={() => set(hv, mv, sv - 1)} />
+      {total > 0 && (
+        <TouchableOpacity onPress={() => onChange('0')} style={styles.stepperClear}>
+          <Text style={styles.stepperClearTxt}>✕ Clear</Text>
+        </TouchableOpacity>
+      )}
+    </View>
+  );
+}
+
+// ============================================================
 // REF CARDS  (YouTube thumbnail card + plain link card)
 // ============================================================
 function YouTubeRefCard({ item, onPlay }) {
@@ -2512,7 +2575,14 @@ function SkillEditModal({ data, skill, update, onClose }) {
                     <TextInput
                       style={[styles.input, { marginBottom: 6 }]}
                       value={r.url}
-                      onChangeText={(v) => updateRef(r.id, 'url', v)}
+                      onChangeText={(v) => {
+                        updateRef(r.id, 'url', v);
+                        // Auto-fill start time from ?t= in pasted URL
+                        const auto = extractTFromUrl(v);
+                        if (auto && !parseStartTime(r.startTime)) {
+                          updateRef(r.id, 'startTime', auto);
+                        }
+                      }}
                       placeholder="https://... or https://youtube.com/watch?v=..."
                       placeholderTextColor={COLORS.textLight}
                       autoCapitalize="none"
@@ -2520,20 +2590,24 @@ function SkillEditModal({ data, skill, update, onClose }) {
                     />
                     {isYouTubeUrl(r.url) && (
                       <View style={{ marginBottom: 6 }}>
-                        <Text style={{ fontSize: 11, color: '#FF0000', fontWeight: '800', marginBottom: 6 }}>
-                          ▶ YouTube video detected
-                        </Text>
-                        <TextInput
-                          style={styles.input}
-                          value={r.startTime || ''}
-                          onChangeText={(v) => updateRef(r.id, 'startTime', v)}
-                          placeholder="Start time — e.g. 1:30 or 90  (optional)"
-                          placeholderTextColor={COLORS.textLight}
-                          keyboardType="default"
+                        <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                          <Text style={{ fontSize: 11, color: '#FF0000', fontWeight: '800' }}>
+                            ▶ YouTube detected
+                          </Text>
+                          {extractTFromUrl(r.url) && !parseStartTime(r.startTime) === false && (
+                            <Text style={{ fontSize: 11, color: COLORS.primary, fontWeight: '800', marginLeft: 8 }}>
+                              · auto-filled from URL
+                            </Text>
+                          )}
+                        </View>
+                        <Text style={styles.fieldLabel}>START TIME (optional)</Text>
+                        <TimeStepperInput
+                          value={r.startTime || '0'}
+                          onChange={(v) => updateRef(r.id, 'startTime', v)}
                         />
                         {Boolean(parseStartTime(r.startTime)) && (
-                          <Text style={{ fontSize: 11, color: COLORS.primary, fontWeight: '800', marginTop: 4 }}>
-                            ⏱ Video will start at {fmtTime(r.startTime)}
+                          <Text style={{ fontSize: 12, color: COLORS.primary, fontWeight: '800', marginTop: 8 }}>
+                            ⏱ Will start at {fmtTime(r.startTime)}
                           </Text>
                         )}
                       </View>
@@ -3012,6 +3086,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 6, paddingVertical: 2,
   },
   ytTimeTxt: { color: 'white', fontSize: 10, fontWeight: '800' },
+
+  // Time stepper
+  stepperRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: COLORS.panel, borderRadius: 14,
+    borderWidth: 2, borderColor: COLORS.border,
+    paddingVertical: 10, paddingHorizontal: 14, gap: 4,
+  },
+  stepperUnit: { alignItems: 'center', minWidth: 44 },
+  stepperBtn: {
+    backgroundColor: COLORS.border, borderRadius: 8,
+    paddingHorizontal: 10, paddingVertical: 4,
+  },
+  stepperArrow: { fontSize: 12, fontWeight: '800', color: COLORS.text },
+  stepperVal: { fontSize: 22, fontWeight: '800', color: COLORS.text, marginVertical: 4, minWidth: 34, textAlign: 'center' },
+  stepperLabel: { fontSize: 10, fontWeight: '800', color: COLORS.textLight, letterSpacing: 0.5 },
+  stepperSep: { fontSize: 22, fontWeight: '800', color: COLORS.textLight, marginHorizontal: 2, marginBottom: 14 },
+  stepperClear: {
+    marginLeft: 'auto', backgroundColor: COLORS.red + '22',
+    borderRadius: 8, paddingHorizontal: 10, paddingVertical: 6,
+  },
+  stepperClearTxt: { fontSize: 12, fontWeight: '800', color: COLORS.red },
   linkIconWrap: {
     width: 64, alignItems: 'center', justifyContent: 'center',
     backgroundColor: COLORS.panel,
