@@ -1,7 +1,7 @@
 // App.js — SkillUp 🦉 (React Native)
 // Drop-in single-file app. Setup instructions in README.md.
 
-import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import {
   SafeAreaView,
   View,
@@ -1655,7 +1655,7 @@ function ExperienceScreen({ data, onAdd, onEdit }) {
 // REVISE MODE
 // ============================================================
 function ReviseMode({ data, bumpXP }) {
-  const allCards = useMemo(() => {
+  const buildDeck = () => {
     const cards = [];
     data.skills.forEach((s) => {
       (s.flashcards || []).forEach((f) => {
@@ -1667,14 +1667,30 @@ function ReviseMode({ data, bumpXP }) {
       [cards[i], cards[j]] = [cards[j], cards[i]];
     }
     return cards;
-  }, [data]);
+  };
 
+  const [deck, setDeck] = useState(buildDeck);
   const [idx, setIdx] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [done, setDone] = useState(false);
   const [score, setScore] = useState({ good: 0, ok: 0, hard: 0 });
 
-  if (allCards.length === 0) {
+  const restart = () => {
+    setDeck(buildDeck());
+    setIdx(0);
+    setRevealed(false);
+    setDone(false);
+    setScore({ good: 0, ok: 0, hard: 0 });
+  };
+
+  const totalCards = data.skills.reduce((n, s) => n + (s.flashcards?.length || 0), 0);
+  const mountedRef = useRef(false);
+  useEffect(() => {
+    if (!mountedRef.current) { mountedRef.current = true; return; }
+    restart();
+  }, [totalCards]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  if (deck.length === 0) {
     return (
       <View>
         <Text style={styles.screenTitle}>⚡ Revise</Text>
@@ -1695,7 +1711,7 @@ function ReviseMode({ data, bumpXP }) {
         <View style={[styles.hero, { backgroundColor: COLORS.primary }]}>
           <Text style={styles.heroEmoji}>🏆</Text>
           <Text style={styles.heroTitle}>+{totalXP} XP</Text>
-          <Text style={styles.heroSub}>{allCards.length} cards reviewed</Text>
+          <Text style={styles.heroSub}>{deck.length} cards reviewed</Text>
         </View>
         <View style={styles.panel}>
           <Text style={styles.panelTitle}>BREAKDOWN</Text>
@@ -1703,21 +1719,21 @@ function ReviseMode({ data, bumpXP }) {
             😎 Easy: {score.good}    🤔 Good: {score.ok}    😅 Hard: {score.hard}
           </Text>
         </View>
-        <PressBtn onPress={() => { setIdx(0); setRevealed(false); setDone(false); setScore({ good: 0, ok: 0, hard: 0 }); }}>
-          Go again
+        <PressBtn onPress={restart}>
+          🔀 Shuffle & go again
         </PressBtn>
       </View>
     );
   }
 
-  const card = allCards[idx];
+  const card = deck[idx];
   const cat = data.categories.find((c) => c.id === card.categoryId);
-  const progress = (idx / allCards.length) * 100;
+  const progress = (idx / deck.length) * 100;
 
   const rate = (key, xp) => {
     bumpXP(xp);
     setScore((s) => ({ ...s, [key]: s[key] + 1 }));
-    if (idx + 1 >= allCards.length) setDone(true);
+    if (idx + 1 >= deck.length) setDone(true);
     else { setIdx(idx + 1); setRevealed(false); }
   };
 
@@ -1728,7 +1744,7 @@ function ReviseMode({ data, bumpXP }) {
         <View style={[styles.progressFill, { width: `${progress}%` }]} />
       </View>
       <Text style={styles.screenSub}>
-        Card {idx + 1} of {allCards.length} · {cat?.emoji} {card.skillName}
+        Card {idx + 1} of {deck.length} · {cat?.emoji} {card.skillName}
       </Text>
 
       <View style={styles.reviseCard}>
