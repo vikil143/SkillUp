@@ -86,7 +86,7 @@ const SEED = () => {
     { id: 'backend', name: 'Backend & APIs', emoji: '🔌', color: COLORS.orange },
     { id: 'dataviz', name: 'Data Viz', emoji: '📊', color: COLORS.purple },
     { id: 'databases', name: 'Databases', emoji: '🗄️', color: COLORS.teal },
-    { id: 'auth', name: 'Auth & Security', emoji: '🔐', color: COLORS.red },
+    { id: 'auth', name: 'Security & Auth', emoji: '🔐', color: COLORS.red },
     { id: 'testing', name: 'Testing & Build', emoji: '🧪', color: COLORS.yellow },
     { id: 'devops', name: 'DevOps & CI/CD', emoji: '🚀', color: COLORS.navy },
     { id: 'cloud', name: 'Cloud & Hosting', emoji: '☁️', color: '#84D8FF' },
@@ -94,6 +94,11 @@ const SEED = () => {
     { id: 'payments', name: 'Payments', emoji: '💳', color: '#02CD7C' },
     { id: 'ai', name: 'AI Tools', emoji: '🤖', color: '#F75590' },
     { id: 'method', name: 'Methodology', emoji: '🏃', color: '#FF6D00' },
+    { id: 'internet', name: 'Internet & Networking', emoji: '🌐', color: '#4A8BF5' },
+    { id: 'genai', name: 'Gen AI', emoji: '🧠', color: '#C026D3' },
+    { id: 'design-patterns', name: 'Design Patterns', emoji: '🎯', color: '#9333EA' },
+    { id: 'embedded', name: 'Embedded Systems', emoji: '⚡', color: '#E11D48' },
+    { id: 'tools', name: 'Tools', emoji: '🛠️', color: '#6B7280' },
   ];
 
   const mk = (name, categoryId, parentId = null, depth = {}) => ({
@@ -109,6 +114,7 @@ const SEED = () => {
       gotchas: depth.gotchas || '',
     },
     flashcards: depth.flashcards || [],
+    apis: depth.apis || [],
     relatedProjectIds: depth.relatedProjectIds || [],
   });
 
@@ -122,6 +128,68 @@ const SEED = () => {
       'Stale closures in useEffect, unnecessary re-renders from inline objects/functions, key prop misuse breaking reconciliation.',
     flashcards: [
       { id: uid(), q: 'What triggers a re-render?', a: 'State change (setState), prop change, parent re-render, context value change.' },
+    ],
+    apis: [
+      {
+        id: uid(),
+        name: 'useState',
+        signature: 'useState<T>(initial: T | (() => T)): [T, Dispatch<SetStateAction<T>>]',
+        description: 'Adds local state to a function component. Returns current value and a setter.',
+        params: 'initial — initial value, or a lazy initializer function called only on first render.',
+        returns: '[value, setValue] tuple. Setter accepts a new value or a function (prev => next).',
+        example: 'const [count, setCount] = useState(0);\nconst [user, setUser] = useState(() => loadUser());',
+        gotchas: 'Setter is async. Use functional form when new state depends on previous: setCount(c => c + 1).',
+      },
+      {
+        id: uid(),
+        name: 'useEffect',
+        signature: 'useEffect(effect: () => void | (() => void), deps?: any[]): void',
+        description: 'Run side effects after render. Optional cleanup function returned from effect.',
+        params: 'effect — function to run after commit. deps — array of values; effect re-runs when any change.',
+        returns: 'void',
+        example: 'useEffect(() => {\n  const id = setInterval(tick, 1000);\n  return () => clearInterval(id);\n}, []);',
+        gotchas: 'Empty deps = run once. Missing deps = stale closures. Object/array deps = infinite loop risk.',
+      },
+      {
+        id: uid(),
+        name: 'useMemo',
+        signature: 'useMemo<T>(factory: () => T, deps: any[]): T',
+        description: 'Memoize an expensive computation. Recomputes only when deps change.',
+        params: 'factory — produces the value. deps — array; recompute when any change.',
+        returns: 'Memoized value of type T.',
+        example: 'const sorted = useMemo(() => list.sort(cmp), [list]);',
+        gotchas: 'Not free — has overhead. Use only for genuinely expensive work or referential equality needs.',
+      },
+      {
+        id: uid(),
+        name: 'useCallback',
+        signature: 'useCallback<T extends Function>(fn: T, deps: any[]): T',
+        description: 'Memoize a function reference across renders. Equivalent to useMemo(() => fn, deps).',
+        params: 'fn — the function. deps — array.',
+        returns: 'Stable function reference.',
+        example: 'const handleClick = useCallback(() => doThing(id), [id]);',
+        gotchas: 'Only useful when child relies on referential equality (React.memo, useEffect dep).',
+      },
+      {
+        id: uid(),
+        name: 'useContext',
+        signature: 'useContext<T>(context: Context<T>): T',
+        description: 'Subscribe to a React context. Re-renders whenever the nearest provider value changes.',
+        params: 'context — value from createContext.',
+        returns: 'Current context value.',
+        example: 'const theme = useContext(ThemeContext);',
+        gotchas: 'Every consumer re-renders on any provider value change — split contexts for performance.',
+      },
+      {
+        id: uid(),
+        name: 'createContext',
+        signature: 'createContext<T>(defaultValue: T): Context<T>',
+        description: 'Create a context object for passing data through the component tree without prop drilling.',
+        params: 'defaultValue — used when no Provider is found above.',
+        returns: 'Context object with Provider and Consumer.',
+        example: 'const ThemeContext = createContext<"light"|"dark">("light");',
+        gotchas: 'defaultValue is only used outside a Provider — not when Provider value is undefined.',
+      },
     ],
   });
   const hooks = mk('Hooks', 'frontend', react.id, {
@@ -162,6 +230,48 @@ const SEED = () => {
   const next = mk('Next.js (App Router)', 'frontend', null, {
     definition: 'React framework with file-based routing, server components, server actions, streaming SSR.',
     whenUsed: 'Building full-stack apps at NeoSoft with dynamic routing, RBAC, SEO.',
+    apis: [
+      {
+        id: uid(),
+        name: 'cookies()',
+        signature: 'cookies(): ReadonlyRequestCookies',
+        description: 'Server-only function to read incoming request cookies. Must be called inside a Server Component or route handler.',
+        params: 'None.',
+        returns: 'ReadonlyRequestCookies — call .get(name), .has(name), .getAll().',
+        example: "import { cookies } from 'next/headers';\nconst token = cookies().get('token')?.value;",
+        gotchas: "Only readable in Server Components — can't set cookies here; use route handlers or Server Actions for writes.",
+      },
+      {
+        id: uid(),
+        name: 'redirect()',
+        signature: 'redirect(url: string, type?: RedirectType): never',
+        description: 'Redirects the user to a different URL. Throws internally so it must not be caught.',
+        params: 'url — destination. type — "replace" (default) or "push".',
+        returns: 'never — throws a NEXT_REDIRECT error caught by Next.js internals.',
+        example: "import { redirect } from 'next/navigation';\nif (!session) redirect('/login');",
+        gotchas: 'Do not wrap in try/catch. Cannot be used inside event handlers — Server Components and Actions only.',
+      },
+      {
+        id: uid(),
+        name: 'notFound()',
+        signature: 'notFound(): never',
+        description: 'Renders the nearest not-found.tsx boundary. Call when a resource cannot be found.',
+        params: 'None.',
+        returns: 'never — throws internally.',
+        example: "import { notFound } from 'next/navigation';\nconst post = await getPost(id);\nif (!post) notFound();",
+        gotchas: 'Must have a not-found.tsx in the route segment; otherwise falls back to the root 404.',
+      },
+      {
+        id: uid(),
+        name: 'revalidatePath()',
+        signature: 'revalidatePath(path: string, type?: "page" | "layout"): void',
+        description: 'Purges the cached data for a given route path. Use inside Server Actions or route handlers after mutations.',
+        params: 'path — route to invalidate (e.g. "/blog"). type — scope of invalidation.',
+        returns: 'void',
+        example: "import { revalidatePath } from 'next/cache';\nawait db.post.create(data);\nrevalidatePath('/blog');",
+        gotchas: "Only works server-side. Doesn't trigger a client navigation — the next request gets fresh data.",
+      },
+    ],
   });
   const appRouter = mk('App Router', 'frontend', next.id, {
     definition: 'File-based routing where folders define routes. Layouts, loading, error files at each level.',
@@ -185,6 +295,48 @@ const SEED = () => {
   const ts = mk('TypeScript', 'frontend', null, {
     definition: 'Typed superset of JS. Static type-checking, interfaces, generics.',
     whenUsed: 'Daily — every React component, API contract, Redux slice.',
+    apis: [
+      {
+        id: uid(),
+        name: 'Partial<T>',
+        signature: 'Partial<T>',
+        description: 'Constructs a type with all properties of T set to optional.',
+        params: 'T — source type.',
+        returns: 'Type with every key of T made optional.',
+        example: 'function update(base: User, patch: Partial<User>): User {\n  return { ...base, ...patch };\n}',
+        gotchas: 'Only one level deep — nested objects are not partially typed.',
+      },
+      {
+        id: uid(),
+        name: 'Pick<T, K>',
+        signature: 'Pick<T, K extends keyof T>',
+        description: 'Constructs a type by selecting a subset of keys K from type T.',
+        params: 'T — source type. K — union of keys to keep.',
+        returns: 'New type with only the specified keys.',
+        example: 'type Preview = Pick<Article, "id" | "title" | "slug">;',
+        gotchas: 'K must be a subset of keyof T — TypeScript errors if you pick a key that does not exist.',
+      },
+      {
+        id: uid(),
+        name: 'Omit<T, K>',
+        signature: 'Omit<T, K extends keyof T>',
+        description: 'Constructs a type by removing keys K from type T. Inverse of Pick.',
+        params: 'T — source type. K — union of keys to remove.',
+        returns: 'New type without the specified keys.',
+        example: 'type CreateUser = Omit<User, "id" | "createdAt">;',
+        gotchas: 'Unlike Pick, K is widened — Omit<T, string> is valid even if string ⊄ keyof T.',
+      },
+      {
+        id: uid(),
+        name: 'Awaited<T>',
+        signature: 'Awaited<T>',
+        description: 'Recursively unwraps the resolved type of a Promise. Essential for async return types.',
+        params: 'T — a Promise or nested Promise type.',
+        returns: 'The fully unwrapped resolved type.',
+        example: 'type R = Awaited<Promise<Promise<string>>>; // string',
+        gotchas: 'Introduced in TS 4.5. For older versions use ReturnType + Awaited workarounds.',
+      },
+    ],
   });
   const tsGenerics = mk('Generics', 'frontend', ts.id, {
     definition: 'Type variables for reusable types. <T> placeholders constrained at call site.',
@@ -249,7 +401,61 @@ const SEED = () => {
     mk('Bootstrap', 'styling'),
     mk('CSS Modules', 'styling'),
 
-    mk('Node.js', 'backend'),
+    mk('Node.js', 'backend', null, {
+      definition: 'JS runtime built on V8. Event-driven, non-blocking I/O. Used for servers, CLIs, tooling.',
+      apis: [
+        {
+          id: uid(),
+          name: 'fs.readFile',
+          signature: 'fs.readFile(path, options, callback) / fs.promises.readFile(path, options): Promise<Buffer|string>',
+          description: 'Reads a file asynchronously. Use the promise form (fs.promises) to avoid callback hell.',
+          params: 'path — file path. options — encoding (e.g. "utf8") or object. callback — (err, data) => void.',
+          returns: 'void (callback) or Promise<Buffer | string> (promise form).',
+          example: "const { readFile } = require('fs/promises');\nconst src = await readFile('./data.json', 'utf8');",
+          gotchas: 'Without encoding option, returns a Buffer. Large files should use createReadStream instead.',
+        },
+        {
+          id: uid(),
+          name: 'fs.writeFile',
+          signature: 'fs.promises.writeFile(path, data, options?): Promise<void>',
+          description: 'Writes data to a file, creating it if it does not exist. Overwrites by default.',
+          params: 'path — destination. data — string, Buffer, or TypedArray. options — encoding, flag, mode.',
+          returns: 'Promise<void>',
+          example: "await fs.promises.writeFile('./out.json', JSON.stringify(obj), 'utf8');",
+          gotchas: "Use flag: 'a' to append instead of overwrite. Not atomic — use a temp file + rename for safety.",
+        },
+        {
+          id: uid(),
+          name: 'http.createServer',
+          signature: 'http.createServer(handler: (req, res) => void): http.Server',
+          description: 'Creates a raw HTTP server. Foundation that Express and Fastify build on.',
+          params: 'handler — called with IncomingMessage (req) and ServerResponse (res) for each request.',
+          returns: 'http.Server instance. Call .listen(port) to start.',
+          example: "const server = http.createServer((req, res) => {\n  res.writeHead(200);\n  res.end('Hello');\n});\nserver.listen(3000);",
+          gotchas: 'No routing or body parsing built-in. Use Express or parse req as a stream manually.',
+        },
+        {
+          id: uid(),
+          name: 'process.env',
+          signature: 'process.env: { [key: string]: string | undefined }',
+          description: 'Object containing the user environment at process start. Used for config/secrets.',
+          params: 'N/A — property access: process.env.MY_VAR.',
+          returns: 'string | undefined for each key.',
+          example: "const port = parseInt(process.env.PORT ?? '3000', 10);",
+          gotchas: 'All values are strings. Accessing an unset key returns undefined — always provide defaults.',
+        },
+        {
+          id: uid(),
+          name: 'Buffer.from',
+          signature: 'Buffer.from(value, encoding?): Buffer',
+          description: 'Creates a Buffer from a string, array, ArrayBuffer, or another Buffer.',
+          params: 'value — source data. encoding — for string input (default "utf8").',
+          returns: 'Buffer instance.',
+          example: "const b = Buffer.from('hello', 'utf8');\nconsole.log(b.toString('base64')); // aGVsbG8=",
+          gotchas: 'Do not use new Buffer() — deprecated and insecure. Always use Buffer.from/alloc/allocUnsafe.',
+        },
+      ],
+    }),
     mk('Express.js', 'backend'),
     mk('REST APIs', 'backend'),
     mk('GraphQL', 'backend'),
@@ -267,7 +473,61 @@ const SEED = () => {
     mk('Three.js', 'dataviz'),
     mk('SVG', 'dataviz'),
 
-    mk('MongoDB', 'databases'),
+    mk('MongoDB', 'databases', null, {
+      definition: 'Document-oriented NoSQL DB. Stores JSON-like BSON documents. Flexible schema, horizontal scaling.',
+      apis: [
+        {
+          id: uid(),
+          name: 'find()',
+          signature: 'collection.find(filter?, options?): FindCursor',
+          description: 'Returns a cursor over all documents matching the filter. Chainable with .sort(), .limit(), .skip().',
+          params: 'filter — query object (e.g. { status: "active" }). options — projection, sort, limit.',
+          returns: 'FindCursor — call .toArray() or iterate with for await.',
+          example: "const users = await db.collection('users').find({ active: true }).limit(20).toArray();",
+          gotchas: 'find() is lazy — it does not execute until you iterate or call toArray(). Always await toArray().',
+        },
+        {
+          id: uid(),
+          name: 'findOne()',
+          signature: 'collection.findOne(filter?, options?): Promise<Document | null>',
+          description: 'Returns the first document matching the filter, or null if none found.',
+          params: 'filter — query object. options — projection.',
+          returns: 'Promise<Document | null>',
+          example: "const user = await db.collection('users').findOne({ _id: new ObjectId(id) });",
+          gotchas: 'Returns null (not undefined) when not found. Check for null before accessing properties.',
+        },
+        {
+          id: uid(),
+          name: 'insertOne()',
+          signature: 'collection.insertOne(doc): Promise<InsertOneResult>',
+          description: 'Inserts a single document. MongoDB adds _id if not provided.',
+          params: 'doc — document to insert.',
+          returns: 'Promise<InsertOneResult> with insertedId and acknowledged fields.',
+          example: "const result = await db.collection('posts').insertOne({ title, body, createdAt: new Date() });",
+          gotchas: 'insertOne mutates the doc in-place by adding _id. Clone if you need the original unchanged.',
+        },
+        {
+          id: uid(),
+          name: 'updateMany()',
+          signature: 'collection.updateMany(filter, update, options?): Promise<UpdateResult>',
+          description: 'Updates all documents matching the filter. Use $set, $inc, $push operators.',
+          params: 'filter — which docs to update. update — update operators. options — upsert, arrayFilters.',
+          returns: 'Promise<UpdateResult> with matchedCount and modifiedCount.',
+          example: "await db.collection('orders').updateMany({ status: 'pending' }, { $set: { status: 'cancelled' } });",
+          gotchas: 'Passing a plain object as update (no $ operators) will error in driver v4+. Always use operators.',
+        },
+        {
+          id: uid(),
+          name: 'aggregate()',
+          signature: 'collection.aggregate(pipeline: object[]): AggregationCursor',
+          description: 'Executes a pipeline of stages (match, group, project, lookup, etc.) for complex queries.',
+          params: 'pipeline — array of stage objects e.g. [{ $match: {} }, { $group: {} }].',
+          returns: 'AggregationCursor — call .toArray() to get results.',
+          example: "const stats = await db.collection('orders').aggregate([\n  { $match: { status: 'done' } },\n  { $group: { _id: '$userId', total: { $sum: '$amount' } } },\n]).toArray();",
+          gotchas: '$lookup is expensive on large collections — ensure foreign collection is indexed on the join field.',
+        },
+      ],
+    }),
     mk('MySQL', 'databases'),
     mk('Firebase', 'databases'),
 
@@ -315,6 +575,45 @@ const SEED = () => {
     mk('Code Reviews', 'method'),
     mk('Sprint Planning & Estimations', 'method'),
     mk('Architecture Planning', 'method'),
+
+    // Internet & Networking
+    mk('HTTP', 'internet', null, { definition: 'Stateless application-layer protocol. Request/response over TCP. Methods: GET/POST/PUT/DELETE/PATCH.' }),
+    mk('REST', 'internet', null, { definition: 'Architectural style — resources, stateless, uniform interface, cacheable. Maps HTTP verbs to CRUD.' }),
+    mk('DNS', 'internet', null, { definition: 'Domain Name System. Hierarchical lookup translating domain names to IP addresses.' }),
+    mk('CORS', 'internet', null, { definition: 'Browser security mechanism controlling cross-origin requests via headers (Access-Control-Allow-Origin, etc.).' }),
+    mk('TLS/HTTPS', 'internet', null, { definition: 'Transport Layer Security encrypts HTTP traffic. HTTPS = HTTP over TLS. Prevents eavesdropping and MITM attacks.' }),
+    mk('WebRTC', 'internet', null, { definition: 'Browser API for real-time peer-to-peer audio, video, and data. Uses STUN/TURN servers for NAT traversal.' }),
+
+    // Gen AI
+    mk('LLM Prompting', 'genai', null, { definition: 'Crafting inputs to elicit desired outputs from large language models. Zero-shot, few-shot, chain-of-thought, system prompts.' }),
+    mk('RAG', 'genai', null, { definition: 'Retrieval-Augmented Generation — fetch relevant context from a knowledge base, inject into prompt, generate grounded answer.' }),
+    mk('Embeddings', 'genai', null, { definition: 'Dense vector representations of text/images. Semantic similarity via cosine distance.' }),
+    mk('Vector Databases', 'genai', null, { definition: 'DBs optimized for vector similarity search. Examples: Pinecone, Weaviate, pgvector, Chroma.' }),
+    mk('Fine-tuning', 'genai', null, { definition: 'Adapting a pretrained LLM on domain-specific data to improve performance on targeted tasks.' }),
+    mk('Function Calling / Tools', 'genai', null, { definition: 'LLM feature allowing models to call structured functions/tools. Enables agents to take actions: search, code, DB queries.' }),
+
+    // Design Patterns
+    mk('Singleton', 'design-patterns', null, { definition: 'Ensures a class has only one instance and provides a global access point.' }),
+    mk('Factory', 'design-patterns', null, { definition: 'Creates objects without specifying the exact class. Subclasses decide what to instantiate.' }),
+    mk('Observer', 'design-patterns', null, { definition: 'One-to-many dependency — when subject changes, all observers notified. Foundation of event systems.' }),
+    mk('Strategy', 'design-patterns', null, { definition: 'Defines a family of algorithms, makes them interchangeable at runtime.' }),
+    mk('Repository', 'design-patterns', null, { definition: 'Abstracts data access behind a collection-like interface. Decouples domain logic from persistence.' }),
+    mk('Decorator', 'design-patterns', null, { definition: 'Attaches additional responsibilities to an object dynamically. Flexible alternative to subclassing.' }),
+
+    // Embedded Systems
+    mk('Arduino', 'embedded', null, { definition: 'Open-source electronics platform with simple IDE and C/C++ runtime for microcontrollers.' }),
+    mk('ESP32', 'embedded', null, { definition: 'Low-cost SoC with WiFi/Bluetooth from Espressif. Dual-core, programmable in C++ or MicroPython.' }),
+    mk('MicroPython', 'embedded', null, { definition: 'Lean Python 3 implementation for microcontrollers. Runs on ESP32, RP2040, STM32 and others.' }),
+    mk('I2C', 'embedded', null, { definition: 'Two-wire serial protocol for connecting low-speed peripherals. Master/slave with addresses.' }),
+    mk('SPI', 'embedded', null, { definition: 'Four-wire synchronous serial protocol. Faster than I2C, full-duplex, used for displays, sensors, SD cards.' }),
+    mk('Raspberry Pi', 'embedded', null, { definition: 'Single-board Linux computer with GPIO pins. Used for prototyping, robotics, and IoT projects.' }),
+
+    // Tools
+    mk('VS Code', 'tools', null, { definition: "Microsoft's lightweight, extensible code editor. Built on Electron. Massive extension ecosystem." }),
+    mk('Postman', 'tools', null, { definition: 'API client for sending HTTP/GraphQL requests, organizing collections, scripting tests.' }),
+    mk('Chrome DevTools', 'tools', null, { definition: 'Browser-based debug suite — DOM inspector, network panel, performance profiler, JS debugger.' }),
+    mk('Figma', 'tools', null, { definition: 'Browser-based collaborative UI design tool. Components, auto-layout, prototyping, dev handoff.' }),
+    mk('Notion', 'tools', null, { definition: 'All-in-one workspace for notes, docs, databases, and project tracking.' }),
   ];
 
   const skills = [
@@ -582,7 +881,22 @@ export default function App() {
     (async () => {
       const stored = await loadData();
       if (stored && stored.categories) {
+        // Migration: ensure new categories exist
+        const seedCats = SEED().categories;
+        seedCats.forEach((sc) => {
+          if (!stored.categories.find((c) => c.id === sc.id)) {
+            stored.categories.push(sc);
+          }
+        });
+        // Migration: ensure every skill has an apis array
+        stored.skills.forEach((s) => {
+          if (!Array.isArray(s.apis)) s.apis = [];
+        });
+        // Migration: update auth category name if still old value
+        const authCat = stored.categories.find((c) => c.id === 'auth');
+        if (authCat && authCat.name === 'Auth & Security') authCat.name = 'Security & Auth';
         setData(stored);
+        await saveData(stored);
       } else {
         const seed = SEED();
         setData(seed);
@@ -915,6 +1229,7 @@ function countDescendants(skills, parentId) {
 function SkillDetail({ data, skillId, navigate, goBack, onEdit, onAddSubtopic }) {
   const [tab, setTab] = useState('tree');
   const [revealed, setRevealed] = useState({});
+  const [apiExpanded, setApiExpanded] = useState({});
   const skill = data.skills.find((s) => s.id === skillId);
   const cat = skill ? data.categories.find((c) => c.id === skill.categoryId) : null;
   if (!skill || !cat) return <Text style={styles.emptyText}>Skill not found.</Text>;
@@ -929,6 +1244,7 @@ function SkillDetail({ data, skillId, navigate, goBack, onEdit, onAddSubtopic })
     { key: 'tree', label: `🌳 Tree${directChildren.length ? ` (${directChildren.length})` : ''}` },
     { key: 'notes', label: '📝 Notes' },
     { key: 'deep', label: '🔬 Deep Dive' },
+    { key: 'apis', label: `🔧 APIs (${(skill.apis || []).length})` },
     { key: 'cards', label: `🎴 Cards (${(skill.flashcards || []).length})` },
     { key: 'used', label: `🚀 Used (${relatedProjects.length})` },
   ];
@@ -1010,6 +1326,73 @@ function SkillDetail({ data, skillId, navigate, goBack, onEdit, onAddSubtopic })
           <DepthPanel title="💻 CODE EXAMPLE" body={skill.structured.codeExample} placeholder="Add a snippet." code />
           <DepthPanel title="🎯 WHEN YOU USED IT" body={skill.structured.whenUsed} placeholder="Project + outcome." />
           <DepthPanel title="⚠️ GOTCHAS" body={skill.structured.gotchas} placeholder="Pitfalls and surprises." />
+        </View>
+      )}
+
+      {tab === 'apis' && (
+        <View>
+          {(skill.apis || []).length === 0 ? (
+            <View style={styles.panel}>
+              <Text style={styles.emptyText}>
+                No APIs added yet. Tap Edit to add API references (useState, fs.readFile, etc.).
+              </Text>
+            </View>
+          ) : (
+            (skill.apis || []).map((api) => {
+              const expanded = !!apiExpanded[api.id];
+              return (
+                <Pressable
+                  key={api.id}
+                  onPress={() => setApiExpanded((s) => ({ ...s, [api.id]: !s[api.id] }))}
+                  style={styles.apiCard}
+                >
+                  <Text style={styles.apiName}>{api.name}</Text>
+                  {api.signature ? (
+                    <Text style={styles.apiSignature}>{api.signature}</Text>
+                  ) : null}
+                  {!expanded && (
+                    <Text style={styles.flashHint}>Tap to expand</Text>
+                  )}
+                  {expanded && (
+                    <View style={{ marginTop: 10 }}>
+                      {!!api.description && (
+                        <View style={styles.panel}>
+                          <Text style={styles.panelTitle}>DESCRIPTION</Text>
+                          <Text style={styles.panelBody}>{api.description}</Text>
+                        </View>
+                      )}
+                      {!!api.params && (
+                        <View style={styles.panel}>
+                          <Text style={styles.panelTitle}>PARAMETERS</Text>
+                          <Text style={styles.panelBody}>{api.params}</Text>
+                        </View>
+                      )}
+                      {!!api.returns && (
+                        <View style={styles.panel}>
+                          <Text style={styles.panelTitle}>RETURNS</Text>
+                          <Text style={styles.panelBody}>{api.returns}</Text>
+                        </View>
+                      )}
+                      {!!api.example && (
+                        <View style={styles.panel}>
+                          <Text style={styles.panelTitle}>EXAMPLE</Text>
+                          <View style={styles.codeBlock}>
+                            <Text style={styles.codeText}>{api.example}</Text>
+                          </View>
+                        </View>
+                      )}
+                      {!!api.gotchas && (
+                        <View style={styles.panel}>
+                          <Text style={styles.panelTitle}>⚠️ GOTCHAS</Text>
+                          <Text style={styles.panelBody}>{api.gotchas}</Text>
+                        </View>
+                      )}
+                    </View>
+                  )}
+                </Pressable>
+              );
+            })
+          )}
         </View>
       )}
 
@@ -1490,6 +1873,7 @@ function SkillEditModal({ data, skill, update, onClose }) {
       gotchas: skill.structured?.gotchas || '',
     },
     flashcards: skill.flashcards || [],
+    apis: skill.apis || [],
     relatedProjectIds: skill.relatedProjectIds || [],
   });
 
@@ -1502,6 +1886,16 @@ function SkillEditModal({ data, skill, update, onClose }) {
     setForm((f) => ({ ...f, flashcards: f.flashcards.map((fc) => (fc.id === id ? { ...fc, [k]: v } : fc)) }));
   const removeFlashcard = (id) =>
     setForm((f) => ({ ...f, flashcards: f.flashcards.filter((fc) => fc.id !== id) }));
+
+  const addApi = () =>
+    setForm((f) => ({
+      ...f,
+      apis: [...f.apis, { id: uid(), name: '', signature: '', description: '', params: '', returns: '', example: '', gotchas: '' }],
+    }));
+  const updateApi = (id, k, v) =>
+    setForm((f) => ({ ...f, apis: f.apis.map((a) => (a.id === id ? { ...a, [k]: v } : a)) }));
+  const removeApi = (id) =>
+    setForm((f) => ({ ...f, apis: f.apis.filter((a) => a.id !== id) }));
 
   const toggleProject = (pid) =>
     setForm((f) => ({
@@ -1516,7 +1910,11 @@ function SkillEditModal({ data, skill, update, onClose }) {
       Alert.alert('Missing name', 'Skill needs a name.');
       return;
     }
-    const cleaned = { ...form, flashcards: form.flashcards.filter((fc) => fc.q.trim()) };
+    const cleaned = {
+      ...form,
+      flashcards: form.flashcards.filter((fc) => fc.q.trim()),
+      apis: form.apis.filter((a) => a.name.trim()),
+    };
     update((d) => {
       if (isNew) d.skills.push(cleaned);
       else {
@@ -1715,6 +2113,70 @@ function SkillEditModal({ data, skill, update, onClose }) {
                   </View>
                 ))}
                 <PressBtn small ghost onPress={addFlashcard}>+ Add flashcard</PressBtn>
+              </Field>
+
+              <Field label="🔧 APIs">
+                {form.apis.map((api) => (
+                  <View key={api.id} style={styles.flashEdit}>
+                    <TextInput
+                      style={[styles.input, { marginBottom: 6 }]}
+                      value={api.name}
+                      onChangeText={(v) => updateApi(api.id, 'name', v)}
+                      placeholder="Name (e.g. useState)"
+                      placeholderTextColor={COLORS.textLight}
+                    />
+                    <TextInput
+                      style={[styles.input, { marginBottom: 6, fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace' }), fontSize: 12 }]}
+                      value={api.signature}
+                      onChangeText={(v) => updateApi(api.id, 'signature', v)}
+                      placeholder="Signature"
+                      placeholderTextColor={COLORS.textLight}
+                    />
+                    <TextInput
+                      style={[styles.input, styles.textarea, { marginBottom: 6 }]}
+                      multiline
+                      value={api.description}
+                      onChangeText={(v) => updateApi(api.id, 'description', v)}
+                      placeholder="Description"
+                      placeholderTextColor={COLORS.textLight}
+                    />
+                    <TextInput
+                      style={[styles.input, styles.textarea, { marginBottom: 6 }]}
+                      multiline
+                      value={api.params}
+                      onChangeText={(v) => updateApi(api.id, 'params', v)}
+                      placeholder="Parameters"
+                      placeholderTextColor={COLORS.textLight}
+                    />
+                    <TextInput
+                      style={[styles.input, { marginBottom: 6 }]}
+                      value={api.returns}
+                      onChangeText={(v) => updateApi(api.id, 'returns', v)}
+                      placeholder="Returns"
+                      placeholderTextColor={COLORS.textLight}
+                    />
+                    <TextInput
+                      style={[styles.input, styles.textarea, { marginBottom: 6, minHeight: 120, fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace' }), fontSize: 12 }]}
+                      multiline
+                      value={api.example}
+                      onChangeText={(v) => updateApi(api.id, 'example', v)}
+                      placeholder="Example (code)"
+                      placeholderTextColor={COLORS.textLight}
+                    />
+                    <TextInput
+                      style={[styles.input, styles.textarea, { marginBottom: 6 }]}
+                      multiline
+                      value={api.gotchas}
+                      onChangeText={(v) => updateApi(api.id, 'gotchas', v)}
+                      placeholder="Gotchas"
+                      placeholderTextColor={COLORS.textLight}
+                    />
+                    <PressBtn small ghost style={{ marginTop: 6 }} onPress={() => removeApi(api.id)}>
+                      Remove
+                    </PressBtn>
+                  </View>
+                ))}
+                <PressBtn small ghost onPress={addApi}>+ Add API</PressBtn>
               </Field>
 
               <Field label="🚀 LINKED PROJECTS">
@@ -2128,6 +2590,18 @@ const styles = StyleSheet.create({
     width: 22, height: 22, borderWidth: 2, borderColor: COLORS.border,
     borderRadius: 6, marginRight: 10,
     alignItems: 'center', justifyContent: 'center',
+  },
+
+  // API cards
+  apiCard: {
+    backgroundColor: 'white', borderWidth: 2, borderColor: COLORS.border,
+    borderRadius: 16, padding: 14, marginBottom: 10,
+  },
+  apiName: { fontWeight: '800', fontSize: 16, color: COLORS.text, marginBottom: 4 },
+  apiSignature: {
+    fontFamily: Platform.select({ ios: 'Menlo', android: 'monospace' }),
+    fontSize: 11, color: COLORS.textLight, lineHeight: 17, marginBottom: 4,
+    flexWrap: 'wrap',
   },
 
   // Search
