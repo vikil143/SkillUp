@@ -1164,7 +1164,11 @@ export default function App() {
         keyboardShouldPersistTaps="handled"
       >
         {view.screen === 'skills-home' && (
-          <SkillsHome data={data} navigate={navigate} />
+          <SkillsHome
+            data={data}
+            navigate={navigate}
+            onEditCategory={(c) => setEditing({ type: 'category', item: c })}
+          />
         )}
         {view.screen === 'category-detail' && (
           <CategoryDetail
@@ -1226,7 +1230,7 @@ export default function App() {
             else if (view.screen === 'experience') setEditing({ type: 'experience', item: {} });
             else if (view.screen === 'category-detail')
               setEditing({ type: 'skill', item: { categoryId: view.categoryId } });
-            else setEditing({ type: 'skill', item: {} });
+            else setEditing({ type: 'category', item: {} });
           }}
         />
       )}
@@ -1334,7 +1338,7 @@ function Fab({ onPress }) {
 // ============================================================
 // SKILLS HOME (Categories Grid)
 // ============================================================
-function SkillsHome({ data, navigate }) {
+function SkillsHome({ data, navigate, onEditCategory }) {
   return (
     <View>
       <Text style={styles.screenTitle}>Hey Vikil 👋</Text>
@@ -1348,6 +1352,8 @@ function SkillsHome({ data, navigate }) {
             <Pressable
               key={c.id}
               onPress={() => navigate('category-detail', { categoryId: c.id })}
+              onLongPress={() => onEditCategory(c)}
+              delayLongPress={400}
               style={({ pressed }) => [
                 styles.catCard,
                 { transform: [{ translateY: pressed ? 2 : 0 }] },
@@ -2216,6 +2222,7 @@ function EditModal({ data, editing, update, onClose }) {
   if (type === 'skill') return <SkillEditModal data={data} skill={item} update={update} onClose={onClose} />;
   if (type === 'project') return <ProjectEditModal data={data} project={item} update={update} onClose={onClose} />;
   if (type === 'experience') return <ExperienceEditModal experience={item} update={update} onClose={onClose} />;
+  if (type === 'category') return <CategoryEditModal category={item} update={update} onClose={onClose} />;
   return null;
 }
 
@@ -2774,6 +2781,112 @@ function ExperienceEditModal({ experience, update, onClose }) {
           <Field label="LOCATION"><TextInput style={styles.input} value={form.location} onChangeText={(v) => setField('location', v)} placeholderTextColor={COLORS.textLight} /></Field>
           <Field label="PERIOD"><TextInput style={styles.input} value={form.period} onChangeText={(v) => setField('period', v)} placeholder="Jun 2025 – Present" placeholderTextColor={COLORS.textLight} /></Field>
           <Field label="RESPONSIBILITIES (one per line)"><TextInput style={[styles.input, styles.textarea, { minHeight: 160 }]} multiline value={form.responsibilities} onChangeText={(v) => setField('responsibilities', v)} placeholderTextColor={COLORS.textLight} /></Field>
+        </ScrollView>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, paddingTop: 12, borderTopWidth: 2, borderTopColor: COLORS.border }}>
+          <PressBtn onPress={save}>💾 Save</PressBtn>
+          {!isNew && <PressBtn color={COLORS.red} onPress={del}>🗑 Delete</PressBtn>}
+          <PressBtn ghost onPress={onClose}>Cancel</PressBtn>
+        </View>
+      </View>
+    </KeyboardAvoidingView>
+  );
+}
+
+function CategoryEditModal({ category, update, onClose }) {
+  const isNew = !category.id;
+  const PALETTE = [
+    '#58CC02', '#1CB0F6', '#FF9600', '#FF4B4B', '#FFC800',
+    '#CE82FF', '#FF86D0', '#2EC4B6', '#235390', '#84D8FF',
+    '#A56AFF', '#02CD7C', '#F75590', '#FF6D00', '#4A8BF5',
+    '#C026D3', '#9333EA', '#E11D48', '#6B7280', '#F59E0B',
+    '#FF6B35', '#3B82F6',
+  ];
+  const [form, setForm] = useState({
+    id: category.id || uid(),
+    name: category.name || '',
+    emoji: category.emoji || '📁',
+    color: category.color || PALETTE[0],
+  });
+  const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+
+  const save = () => {
+    if (!form.name.trim()) { Alert.alert('Missing', 'Category name required.'); return; }
+    update((d) => {
+      if (isNew) d.categories.push(form);
+      else {
+        const i = d.categories.findIndex((c) => c.id === form.id);
+        if (i >= 0) d.categories[i] = form;
+      }
+    });
+    onClose();
+  };
+
+  const del = () => {
+    Alert.alert('Delete category?', 'This will not delete skills inside it — they will remain unlinked.', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => {
+        update((d) => { d.categories = d.categories.filter((c) => c.id !== form.id); });
+        onClose();
+      }},
+    ]);
+  };
+
+  return (
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalBackdrop}>
+      <Pressable style={{ flex: 1 }} onPress={onClose} />
+      <View style={styles.modalSheet}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>{isNew ? '✨ New category' : '✏️ Edit category'}</Text>
+          <TouchableOpacity onPress={onClose} style={styles.iconBtn}>
+            <Text style={{ fontSize: 16 }}>✕</Text>
+          </TouchableOpacity>
+        </View>
+        <ScrollView style={{ maxHeight: 520 }}>
+          <Field label="NAME *">
+            <TextInput
+              style={styles.input}
+              value={form.name}
+              onChangeText={(v) => setField('name', v)}
+              placeholder="e.g. TypeScript"
+              placeholderTextColor={COLORS.textLight}
+            />
+          </Field>
+          <Field label="EMOJI">
+            <TextInput
+              style={[styles.input, { fontSize: 24 }]}
+              value={form.emoji}
+              onChangeText={(v) => setField('emoji', v)}
+              placeholder="📁"
+              placeholderTextColor={COLORS.textLight}
+            />
+          </Field>
+          <Field label="COLOR">
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10, marginTop: 4 }}>
+              {PALETTE.map((c) => (
+                <Pressable
+                  key={c}
+                  onPress={() => setField('color', c)}
+                  style={[
+                    { width: 38, height: 38, borderRadius: 10, backgroundColor: c, alignItems: 'center', justifyContent: 'center' },
+                    form.color === c && { borderWidth: 3, borderColor: COLORS.text },
+                  ]}
+                >
+                  {form.color === c && (
+                    <Text style={{ color: 'white', fontWeight: '900', fontSize: 16 }}>✓</Text>
+                  )}
+                </Pressable>
+              ))}
+            </View>
+          </Field>
+          <Field label="PREVIEW">
+            <View style={[styles.catCard, { width: '60%', alignSelf: 'center' }]}>
+              <Text style={styles.catEmoji}>{form.emoji || '📁'}</Text>
+              <Text style={styles.catName}>{form.name || 'Category name'}</Text>
+              <View style={[styles.catCount, { backgroundColor: form.color }]}>
+                <Text style={styles.catCountText}>0</Text>
+              </View>
+            </View>
+          </Field>
         </ScrollView>
         <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, paddingTop: 12, borderTopWidth: 2, borderTopColor: COLORS.border }}>
           <PressBtn onPress={save}>💾 Save</PressBtn>
