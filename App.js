@@ -99,6 +99,7 @@ const SEED = () => {
     { id: 'design-patterns', name: 'Design Patterns', emoji: '🎯', color: '#9333EA' },
     { id: 'embedded', name: 'Embedded Systems', emoji: '⚡', color: '#E11D48' },
     { id: 'tools', name: 'Tools', emoji: '🛠️', color: '#6B7280' },
+    { id: 'perf', name: 'Performance', emoji: '⚡', color: '#F59E0B' },
   ];
 
   const mk = (name, categoryId, parentId = null, depth = {}) => ({
@@ -614,6 +615,16 @@ const SEED = () => {
     mk('Chrome DevTools', 'tools', null, { definition: 'Browser-based debug suite — DOM inspector, network panel, performance profiler, JS debugger.' }),
     mk('Figma', 'tools', null, { definition: 'Browser-based collaborative UI design tool. Components, auto-layout, prototyping, dev handoff.' }),
     mk('Notion', 'tools', null, { definition: 'All-in-one workspace for notes, docs, databases, and project tracking.' }),
+
+    // Performance Optimization
+    mk('Virtualization', 'perf', null, { definition: 'Render only visible items in a list. FlatList/react-window recycle DOM nodes to keep memory and paint cost constant.' }),
+    mk('Memoization', 'perf', null, { definition: 'Cache results of expensive computations (useMemo, React.memo, reselect). Avoids redundant work on re-renders.' }),
+    mk('Code Splitting', 'perf', null, { definition: 'Split JS bundles into chunks loaded on demand (React.lazy + Suspense, dynamic import()). Reduces initial parse/exec time.' }),
+    mk('Web Vitals', 'perf', null, { definition: 'Google metrics: LCP (load), FID/INP (interaction), CLS (layout stability). Baseline for measuring real-user perf.' }),
+    mk('Lazy Loading', 'perf', null, { definition: 'Defer loading of off-screen images, components, or routes until needed. Reduces initial payload.' }),
+    mk('Caching Strategies', 'perf', null, { definition: 'HTTP cache-control headers, CDN edge caching, stale-while-revalidate, service-worker caching for repeat visits.' }),
+    mk('Bundle Analysis', 'perf', null, { definition: 'Inspect bundle composition with webpack-bundle-analyzer or Vite rollup-plugin-visualizer. Find and eliminate bloat.' }),
+    mk('Database Query Optimization', 'perf', null, { definition: 'Indexes, query plan analysis (EXPLAIN), avoiding N+1, denormalization, connection pooling.' }),
   ];
 
   const skills = [
