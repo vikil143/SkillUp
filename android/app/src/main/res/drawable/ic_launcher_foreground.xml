@@ -1,0 +1,32 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  SkillUp launcher icon foreground — three ascending progress bars with an upward arrow.
+  Canvas: 108×108dp. Key content kept within the 72×72dp safe zone (18–90dp).
+-->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+
+    <!-- Bar 1 (short): x=22–38, y=70–84, rounded top corners r=4 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M22,84 L22,74 Q22,70 26,70 L34,70 Q38,70 38,74 L38,84 Z"/>
+
+    <!-- Bar 2 (medium): x=46–62, y=52–84, rounded top corners r=4 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M46,84 L46,56 Q46,52 50,52 L58,52 Q62,52 62,56 L62,84 Z"/>
+
+    <!-- Bar 3 (tall): x=70–86, y=38–84, rounded top corners r=4 -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M70,84 L70,42 Q70,38 74,38 L82,38 Q86,38 86,42 L86,84 Z"/>
+
+    <!-- Upward arrow above bar 3: tip (78,20), base (70,34)–(86,34) -->
+    <path
+        android:fillColor="#FFFFFF"
+        android:pathData="M78,20 L86,34 L70,34 Z"/>
+
+</vector>
