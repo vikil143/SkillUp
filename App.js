@@ -91,6 +91,29 @@ const isYouTubeUrl = (url) => Boolean(getYouTubeId(url));
 const openLink = (url) =>
   Linking.openURL(url).catch(() => Alert.alert('Cannot open link', url));
 
+// Parse "m:ss", "h:mm:ss", or plain seconds string → integer seconds
+const parseStartTime = (t) => {
+  if (!t || !String(t).trim()) return 0;
+  const s = String(t).trim();
+  if (s.includes(':')) {
+    const parts = s.split(':').map(Number);
+    if (parts.length === 2) return (parts[0] || 0) * 60 + (parts[1] || 0);
+    if (parts.length === 3) return (parts[0] || 0) * 3600 + (parts[1] || 0) * 60 + (parts[2] || 0);
+  }
+  return parseInt(s, 10) || 0;
+};
+
+// Format seconds back to "m:ss" for display
+const fmtTime = (t) => {
+  const secs = parseStartTime(t);
+  if (!secs) return '';
+  const h = Math.floor(secs / 3600);
+  const m = Math.floor((secs % 3600) / 60);
+  const s = secs % 60;
+  if (h > 0) return `${h}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+  return `${m}:${String(s).padStart(2, '0')}`;
+};
+
 // ============================================================
 // SEED DATA (from CV)
 // ============================================================
@@ -1385,7 +1408,7 @@ function SkillDetail({ data, skillId, navigate, goBack, onEdit, onAddSubtopic })
   const [tab, setTab] = useState('tree');
   const [revealed, setRevealed] = useState({});
   const [apiExpanded, setApiExpanded] = useState({});
-  const [ytId, setYtId] = useState(null);
+  const [ytPlay, setYtPlay] = useState(null); // { videoId, startTime }
   const skill = data.skills.find((s) => s.id === skillId);
   const cat = skill ? data.categories.find((c) => c.id === skill.categoryId) : null;
   if (!skill || !cat) return <Text style={styles.emptyText}>Skill not found.</Text>;
@@ -1610,14 +1633,14 @@ function SkillDetail({ data, skillId, navigate, goBack, onEdit, onAddSubtopic })
             (skill.refs || []).map((item) => {
               const vid = getYouTubeId(item.url);
               return vid
-                ? <YouTubeRefCard key={item.id} item={item} onPlay={() => setYtId(vid)} />
+                ? <YouTubeRefCard key={item.id} item={item} onPlay={() => setYtPlay({ videoId: vid, startTime: item.startTime || '' })} />
                 : <LinkRefCard key={item.id} item={item} />;
             })
           )}
         </View>
       )}
 
-      {ytId && <YouTubePlayerModal videoId={ytId} onClose={() => setYtId(null)} />}
+      {ytPlay && <YouTubePlayerModal videoId={ytPlay.videoId} startTime={ytPlay.startTime} onClose={() => setYtPlay(null)} />}
     </View>
   );
 }
@@ -1826,8 +1849,9 @@ function ExperienceScreen({ data, onAdd, onEdit }) {
 const CHROME_UA =
   'Mozilla/5.0 (Linux; Android 13; Pixel 7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36';
 
-function YouTubePlayerModal({ videoId, onClose }) {
-  const watchUrl = `https://www.youtube.com/watch?v=${videoId}`;
+function YouTubePlayerModal({ videoId, startTime, onClose }) {
+  const secs = parseStartTime(startTime);
+  const watchUrl = `https://www.youtube.com/watch?v=${videoId}${secs > 0 ? `&t=${secs}` : ''}`;
   return (
     <Modal
       visible
@@ -1872,12 +1896,20 @@ function YouTubePlayerModal({ videoId, onClose }) {
 function YouTubeRefCard({ item, onPlay }) {
   const videoId = getYouTubeId(item.url);
   const thumb = `https://img.youtube.com/vi/${videoId}/mqdefault.jpg`;
+  const timeLabel = fmtTime(item.startTime);
   return (
     <TouchableOpacity style={styles.refCard} onPress={onPlay} activeOpacity={0.85}>
       <Image source={{ uri: thumb }} style={styles.ytThumb} resizeMode="cover" />
       <View style={styles.refCardBody}>
-        <View style={styles.ytBadge}>
-          <Text style={styles.ytBadgeText}>▶  YouTube</Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6, marginBottom: 5 }}>
+          <View style={styles.ytBadge}>
+            <Text style={styles.ytBadgeText}>▶  YouTube</Text>
+          </View>
+          {timeLabel ? (
+            <View style={styles.ytTimeBadge}>
+              <Text style={styles.ytTimeTxt}>⏱ {timeLabel}</Text>
+            </View>
+          ) : null}
         </View>
         <Text style={styles.refTitle} numberOfLines={2}>{item.title || 'Watch video'}</Text>
       </View>
@@ -2175,7 +2207,7 @@ function SkillEditModal({ data, skill, update, onClose }) {
     setForm((f) => ({ ...f, apis: f.apis.filter((a) => a.id !== id) }));
 
   const addRef = () =>
-    setForm((f) => ({ ...f, refs: [...f.refs, { id: uid(), title: '', url: '' }] }));
+    setForm((f) => ({ ...f, refs: [...f.refs, { id: uid(), title: '', url: '', startTime: '' }] }));
   const updateRef = (id, k, v) =>
     setForm((f) => ({ ...f, refs: f.refs.map((r) => (r.id === id ? { ...r, [k]: v } : r)) }));
   const removeRef = (id) =>
@@ -2487,9 +2519,24 @@ function SkillEditModal({ data, skill, update, onClose }) {
                       keyboardType="url"
                     />
                     {isYouTubeUrl(r.url) && (
-                      <Text style={{ fontSize: 11, color: COLORS.primary, fontWeight: '800', marginBottom: 4 }}>
-                        ▶ YouTube video detected
-                      </Text>
+                      <View style={{ marginBottom: 6 }}>
+                        <Text style={{ fontSize: 11, color: '#FF0000', fontWeight: '800', marginBottom: 6 }}>
+                          ▶ YouTube video detected
+                        </Text>
+                        <TextInput
+                          style={styles.input}
+                          value={r.startTime || ''}
+                          onChangeText={(v) => updateRef(r.id, 'startTime', v)}
+                          placeholder="Start time — e.g. 1:30 or 90  (optional)"
+                          placeholderTextColor={COLORS.textLight}
+                          keyboardType="default"
+                        />
+                        {Boolean(parseStartTime(r.startTime)) && (
+                          <Text style={{ fontSize: 11, color: COLORS.primary, fontWeight: '800', marginTop: 4 }}>
+                            ⏱ Video will start at {fmtTime(r.startTime)}
+                          </Text>
+                        )}
+                      </View>
                     )}
                     <PressBtn small ghost style={{ marginTop: 4 }} onPress={() => removeRef(r.id)}>
                       Remove
@@ -2956,11 +3003,15 @@ const styles = StyleSheet.create({
     fontSize: 11, color: COLORS.textLight, fontWeight: '600', marginTop: 3,
   },
   ytBadge: {
-    alignSelf: 'flex-start',
     backgroundColor: '#FF0000', borderRadius: 4,
-    paddingHorizontal: 6, paddingVertical: 2, marginBottom: 5,
+    paddingHorizontal: 6, paddingVertical: 2,
   },
   ytBadgeText: { color: 'white', fontSize: 10, fontWeight: '800' },
+  ytTimeBadge: {
+    backgroundColor: '#1a1a1a', borderRadius: 4,
+    paddingHorizontal: 6, paddingVertical: 2,
+  },
+  ytTimeTxt: { color: 'white', fontSize: 10, fontWeight: '800' },
   linkIconWrap: {
     width: 64, alignItems: 'center', justifyContent: 'center',
     backgroundColor: COLORS.panel,
