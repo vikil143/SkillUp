@@ -1,23 +1,444 @@
-// seed/skills/state-architecture.js — Redux, Context, Microfrontend, etc.
-import { mk } from '../helpers.js';
+// seed/skills/state-architecture.js — Redux, RTK, Context, Microfrontend, CDA, MVC, Monolithic, Monorepo
+import { mk, uid } from '../helpers.js';
+
+const card = (q, a) => ({ id: uid(), q, a });
+const api = (name, signature, description, params, returns, example, gotchas) => ({
+  id: uid(), name, signature, description, params, returns, example, gotchas,
+});
+const ref = (title, url) => ({ id: uid(), title, url });
 
 export default function buildStateSkills() {
-  return [
-    mk('Redux', 'state', null, {
-      definition: 'Predictable state container. Single store, action-reducer flow, pure reducers.',
-    }),
-    mk('Redux Toolkit', 'state', null, {
-      definition: 'Official Redux toolset — createSlice, createAsyncThunk, Immer-powered mutations.',
-    }),
-    mk('Context API', 'state'),
-    mk('Custom Hooks', 'state', null, {
-      codeExample: 'function useDebounce(value, ms) {\n  const [v, setV] = useState(value);\n  useEffect(() => {\n    const id = setTimeout(() => setV(value), ms);\n    return () => clearTimeout(id);\n  }, [value, ms]);\n  return v;\n}',
-    }),
-    mk('Microfrontend', 'state', null, {
-      definition: 'Architecture splitting a frontend into independently deployable apps.',
-      whenUsed: 'Dynamic Content Editor at Netcore — modules deployed independently.',
-    }),
-    mk('Component-Driven Architecture', 'state'),
-    mk('MVC', 'state'),
-  ];
+  const skills = [];
+
+  // ─── MICROFRONTEND (zero to hero) ──────────────────────────────────────────
+  const mfe = mk('Microfrontend', 'state', null, {
+    definition:
+      'Microfrontend architecture decomposes a frontend application into independently owned, built, and deployed units. Each unit is a self-contained app slice with its own tech stack, team, and release cycle. A shell app orchestrates routing and composes the slices at runtime. The pattern applies Conway\'s Law intentionally — team boundaries match product boundaries.',
+    codeExample:
+      "// webpack.config.js — Shell (host)\nconst { ModuleFederationPlugin } = require('webpack').container;\n\nmodule.exports = {\n  plugins: [\n    new ModuleFederationPlugin({\n      name: 'shell',\n      remotes: {\n        editor: 'editor@https://editor.example.com/remoteEntry.js',\n        dashboard: 'dashboard@https://dash.example.com/remoteEntry.js',\n      },\n      shared: { react: { singleton: true, requiredVersion: '^18.0.0' } },\n    }),\n  ],\n};",
+    whenUsed:
+      'Used in Dynamic Content Editor at Netcore — modules (template editor, asset manager, preview) deployed independently via Module Federation, enabling separate team release cycles.',
+    gotchas:
+      'Shared singleton React: if two remotes bundle different React versions, hooks will throw "invalid hook call". Always set singleton: true.\nNetwork waterfall: loading remoteEntry.js then the module chunk adds latency — preload critical remotes.\nShared CSS: global styles bleed across remotes; use CSS Modules or Shadow DOM per remote.\nVersion skew: a remote assuming a newer host API breaks silently — establish explicit contracts.\nCold-start: remote bundle fetches on first navigation; route-level lazy loading is essential.',
+    flashcards: [
+      card('What is the core problem Microfrontend architecture solves that monolithic frontend does not?', 'It eliminates the shared deployment bottleneck — teams can ship independently without coordinating a single release train, enabling true team autonomy at scale.'),
+      card('Why does singleton: true in Module Federation matter?', 'React\'s hook system uses module-level state. Two separate React instances each have their own hook registry — hooks called from different instances throw "invalid hook call" errors.'),
+      card('What is the difference between build-time and runtime MFE integration?', 'Build-time integration (npm packages) requires coordinated rebuilds to pick up changes. Runtime integration (Module Federation) loads remote bundles on-demand at runtime, enabling true independent deployment.'),
+      card('How do microfrontends communicate without tight coupling?', 'Custom browser events (window.dispatchEvent), a shared event bus, URL/query params, or a lightweight shared-state singleton. Avoid direct imports between remotes — that creates a build-time dependency.'),
+      card('What is Conway\'s Law and how does it justify MFE boundaries?', 'Conway\'s Law: software structure mirrors the communication structure of the teams that build it. MFE boundaries aligned to team ownership reduce cross-team coordination friction.'),
+      card('What is the main performance risk in a microfrontend architecture?', 'Bundle duplication — each remote may include its own copy of shared libraries. Use the shared config in Module Federation to deduplicate; unshared duplicates can triple page weight.'),
+      card('When should you NOT choose microfrontends?', 'Small teams (< 3–4 squads), early-stage products where boundaries are unclear, or apps without genuine independent deployment needs. Complexity cost is high — monolith-first is usually faster.'),
+      card('What is a "shell" in MFE architecture?', 'The host application responsible for routing, authentication, global layout, and lazy-loading remote modules. It knows about remotes; remotes should not know about the shell.'),
+      card('How do you handle authentication across microfrontends?', 'The shell handles auth and shares the token via a shared auth module (Module Federation shared) or secure cookie readable by all sub-domains. Each remote validates independently; do not trust shell-passed identity without verification.'),
+    ],
+    apis: [
+      api('ModuleFederationPlugin', "new ModuleFederationPlugin({ name, remotes, exposes, shared })", 'Webpack 5 plugin enabling cross-build module sharing at runtime.', 'name: string, remotes: object, exposes: object, shared: object', 'webpack plugin', "new ModuleFederationPlugin({\n  name: 'editor',\n  filename: 'remoteEntry.js',\n  exposes: { './Editor': './src/Editor' },\n  shared: { react: { singleton: true } },\n})", 'Must be in both host and remote webpack configs. remoteEntry.js filename must match the URL in the host\'s remotes config.'),
+      api('exposes', "exposes: { './Component': './src/Component' }", 'Declares which local modules a remote makes available to hosts.', 'map of public name to file path', 'exposed module map', "exposes: {\n  './TemplateEditor': './src/TemplateEditor/index.jsx',\n  './AssetPicker': './src/AssetPicker/index.jsx',\n}", 'Path keys must start with "./". Exposed modules are part of the public API — treat as a semver surface.'),
+      api('remotes', "remotes: { name: 'remoteName@url/remoteEntry.js' }", 'Declares remote apps the host can consume.', 'map of local alias to remote entry URL', 'remote module map', "remotes: {\n  editor: 'editor@https://editor.cdn.com/remoteEntry.js',\n}", 'URL is fetched at runtime — a missing or unreachable remote throws a network error unless you add a fallback.'),
+      api('shared', "shared: { react: { singleton: true, requiredVersion: '^18.0.0' } }", 'Declares shared dependencies to deduplicate across host and remotes.', 'package name to sharing config object', 'deduplication map', "shared: {\n  react: { singleton: true, eager: true, requiredVersion: '^18.2.0' },\n  'react-dom': { singleton: true, eager: true },\n}", 'eager: true on the shell prevents async chunk loading for critical shared libs. Mismatched requiredVersion triggers a console warning and may load both copies.'),
+      api('eager', 'eager: true in shared config', 'Loads the shared dependency synchronously rather than as an async chunk.', 'boolean flag in shared config', 'synchronous loading', "shared: { react: { singleton: true, eager: true } }", 'Only set eager on the host/shell, not remotes, to avoid circular async issues.'),
+      api('dynamic import (remote)', "import('remoteName/ComponentPath')", 'Lazy-loads a federated module at runtime.', 'module path string', 'Promise<module>', "const Editor = React.lazy(() => import('editor/TemplateEditor'));\n\n<Suspense fallback={<Spinner />}>\n  <Editor />\n</Suspense>", 'Wrap in React.lazy + Suspense. Add error boundary to catch remote load failures gracefully.'),
+      api('single-spa registerApplication', "registerApplication({ name, app, activeWhen, customProps })", 'Registers a microfrontend app with the single-spa orchestrator.', 'name, lifecycle functions, activity function, props', 'void', "registerApplication({\n  name: 'editor',\n  app: () => import('./editor/main'),\n  activeWhen: ['/editor'],\n});\nstart();", 'activity function must be deterministic and fast — it runs on every URL change.'),
+      api('Custom Elements (cross-framework)', "customElements.define('my-widget', class extends HTMLElement {})", 'Exposes a microfrontend as a Web Component usable in any framework.', 'element name and class extending HTMLElement', 'void', "class DashboardWidget extends HTMLElement {\n  connectedCallback() {\n    ReactDOM.render(<Dashboard />, this);\n  }\n  disconnectedCallback() {\n    ReactDOM.unmountComponentAtNode(this);\n  }\n}\ncustomElements.define('dashboard-widget', DashboardWidget);", 'connectedCallback/disconnectedCallback must clean up React roots to avoid memory leaks.'),
+    ],
+    refs: [
+      ref('Module Federation Docs', 'https://module-federation.io/'),
+      ref('Webpack Module Federation', 'https://webpack.js.org/concepts/module-federation/'),
+      ref('single-spa Docs', 'https://single-spa.js.org/docs/getting-started-overview'),
+      ref('Micro Frontends (martinfowler.com)', 'https://martinfowler.com/articles/micro-frontends.html'),
+      ref('monorepo.tools', 'https://monorepo.tools/'),
+    ],
+    relatedProjectIds: ['p-editor'],
+  });
+  skills.push(mfe);
+
+  [
+    ['What & Why', 'When to choose MFE over monolith: large org, multiple teams, independent release cadence, technology heterogeneity needs.', "// Monolith: one build, one deploy\n// MFE: each team ships their slice independently\n// Shell loads remotes at runtime — no shared build step"],
+    ['Module Federation (Webpack 5)', 'Webpack 5 plugin enabling one build to expose modules and another to consume them at runtime without a shared build pipeline.', "// Remote exposes a component\nnew ModuleFederationPlugin({\n  name: 'cart',\n  filename: 'remoteEntry.js',\n  exposes: { './CartSummary': './src/CartSummary' },\n  shared: { react: { singleton: true } },\n});"],
+    ['Single-SPA', 'Framework-agnostic MFE orchestrator using activity functions to mount/unmount apps based on URL.', "import { registerApplication, start } from 'single-spa';\nregisterApplication({\n  name: 'navbar',\n  app: () => System.import('@org/navbar'),\n  activeWhen: ['/'],\n});\nstart();"],
+    ['Build-time vs Runtime Integration', 'Build-time: npm packages require coordinated rebuild. Runtime: remoteEntry.js loaded on-demand, enabling true independent deployment.', "// Build-time (npm package — requires rebuild to update):\nimport { Button } from '@org/design-system';\n\n// Runtime (Module Federation — no rebuild needed):\nconst Button = React.lazy(() => import('designSystem/Button'));"],
+    ['Shared Dependencies', 'Shared config deduplicates React/etc. across remotes to prevent duplicate instances and hook errors.', "shared: {\n  react: { singleton: true, requiredVersion: '^18.0.0', eager: true },\n  'react-dom': { singleton: true, requiredVersion: '^18.0.0', eager: true },\n  'react-router-dom': { singleton: true },\n}"],
+    ['Routing Across MFEs', 'Shell owns top-level routing; each remote owns sub-routes. Use memory router inside remotes to avoid conflicts with shell history.', "// Shell — react-router handles /editor/* paths\n<Route path='/editor/*' element={\n  <Suspense fallback={<Loader />}>\n    <RemoteEditor />\n  </Suspense>\n} />\n\n// Remote — uses MemoryRouter internally\n<MemoryRouter initialEntries={[location.pathname]}>\n  <EditorRoutes />\n</MemoryRouter>"],
+    ['Communication Between MFEs', 'Decouple remotes via custom events, a shared event bus, or URL state. Avoid direct imports between remotes.', "// Publish (Remote A)\nwindow.dispatchEvent(new CustomEvent('mfe:cart:updated', { detail: { count: 3 } }));\n\n// Subscribe (Remote B)\nwindow.addEventListener('mfe:cart:updated', (e) => {\n  setCartCount(e.detail.count);\n});"],
+    ['Independent Deployment', 'Each remote has its own CI/CD pipeline and release cadence. Host must tolerate remote failures gracefully.', "// Resilient remote loading\nconst RemoteChart = React.lazy(() =>\n  import('analytics/Chart').catch(() => import('./FallbackChart'))\n);\n\n<ErrorBoundary fallback={<p>Chart unavailable</p>}>\n  <Suspense fallback={<Spinner />}>\n    <RemoteChart />\n  </Suspense>\n</ErrorBoundary>"],
+    ['Performance Considerations', 'Lazy-load remotes, preload critical paths, and monitor bundle duplication to keep initial load fast.', "// Prefetch critical remote in shell\n<link rel='prefetch' href='https://editor.cdn.com/remoteEntry.js' />\n\n// Or via webpack magic comment:\nconst Editor = React.lazy(\n  () => import(/* webpackPrefetch: true */ 'editor/TemplateEditor')\n);"],
+    ['Team Boundaries & Ownership', "Conway's Law: align MFE boundaries to team ownership. Each team owns its remote end-to-end — code, deploy, monitoring.", "// CODEOWNERS (each team owns their slice)\n/packages/editor/   @team-editor\n/packages/dashboard/ @team-analytics\n/packages/shell/     @team-platform\n\n// Each remote has its own:\n// - CI pipeline\n// - feature flags\n// - error tracking DSN"],
+  ].forEach(([name, definition, codeExample]) => {
+    skills.push(mk(name, 'state', mfe.id, {
+      definition,
+      codeExample,
+      flashcards: [
+        card(`What is the key decision factor for ${name}?`, 'Team autonomy and deployment independence — only add complexity when the organisational need is genuine.'),
+        card(`What breaks first in ${name} under real-world conditions?`, 'Version skew and shared dependency conflicts — establish contracts and shared config early.'),
+      ],
+    }));
+  });
+
+  // ─── COMPONENT-DRIVEN ARCHITECTURE (zero to hero) ──────────────────────────
+  const cda = mk('Component-Driven Architecture', 'state', null, {
+    definition:
+      'Component-Driven Architecture (CDA) is a development methodology where UIs are built bottom-up from small, isolated, reusable components. It enforces single responsibility, explicit interfaces, and composability. Paired with tools like Storybook, CDA enables parallel design-development workflows and living documentation.',
+    codeExample:
+      "// Atomic Design layering\n// Atom\nexport function Badge({ count, color = 'blue' }) {\n  return <span className={`badge badge--${color}`}>{count}</span>;\n}\n\n// Molecule\nexport function CartIcon({ itemCount }) {\n  return (\n    <div className='cart-icon'>\n      <Icon name='cart' />\n      {itemCount > 0 && <Badge count={itemCount} color='red' />}\n    </div>\n  );\n}\n\n// Organism\nexport function Navbar({ user, cart }) {\n  return (\n    <nav>\n      <Logo />\n      <SearchBar />\n      <CartIcon itemCount={cart.count} />\n      <UserMenu user={user} />\n    </nav>\n  );\n}",
+    whenUsed:
+      'Applied in p-stock, p-docs, and p-editor — shared component libraries accelerated feature delivery across teams and reduced visual inconsistency.',
+    gotchas:
+      'Abstraction too early: creating generic components before third use adds complexity without benefit — follow the Rule of Three.\nProp sprawl: components with 15+ props are hard to use and maintain; split or compose instead.\nLeaky abstractions: components that know too much about their usage context cannot be reused.\nStorybook drift: stories that are not kept in sync with component changes give false confidence.\nDesign token coupling: hard-coding colour values instead of tokens makes theming a rewrite.',
+    flashcards: [
+      card('What is Atomic Design and what are its five levels?', 'Brad Frost\'s methodology: Atoms (buttons, inputs) → Molecules (form field with label) → Organisms (navbar, card) → Templates (page wireframe) → Pages (real content instances).'),
+      card('Why build components bottom-up instead of top-down?', 'Bottom-up forces you to design components in isolation without assumptions about their context, producing more reusable, context-independent primitives.'),
+      card('What is the Rule of Three for component abstraction?', 'Only abstract into a reusable component when you need it in three different places. Premature generalisation creates complexity without return.'),
+      card('What distinguishes a controlled from an uncontrolled component?', 'Controlled: value is owned by React state (parent dictates value + onChange). Uncontrolled: DOM owns the value, read via ref. Controlled is more predictable for forms; uncontrolled is simpler for file inputs.'),
+      card('What is a compound component pattern?', 'A parent manages shared state internally and exposes sub-components that read it via context — e.g. <Tabs>, <Tabs.List>, <Tabs.Panel>. Consumers get flexible composition without prop drilling.'),
+      card('Why does Storybook improve component quality beyond documentation?', 'Writing stories forces you to define all props explicitly, discover edge cases (empty state, loading, error), and think about component API surface before the feature drives it.'),
+      card('What is the difference between a container and a presentational component?', 'Presentational: pure UI, receives data via props. Container: fetches data and passes it down. In the hooks era, the distinction blurs — custom hooks now carry data-fetching concerns out of components cleanly.'),
+      card('How do design tokens improve component library scalability?', 'Tokens (--color-primary, --spacing-md) decouple component styles from specific values — theming, white-labelling, and dark mode become config changes rather than CSS rewrites.'),
+      card('What makes a component "open for extension, closed for modification"?', 'Composable props (children, renderProp, className), slot patterns, and compound components — consumers extend behaviour without changing the source, preserving stability for other users.'),
+    ],
+    apis: [
+      api('Storybook Meta / StoryObj', "const meta: Meta<typeof Component> = { component, args, argTypes }", 'TypeScript types for Storybook 7+ CSF3 story format.', 'component, default args, arg type controls', 'story module', "import type { Meta, StoryObj } from '@storybook/react';\nimport { Button } from './Button';\n\nconst meta: Meta<typeof Button> = {\n  component: Button,\n  args: { children: 'Click me' },\n};\nexport default meta;\n\ntype Story = StoryObj<typeof Button>;\nexport const Primary: Story = { args: { variant: 'primary' } };", 'CSF3 requires default export as meta. args defined at meta level are merged with story-level args.'),
+      api('forwardRef', 'React.forwardRef((props, ref) => <element ref={ref} />)', 'Passes a ref through a wrapper component to an underlying DOM node or child component.', 'render function receiving props and ref', 'React component', "const Input = React.forwardRef<HTMLInputElement, InputProps>(\n  ({ label, ...props }, ref) => (\n    <label>\n      {label}\n      <input ref={ref} {...props} />\n    </label>\n  )\n);\nInput.displayName = 'Input';", 'Always set displayName for readable DevTools output. Without forwardRef, ref on a function component is silently ignored.'),
+      api('Compound component (Context)', 'createContext + useContext inside sub-components', 'Enables sub-components to read shared parent state without prop drilling.', 'context value and provider in parent', 'React element tree', "const TabsCtx = createContext(null);\n\nfunction Tabs({ children }) {\n  const [active, setActive] = useState(0);\n  return <TabsCtx.Provider value={{ active, setActive }}>{children}</TabsCtx.Provider>;\n}\nTabs.Panel = function Panel({ index, children }) {\n  const { active } = useContext(TabsCtx);\n  return active === index ? <div>{children}</div> : null;\n};", 'Export sub-components as static properties of the parent for clean import ergonomics.'),
+      api('Slot pattern (children + named props)', 'Component accepts children and named slot props', 'Allows callers to inject arbitrary UI into specific positions without coupling.', 'children and named render props', 'composed layout', "function Card({ header, footer, children }) {\n  return (\n    <div className='card'>\n      {header && <div className='card__header'>{header}</div>}\n      <div className='card__body'>{children}</div>\n      {footer && <div className='card__footer'>{footer}</div>}\n    </div>\n  );\n}\n\n<Card header={<h2>Title</h2>} footer={<Actions />}>\n  <p>Body content</p>\n</Card>", 'Prefer explicit named slot props over index-based children access for clarity.'),
+      api('react-docgen / react-docgen-typescript', 'CLI / webpack loader — extracts prop types from source', 'Auto-generates prop documentation from TypeScript types or PropTypes.', 'source file or glob', 'JSON prop metadata', '// CLI\nnpx react-docgen src/Button.tsx\n\n// Output used by Storybook argTypes automatically\n// when using @storybook/react with TypeScript', 'Generic types and complex union types may not extract cleanly — add JSDoc annotations as fallback.'),
+    ],
+    refs: [
+      ref('Atomic Design (Brad Frost)', 'https://atomicdesign.bradfrost.com/'),
+      ref('Storybook Docs', 'https://storybook.js.org/docs'),
+      ref('Component-Driven Development', 'https://www.componentdriven.org/'),
+      ref('React Composition Patterns', 'https://react.dev/learn/passing-props-to-a-component'),
+      ref('Design Tokens W3C', 'https://design-tokens.github.io/community-group/format/'),
+    ],
+    relatedProjectIds: ['p-stock', 'p-docs', 'p-editor'],
+  });
+  skills.push(cda);
+
+  [
+    ['Atomic Design', 'Five-level hierarchy (Atoms → Molecules → Organisms → Templates → Pages) that guides how components are composed from smallest to largest.', "// Atom: smallest unit, no dependencies\nfunction Avatar({ src, alt, size = 40 }) {\n  return <img src={src} alt={alt} width={size} height={size} style={{ borderRadius: '50%' }} />;\n}\n\n// Molecule: combines atoms\nfunction UserBadge({ user }) {\n  return (\n    <div style={{ display: 'flex', alignItems: 'center', gap: 8 }}>\n      <Avatar src={user.avatar} alt={user.name} />\n      <span>{user.name}</span>\n    </div>\n  );\n}"],
+    ['Storybook', 'Isolated component development environment with interactive controls, docs, and addon ecosystem.', "// Button.stories.tsx (CSF3)\nimport type { Meta, StoryObj } from '@storybook/react';\nimport { Button } from './Button';\n\nconst meta: Meta<typeof Button> = {\n  component: Button,\n  tags: ['autodocs'],\n};\nexport default meta;\n\nexport const Primary: StoryObj<typeof Button> = {\n  args: { children: 'Save', variant: 'primary', disabled: false },\n};\nexport const Loading: StoryObj<typeof Button> = {\n  args: { children: 'Saving…', loading: true },\n};"],
+    ['Composition Over Inheritance', 'Prefer composing components via props/children over extending base classes — keeps components flexible and avoids brittle inheritance chains.', "// ❌ Inheritance approach (fragile)\nclass SpecialButton extends Button {\n  render() { return super.render() + <Icon />; }\n}\n\n// ✅ Composition approach (flexible)\nfunction IconButton({ icon, children, ...props }) {\n  return (\n    <Button {...props}>\n      <Icon name={icon} />\n      {children}\n    </Button>\n  );\n}"],
+    ['Prop Drilling vs Composition', 'Prop drilling passes data through multiple levels. Composition solves it by lifting JSX up: pass children rather than data.', "// ❌ Prop drilling — Page → Layout → Sidebar → UserNav\nfunction Page({ user }) {\n  return <Layout user={user} />;\n}\n\n// ✅ Composition — Page controls what Sidebar renders\nfunction Page({ user }) {\n  return (\n    <Layout sidebar={<UserNav user={user} />}>\n      <MainContent />\n    </Layout>\n  );\n}"],
+    ['Separation of Concerns', 'Container/presentational split in hooks era: custom hooks own data and behaviour; components own rendering.', "// Custom hook owns data concern\nfunction useUserProfile(id) {\n  const { data, isLoading } = useQuery(['user', id], () => fetchUser(id));\n  return { user: data, isLoading };\n}\n\n// Component owns render concern\nfunction UserProfile({ id }) {\n  const { user, isLoading } = useUserProfile(id);\n  if (isLoading) return <Skeleton />;\n  return <UserCard user={user} />;\n}"],
+    ['Reusable Component Design', 'Design components for the 3rd consumer, not just the 1st. Accept className, style, and HTML attributes via spread for escape hatches.', "function Input({ label, error, className, ...inputProps }) {\n  return (\n    <div className={['field', className].filter(Boolean).join(' ')}>\n      {label && <label>{label}</label>}\n      <input\n        className={['input', error && 'input--error'].filter(Boolean).join(' ')}\n        aria-invalid={!!error}\n        {...inputProps}\n      />\n      {error && <span className='error'>{error}</span>}\n    </div>\n  );\n}"],
+    ['Component Library Publishing', 'Package components as an npm module with rollup/tsup, peer deps, and design tokens for cross-project reuse.', "// package.json\n{\n  \"name\": \"@org/ui\",\n  \"main\": \"dist/index.cjs.js\",\n  \"module\": \"dist/index.esm.js\",\n  \"types\": \"dist/index.d.ts\",\n  \"peerDependencies\": { \"react\": \">=17\" },\n  \"exports\": {\n    \".\": {\n      \"import\": \"./dist/index.esm.js\",\n      \"require\": \"./dist/index.cjs.js\"\n    }\n  }\n}\n// tsup.config.ts\nexport default { entry: ['src/index.ts'], dts: true, format: ['cjs','esm'] };"],
+    ['Versioning & Semver', 'Semantic versioning for component libraries: patch = bug fix, minor = new component/prop, major = breaking API change.', "// CHANGELOG.md pattern\n## [2.0.0] — Breaking\n- Button: removed `type` prop in favour of `variant`\n- Removed deprecated `<LegacyModal>` — use `<Dialog>`\n\n## [1.4.0] — Minor\n- Added `<Toast>` component\n- Button: added `loading` prop\n\n// Codemods help consumers migrate majors:\nnpx @org/ui-codemod v2 ./src"],
+    ['Documentation', 'Storybook autodocs + MDX for narrative docs. Component API tables auto-generated from TypeScript types via react-docgen.', "// Button.mdx\nimport { Canvas, Meta, Controls } from '@storybook/blocks';\nimport * as ButtonStories from './Button.stories';\n\n<Meta of={ButtonStories} />\n\n# Button\nUse `<Button>` for all clickable actions. Prefer `variant='primary'` for the main CTA.\n\n<Canvas of={ButtonStories.Primary} />\n<Controls of={ButtonStories.Primary} />"],
+    ['Testing Components in Isolation', 'React Testing Library for behaviour tests; Chromatic or Percy for visual regression snapshots.', "// Button.test.tsx (RTL)\nit('calls onClick when not disabled', async () => {\n  const onClick = vi.fn();\n  render(<Button onClick={onClick}>Save</Button>);\n  await userEvent.click(screen.getByRole('button', { name: 'Save' }));\n  expect(onClick).toHaveBeenCalledOnce();\n});\n\nit('does not call onClick when disabled', async () => {\n  const onClick = vi.fn();\n  render(<Button onClick={onClick} disabled>Save</Button>);\n  await userEvent.click(screen.getByRole('button'));\n  expect(onClick).not.toHaveBeenCalled();\n});"],
+  ].forEach(([name, definition, codeExample]) => {
+    skills.push(mk(name, 'state', cda.id, {
+      definition,
+      codeExample,
+      flashcards: [
+        card(`What is the most common mistake when implementing ${name}?`, 'Over-engineering early — abstracting before the pattern is validated by at least two real use cases.'),
+        card(`How does ${name} improve team velocity over time?`, 'It reduces duplication, enforces consistent behaviour, and makes onboarding faster because components are documented and discoverable.'),
+      ],
+    }));
+  });
+
+  // ─── REDUX (beginner to intermediate) ──────────────────────────────────────
+  const redux = mk('Redux', 'state', null, {
+    definition:
+      'Redux is a predictable state container for JavaScript apps. It enforces a strict unidirectional data flow: UI dispatches actions, reducers compute new state, store notifies subscribers. Pure reducers and serialisable state power time-travel debugging and hot reloading. Redux is most valuable when multiple distant components share complex state with many transitions.',
+    codeExample:
+      "import { createStore, combineReducers, applyMiddleware } from 'redux';\nimport thunk from 'redux-thunk';\n\nfunction cartReducer(state = { items: [] }, action) {\n  switch (action.type) {\n    case 'cart/add':\n      return { ...state, items: [...state.items, action.payload] };\n    case 'cart/remove':\n      return { ...state, items: state.items.filter((i) => i.id !== action.payload) };\n    default:\n      return state;\n  }\n}\n\nconst rootReducer = combineReducers({ cart: cartReducer });\nconst store = createStore(rootReducer, applyMiddleware(thunk));",
+    whenUsed: 'Used in p-maak for global application state across the canvas editor, toolbar, and collaboration features.',
+    gotchas:
+      'Pushing to an array in a reducer breaks reference equality — components won\'t re-render. Use [...state, item] or RTK\'s Immer.\nDeriving data in mapStateToProps without memoisation re-renders on every store update.\nPutting non-serialisable values (functions, class instances, Dates) in state breaks Redux DevTools and serialisation.\nUsing Redux for purely local UI state (modal open/close) adds unnecessary boilerplate — useState is fine.',
+    flashcards: [
+      card('Why must Redux reducers be pure functions?', 'Purity (same inputs → same output, no side effects) enables time-travel debugging, hot reloading, and deterministic state replay. Impure reducers break all three.'),
+      card('What is the difference between an action and an action creator?', 'An action is a plain object { type, payload }. An action creator is a function that returns an action — it centralises payload construction and is easier to test.'),
+      card('Why does Redux use a single store rather than multiple stores?', 'A single source of truth simplifies state inspection, undo/redo, and cross-slice relationships. Multiple stores complicate synchronisation and DevTools integration.'),
+      card('What does combineReducers do under the hood?', 'It creates a root reducer that calls each slice reducer with its own state slice and merges results into a single object. Each slice reducer is isolated and cannot read sibling slices directly.'),
+      card('When is Redux overkill?', 'When state is local to one component, simple, or doesn\'t need to be shared across distant parts of the tree. Context + useReducer or Zustand often fit better for medium complexity.'),
+      card('How does Redux Thunk enable async action creators?', 'Thunk middleware checks if an action is a function — if so, it calls it with dispatch and getState instead of passing it to reducers. This lets action creators dispatch multiple actions asynchronously.'),
+    ],
+    apis: [
+      api('createStore', 'createStore(reducer, preloadedState?, enhancer?)', 'Creates the Redux store (legacy API — prefer configureStore from RTK).', 'root reducer, optional initial state, optional enhancer', 'Store object', "const store = createStore(rootReducer, applyMiddleware(thunk));", 'Deprecated in favour of RTK\'s configureStore. Still valid but lacks RTK\'s DevTools integration defaults.'),
+      api('combineReducers', 'combineReducers({ slice: reducer })', 'Merges multiple slice reducers into a root reducer.', 'object mapping slice names to reducers', 'root reducer function', "const root = combineReducers({ user: userReducer, cart: cartReducer });", 'Each reducer receives only its own slice — cannot directly access sibling slices.'),
+      api('applyMiddleware', 'applyMiddleware(...middlewares)', 'Enhances dispatch to support middleware like thunk, saga, logger.', 'middleware functions', 'store enhancer', 'applyMiddleware(thunk, logger)', 'Order matters: logger should be last so it sees fully processed actions.'),
+      api('useSelector', 'useSelector(selector: (state) => T): T', 'Subscribes a component to a slice of Redux state.', 'selector function', 'selected state value', "const items = useSelector((state) => state.cart.items);", 'Re-renders whenever selected value changes by reference. Use memoised selectors (reselect) for derived values.'),
+      api('useDispatch', 'useDispatch(): Dispatch', 'Returns the store dispatch function for use in components.', 'none', 'dispatch function', "const dispatch = useDispatch();\ndispatch({ type: 'cart/add', payload: item });", 'Dispatch reference is stable — safe to include in useCallback deps.'),
+      api('Provider', '<Provider store={store}>{children}</Provider>', 'Makes the Redux store available to all descendant components.', 'store prop', 'React element', "<Provider store={store}><App /></Provider>", 'Must wrap the component tree at the root. Multiple Providers for different stores is an anti-pattern.'),
+      api('connect', 'connect(mapStateToProps?, mapDispatchToProps?)(Component)', 'Legacy HOC for connecting class components to Redux (prefer hooks).', 'selector and dispatch maps', 'wrapped component', "export default connect(\n  (state) => ({ items: state.cart.items }),\n  { addItem }\n)(CartComponent);", 'Hooks (useSelector/useDispatch) are preferred in function components. connect adds wrapper nesting.'),
+      api('bindActionCreators', 'bindActionCreators(actionCreators, dispatch)', 'Wraps action creators so they auto-dispatch on call.', 'object of action creators and dispatch', 'wrapped action creators', "const actions = bindActionCreators({ addItem, removeItem }, dispatch);", 'Mainly useful with connect mapDispatchToProps. Rarely needed with useDispatch.'),
+    ],
+    refs: [
+      ref('Redux Docs', 'https://redux.js.org/'),
+      ref('Redux Style Guide', 'https://redux.js.org/style-guide/'),
+      ref('Redux Essentials Tutorial', 'https://redux.js.org/tutorials/essentials/part-1-overview-concepts'),
+      ref('Why Redux Toolkit is How to Use Redux Today', 'https://redux.js.org/introduction/why-rtk-is-redux-today'),
+    ],
+    relatedProjectIds: ['p-maak'],
+  });
+  skills.push(redux);
+
+  [
+    ['Store, Actions, Reducers', 'The Redux triad: store holds state, actions describe what happened, reducers compute the next state from current state + action.', "// Action\nconst addItem = (item) => ({ type: 'cart/add', payload: item });\n\n// Reducer\nfunction cartReducer(state = { items: [] }, action) {\n  switch (action.type) {\n    case 'cart/add':\n      return { ...state, items: [...state.items, action.payload] };\n    default:\n      return state;\n  }\n}\n\n// Store\nconst store = createStore(cartReducer);\nstore.dispatch(addItem({ id: 1, name: 'Widget' }));\nconsole.log(store.getState());"],
+    ['Selectors & Reselect', 'Selectors derive data from state. Memoised selectors (reselect) prevent unnecessary recalculation and re-renders.', "import { createSelector } from 'reselect';\n\nconst selectItems = (state) => state.cart.items;\nconst selectFilter = (state) => state.ui.filter;\n\n// Only recomputes when items or filter changes\nconst selectFilteredItems = createSelector(\n  [selectItems, selectFilter],\n  (items, filter) => items.filter((i) => i.category === filter)\n);\n\n// In component\nconst filtered = useSelector(selectFilteredItems);"],
+    ['Middleware', 'Middleware intercepts dispatched actions for async flows, logging, and side effects. Redux Thunk is simplest; Redux Saga handles complex async orchestration.', "// Custom logger middleware\nconst logger = (store) => (next) => (action) => {\n  console.log('dispatching', action);\n  const result = next(action);\n  console.log('next state', store.getState());\n  return result;\n};\n\n// Thunk for async action\nconst fetchUser = (id) => async (dispatch) => {\n  dispatch({ type: 'user/loading' });\n  const user = await api.getUser(id);\n  dispatch({ type: 'user/loaded', payload: user });\n};"],
+    ['Immutability', 'Redux requires immutable state updates — returning new references signals change to subscribers. Mutation silently breaks change detection.', "// ❌ Mutation — subscribers don't see change\nstate.items.push(newItem);\nreturn state;\n\n// ✅ Immutable update — new reference triggers re-render\nreturn { ...state, items: [...state.items, newItem] };\n\n// ✅ Nested update\nreturn {\n  ...state,\n  user: { ...state.user, name: action.payload },\n};"],
+    ['Connecting to React', 'useSelector reads state; useDispatch sends actions; Provider injects store into the component tree.', "import { Provider, useSelector, useDispatch } from 'react-redux';\n\nfunction CartBadge() {\n  const count = useSelector((s) => s.cart.items.length);\n  return <span>{count}</span>;\n}\n\nfunction AddButton({ item }) {\n  const dispatch = useDispatch();\n  return (\n    <button onClick={() => dispatch({ type: 'cart/add', payload: item })}>\n      Add to cart\n    </button>\n  );\n}\n\n// Root\n<Provider store={store}><App /></Provider>"],
+  ].forEach(([name, definition, codeExample]) => {
+    skills.push(mk(name, 'state', redux.id, {
+      definition,
+      codeExample,
+      flashcards: [
+        card(`What is the most common bug in ${name}?`, 'Mutating state directly — looks correct in development but breaks reference equality checks and prevents re-renders.'),
+        card(`How do you test ${name} in isolation?`, 'Pure functions (reducers, selectors) are unit-testable with plain input/output assertions — no mocking needed.'),
+      ],
+    }));
+  });
+
+  // ─── REDUX TOOLKIT (beginner to intermediate) ───────────────────────────────
+  const rtk = mk('Redux Toolkit', 'state', null, {
+    definition:
+      'Redux Toolkit (RTK) is the official, opinionated Redux package that eliminates boilerplate. createSlice combines action creators and reducer into one declaration; createAsyncThunk standardises async patterns; Immer enables "mutating" reducer syntax that produces immutable updates under the hood; RTK Query provides a built-in data fetching and caching layer.',
+    codeExample:
+      "import { createSlice, createAsyncThunk, configureStore } from '@reduxjs/toolkit';\n\nexport const fetchUser = createAsyncThunk('user/fetch', async (id) => {\n  const res = await fetch(`/api/users/${id}`);\n  return res.json();\n});\n\nconst userSlice = createSlice({\n  name: 'user',\n  initialState: { data: null, status: 'idle' },\n  reducers: {\n    clearUser: (state) => { state.data = null; }, // Immer — looks like mutation\n  },\n  extraReducers: (builder) => {\n    builder\n      .addCase(fetchUser.pending, (state) => { state.status = 'loading'; })\n      .addCase(fetchUser.fulfilled, (state, action) => {\n        state.status = 'idle';\n        state.data = action.payload;\n      });\n  },\n});\n\nexport const { clearUser } = userSlice.actions;\nexport const store = configureStore({ reducer: { user: userSlice.reducer } });",
+    whenUsed: 'RTK is the standard for any new Redux-based project. If Redux was used in p-maak, RTK would be the recommended modernisation path.',
+    gotchas:
+      'Immer only works inside createSlice/createReducer — returning a new value AND mutating draft in the same reducer function causes an error.\nRTK Query cache keys are derived from endpoint name + arg — passing objects as args requires serializeQueryArgs customisation.\ncreateAsyncThunk does not automatically reject on HTTP errors — check response.ok and throw manually.\nOver-using RTK Query for mutations that are better handled as local state adds unnecessary cache invalidation complexity.',
+    flashcards: [
+      card('What does createSlice eliminate compared to vanilla Redux?', 'Separate action type constants, action creator functions, and reducer switch statements — it generates all three from a single slice definition.'),
+      card('How does Immer work inside RTK reducers?', 'RTK wraps reducer functions with Immer\'s produce(). You write "mutating" code on a draft proxy; Immer records the mutations and returns a new immutable state object.'),
+      card('What are the three action types createAsyncThunk generates?', 'thunkName/pending, thunkName/fulfilled, and thunkName/rejected — handle them in extraReducers builder to model loading/success/error states.'),
+      card('Why use RTK Query instead of useEffect + fetch?', 'RTK Query handles caching, deduplication, background refetching, loading/error states, and cache invalidation automatically — replacing hundreds of lines of manual async state management.'),
+      card('What is createEntityAdapter and when is it useful?', 'It normalises collections into { ids: [], entities: {} } with CRUD helper functions (addOne, updateOne, removeMany, etc.) — ideal for lists of items with unique IDs.'),
+      card('What does configureStore add over createStore?', 'It enables Redux DevTools Extension by default, includes thunk middleware, and warns about common mistakes like non-serialisable values in state.'),
+    ],
+    apis: [
+      api('createSlice', "createSlice({ name, initialState, reducers, extraReducers })", 'Generates action creators and reducer from a single config object.', 'slice name, initial state, reducers map, optional extraReducers', '{ reducer, actions }', "const counterSlice = createSlice({\n  name: 'counter',\n  initialState: { value: 0 },\n  reducers: {\n    increment: (state) => { state.value++; },\n    addBy: (state, action) => { state.value += action.payload; },\n  },\n});\nexport const { increment, addBy } = counterSlice.actions;", 'Action type strings are auto-generated as "name/reducerKey". Export actions and reducer separately.'),
+      api('createAsyncThunk', "createAsyncThunk(typePrefix, payloadCreator)", 'Creates an action creator for async operations with auto-generated pending/fulfilled/rejected actions.', 'string type prefix and async callback', 'thunk action creator', "export const fetchPosts = createAsyncThunk(\n  'posts/fetchAll',\n  async (_, { rejectWithValue }) => {\n    const res = await fetch('/api/posts');\n    if (!res.ok) return rejectWithValue('Failed');\n    return res.json();\n  }\n);", 'Throw or use rejectWithValue to trigger the rejected case. HTTP errors are not automatic rejections.'),
+      api('configureStore', "configureStore({ reducer, middleware?, devTools? })", 'Creates Redux store with sensible defaults (DevTools, thunk middleware, serialisability check).', 'root reducer or slice map, optional middleware and enhancers', 'Redux store', "const store = configureStore({\n  reducer: { posts: postsSlice.reducer, user: userSlice.reducer },\n});", 'Pass middleware as a callback to getDefaultMiddleware to preserve built-in middleware: (getDefault) => getDefault().concat(myMiddleware).'),
+      api('createApi (RTK Query)', "createApi({ reducerPath, baseQuery, endpoints })", 'Defines a data-fetching and caching service with auto-generated hooks.', 'reducer path, base query fn, endpoint definitions', 'API slice with hooks', "export const postsApi = createApi({\n  reducerPath: 'postsApi',\n  baseQuery: fetchBaseQuery({ baseUrl: '/api' }),\n  endpoints: (builder) => ({\n    getPosts: builder.query({ query: () => '/posts' }),\n    addPost: builder.mutation({ query: (body) => ({ url: '/posts', method: 'POST', body }) }),\n  }),\n});\nexport const { useGetPostsQuery, useAddPostMutation } = postsApi;", 'Add postsApi.reducer to store and postsApi.middleware to middleware chain.'),
+      api('createEntityAdapter', "createEntityAdapter({ selectId?, sortComparer? })", 'Manages normalised entity collections with built-in CRUD reducers and selectors.', 'optional id selector and sort comparator', 'adapter with selectors and reducers', "const adapter = createEntityAdapter();\nconst slice = createSlice({\n  name: 'items',\n  initialState: adapter.getInitialState(),\n  reducers: {\n    addItem: adapter.addOne,\n    updateItem: adapter.updateOne,\n    removeItem: adapter.removeOne,\n  },\n});\nexport const { selectAll, selectById } = adapter.getSelectors((s) => s.items);", 'Default id field is "id" — override with selectId: (e) => e.uuid if needed.'),
+      api('createSelector (RTK re-export)', "createSelector([inputSelectors], resultFn)", 'Memoised selector that recomputes only when input selectors return new values.', 'array of input selectors and result function', 'memoised selector', "const selectActiveItems = createSelector(\n  [(s) => s.items.entities, (s) => s.ui.activeIds],\n  (entities, ids) => ids.map((id) => entities[id]).filter(Boolean)\n);", 'Result function runs only when inputs change by reference. Default cache size is 1 — use createSelectorCreator for larger caches.'),
+    ],
+    refs: [
+      ref('Redux Toolkit Docs', 'https://redux-toolkit.js.org/'),
+      ref('RTK Query Overview', 'https://redux-toolkit.js.org/rtk-query/overview'),
+      ref('createSlice API', 'https://redux-toolkit.js.org/api/createSlice'),
+      ref('Immer Docs', 'https://immerjs.github.io/immer/'),
+    ],
+    relatedProjectIds: [],
+  });
+  skills.push(rtk);
+
+  [
+    ['createSlice', 'Combines action creators, action types, and reducer into a single cohesive unit — eliminating the three-file Redux boilerplate pattern.', "const todosSlice = createSlice({\n  name: 'todos',\n  initialState: [],\n  reducers: {\n    addTodo: (state, action) => {\n      // Immer: looks like mutation, produces immutable update\n      state.push({ id: uid(), text: action.payload, done: false });\n    },\n    toggleTodo: (state, action) => {\n      const todo = state.find((t) => t.id === action.payload);\n      if (todo) todo.done = !todo.done;\n    },\n    removeTodo: (state, action) => {\n      return state.filter((t) => t.id !== action.payload);\n    },\n  },\n});\nexport const { addTodo, toggleTodo, removeTodo } = todosSlice.actions;"],
+    ['createAsyncThunk', 'Standardises the loading → success / failure state pattern for async operations, generating three lifecycle action types automatically.', "export const loginUser = createAsyncThunk(\n  'auth/login',\n  async ({ email, password }, { rejectWithValue }) => {\n    try {\n      const res = await fetch('/api/login', {\n        method: 'POST',\n        body: JSON.stringify({ email, password }),\n        headers: { 'Content-Type': 'application/json' },\n      });\n      if (!res.ok) return rejectWithValue(await res.json());\n      return res.json();\n    } catch (err) {\n      return rejectWithValue({ message: 'Network error' });\n    }\n  }\n);"],
+    ['RTK Query', 'Built-in data fetching layer with automatic caching, deduplication, background refetch, and optimistic updates — replaces useEffect + useState data-fetch patterns.', "const api = createApi({\n  reducerPath: 'api',\n  baseQuery: fetchBaseQuery({ baseUrl: '/api' }),\n  tagTypes: ['Post'],\n  endpoints: (b) => ({\n    getPosts: b.query({ query: () => '/posts', providesTags: ['Post'] }),\n    deletePost: b.mutation({\n      query: (id) => ({ url: `/posts/${id}`, method: 'DELETE' }),\n      invalidatesTags: ['Post'],\n    }),\n  }),\n});\n\n// Component\nconst { data, isLoading } = useGetPostsQuery();\nconst [deletePost] = useDeletePostMutation();"],
+    ['createEntityAdapter', 'Normalises entity collections into an { ids, entities } shape with built-in CRUD operations, eliminating manual find/filter patterns.', "const usersAdapter = createEntityAdapter({\n  sortComparer: (a, b) => a.name.localeCompare(b.name),\n});\n\nconst usersSlice = createSlice({\n  name: 'users',\n  initialState: usersAdapter.getInitialState({ status: 'idle' }),\n  extraReducers: (builder) => {\n    builder.addCase(fetchUsers.fulfilled, usersAdapter.setAll);\n  },\n});\n\n// Selectors\nconst selectors = usersAdapter.getSelectors((s) => s.users);\nexport const { selectAll: selectAllUsers } = selectors;"],
+    ['Immer-powered Mutations', 'RTK uses Immer to let you write "mutating" reducer code — Immer intercepts mutations on a draft proxy and produces a new immutable state.', "// Without Immer (verbose)\ncase 'user/updateName':\n  return {\n    ...state,\n    profile: {\n      ...state.profile,\n      name: action.payload,\n    },\n  };\n\n// With RTK + Immer (clear intent)\nupdateName: (state, action) => {\n  state.profile.name = action.payload;\n  // Immer produces the same immutable result above\n}"],
+  ].forEach(([name, definition, codeExample]) => {
+    skills.push(mk(name, 'state', rtk.id, {
+      definition,
+      codeExample,
+      flashcards: [
+        card(`What is the key advantage of ${name} over the equivalent vanilla Redux approach?`, 'Dramatically less boilerplate with the same predictability — the critical logic stays visible without surrounding ceremony.'),
+        card(`What is a common misuse of ${name}?`, 'Reaching for it for local UI state that never leaves one component — useState handles that without any store overhead.'),
+      ],
+    }));
+  });
+
+  // ─── CONTEXT API (beginner to intermediate) ─────────────────────────────────
+  const ctx = mk('Context API', 'state', null, {
+    definition:
+      'React Context provides a mechanism to share values between components without passing props through every level. createContext creates a context object; Provider injects a value; useContext reads it. Context is best for low-frequency updates (theme, locale, auth) shared across many components, not high-frequency state like form inputs.',
+    codeExample:
+      "import { createContext, useContext, useReducer, useMemo } from 'react';\n\nconst AuthCtx = createContext(null);\n\nfunction authReducer(state, action) {\n  switch (action.type) {\n    case 'login': return { ...state, user: action.payload, status: 'authed' };\n    case 'logout': return { user: null, status: 'guest' };\n    default: return state;\n  }\n}\n\nexport function AuthProvider({ children }) {\n  const [state, dispatch] = useReducer(authReducer, { user: null, status: 'guest' });\n  const value = useMemo(() => ({ ...state, dispatch }), [state]);\n  return <AuthCtx.Provider value={value}>{children}</AuthCtx.Provider>;\n}\n\nexport const useAuth = () => {\n  const ctx = useContext(AuthCtx);\n  if (!ctx) throw new Error('useAuth must be used inside AuthProvider');\n  return ctx;\n};",
+    whenUsed:
+      'Used across all React projects for theme, auth state, and locale — any value consumed by many components at different tree depths.',
+    gotchas:
+      'Every consumer re-renders when the context value reference changes — even if the slice they use did not change. Memoize provider values.\nA single large context with mixed state and dispatch causes over-rendering — split into separate contexts by concern.\nContext is not a replacement for state management in high-frequency update scenarios — each keystroke in a form would re-render every consumer.\nAbsence of a Provider does not throw by default — createContext(null) returns null, causing confusing runtime errors downstream unless you guard with a custom hook.',
+    flashcards: [
+      card('Why does wrapping a provider value in useMemo matter?', 'Without memoisation, a new object reference is created on every parent render, causing every consumer to re-render even if state values are unchanged.'),
+      card('How do you prevent all context consumers from re-rendering when only one sub-value changes?', 'Split the context: separate AuthStateContext (state) from AuthDispatchContext (dispatch). Dispatch is stable; only state consumers re-render on state change.'),
+      card('When should you prefer Context + useReducer over Redux?', 'Medium-complexity shared state within one feature tree, small teams, or apps where Redux\'s DevTools and middleware ecosystem are not needed. For large-scale cross-feature state, Redux scales better.'),
+      card('What happens if you call useContext outside a matching Provider?', 'It returns the default value passed to createContext(). If that is null or undefined and callers don\'t guard, you get confusing null-dereference errors. Custom hooks that throw a clear error are safer.'),
+      card('Why is Context not suitable for high-frequency updates like form input state?', 'Every context value change re-renders all consumers synchronously. Form keystroke updates firing 10× per second would re-render every subscribed component, including unrelated ones.'),
+      card('What is the legacy Context.Consumer API and why was it replaced?', 'Context.Consumer used a render prop pattern — verbose and hard to compose. useContext hook provides the same access in a single line and composes cleanly with other hooks.'),
+    ],
+    apis: [
+      api('createContext', 'createContext<T>(defaultValue: T): Context<T>', 'Creates a Context object with a default value used when no Provider is found above.', 'default context value', 'Context object', "const ThemeCtx = createContext<'light' | 'dark'>('light');", 'Default value is only used when there is no matching Provider in the tree. It does not trigger re-renders.'),
+      api('Context.Provider', '<Context.Provider value={...}>{children}</Context.Provider>', 'Injects a context value into the component tree for all descendants.', 'value prop and children', 'React element', "<AuthCtx.Provider value={memoizedValue}>\n  <App />\n</AuthCtx.Provider>", 'All consumers re-render when value reference changes — always memoize the value object.'),
+      api('useContext', 'useContext<T>(context: Context<T>): T', 'Subscribes a component to a context and returns its current value.', 'Context object', 'current context value', "const { user, dispatch } = useContext(AuthCtx);", 'Re-renders whenever the context value changes. There is no subscription selector — all consumers get the full value.'),
+      api('Context.Consumer', '<Context.Consumer>{(value) => <JSX />}</Context.Consumer>', 'Legacy render-prop API for reading context (prefer useContext in function components).', 'render function child', 'React element', "<ThemeCtx.Consumer>\n  {(theme) => <div className={`app--${theme}`} />}\n</ThemeCtx.Consumer>", 'Only useful in class components that cannot use hooks.'),
+      api('useReducer (Context pair)', 'const [state, dispatch] = useReducer(reducer, initialState)', 'Pairs with Context Provider to create a lightweight state machine for shared state.', 'reducer function and initial state', '[state, dispatch]', "const [state, dispatch] = useReducer(reducer, { count: 0 });\nconst value = useMemo(() => ({ state, dispatch }), [state]);\n<Ctx.Provider value={value}>{children}</Ctx.Provider>", 'Dispatch is stable across renders — put it in a separate context to avoid re-rendering dispatch-only consumers.'),
+    ],
+    refs: [
+      ref('React Context Docs', 'https://react.dev/learn/passing-data-deeply-with-context'),
+      ref('useContext Reference', 'https://react.dev/reference/react/useContext'),
+      ref('Scaling Up with Reducer and Context', 'https://react.dev/learn/scaling-up-with-reducer-and-context'),
+      ref('When to Use Context vs Redux', 'https://redux.js.org/faq/organizing-state#when-should-i-use-redux-vs-context'),
+    ],
+    relatedProjectIds: ['p-stock', 'p-docs', 'p-editor', 'p-maak'],
+  });
+  skills.push(ctx);
+
+  [
+    ['createContext & Provider', 'createContext initialises the context; Provider injects the value into the tree. All descendants can consume without prop drilling.', "const LocaleCtx = createContext('en');\n\nfunction LocaleProvider({ locale, children }) {\n  return (\n    <LocaleCtx.Provider value={locale}>\n      {children}\n    </LocaleCtx.Provider>\n  );\n}\n\n// Anywhere in the tree:\nconst locale = useContext(LocaleCtx);"],
+    ['useContext Consumer Hook', 'useContext reads the nearest Provider value and subscribes the component to re-render when it changes.', "function UserGreeting() {\n  const { user } = useContext(AuthCtx);\n  return <p>Hello, {user?.name ?? 'Guest'}</p>;\n}\n\n// Custom hook pattern — recommended\nfunction useTheme() {\n  const ctx = useContext(ThemeCtx);\n  if (!ctx) throw new Error('useTheme must be inside ThemeProvider');\n  return ctx;\n}"],
+    ['Performance Pitfalls', 'Context has no selector mechanism — every consumer re-renders when the value object reference changes, even for unrelated fields.', "// ❌ One big context — every consumer re-renders on any field change\nconst value = { user, cart, theme, locale };\n\n// ✅ Separate contexts by update frequency\nconst AuthCtx = createContext(null);   // changes on login/logout\nconst CartCtx = createContext(null);   // changes on add/remove\nconst ThemeCtx = createContext('light'); // rarely changes\n\n// ✅ Memoize value to prevent reference churn\nconst value = useMemo(() => ({ user, dispatch }), [user]);"],
+    ['Splitting State from Dispatch', 'Dispatch is stable (created once). Putting it in its own context means dispatch-only consumers never re-render when state changes.', "const StateCtx = createContext(null);\nconst DispatchCtx = createContext(null);\n\nfunction StoreProvider({ children }) {\n  const [state, dispatch] = useReducer(reducer, initialState);\n  return (\n    <DispatchCtx.Provider value={dispatch}>\n      <StateCtx.Provider value={state}>\n        {children}\n      </StateCtx.Provider>\n    </DispatchCtx.Provider>\n  );\n}\n\n// Component that only dispatches never re-renders on state change\nconst dispatch = useContext(DispatchCtx);"],
+    ['Context API vs Redux', 'Context suits low-frequency shared values (auth, theme, locale). Redux suits complex multi-reducer state, time-travel debugging, and middleware-driven async flows.', "// Context — best for:\n// - Auth state (changes once per session)\n// - Theme (changes on user toggle)\n// - i18n locale (set at startup)\n\n// Redux — best for:\n// - Shopping cart (many actions, history)\n// - Real-time feeds (frequent updates, complex transitions)\n// - Cross-feature state needing middleware (logging, analytics)"],
+  ].forEach(([name, definition, codeExample]) => {
+    skills.push(mk(name, 'state', ctx.id, {
+      definition,
+      codeExample,
+      flashcards: [
+        card(`What is the key constraint in ${name} that surprises developers?`, 'There is no built-in selector — every consumer receives and re-renders on the full context value, not just the fields it uses.'),
+        card(`What is the correct way to share both state and updater via ${name}?`, 'Separate contexts: one for the state value, one for the dispatch/setter — so components that only dispatch are not forced to re-render on state changes.'),
+      ],
+    }));
+  });
+
+  // ─── MONOREPO (beginner to intermediate) ────────────────────────────────────
+  const monorepo = mk('Monorepo', 'state', null, {
+    definition:
+      'A monorepo is a single version-controlled repository containing multiple packages or applications. It enables atomic cross-package changes, shared tooling configuration, and unified CI. Modern monorepo tools (Nx, Turborepo) add build caching and affected-only task running to keep developer experience fast at scale.',
+    codeExample:
+      "# pnpm workspaces monorepo structure\n# pnpm-workspace.yaml\npackages:\n  - 'apps/*'\n  - 'packages/*'\n\n# package.json (root)\n{\n  \"scripts\": {\n    \"build\": \"turbo run build\",\n    \"test\": \"turbo run test\",\n    \"lint\": \"turbo run lint\"\n  },\n  \"devDependencies\": {\n    \"turbo\": \"^2.0.0\"\n  }\n}\n\n# apps/web/package.json\n{\n  \"dependencies\": {\n    \"@org/ui\": \"workspace:*\",\n    \"@org/utils\": \"workspace:^\"\n  }\n}",
+    whenUsed:
+      'Common architecture for multi-app organisations. Nx and Turborepo monorepos are standard in large React/Node codebases sharing design systems and utility libraries.',
+    gotchas:
+      'CI without caching: running all tasks on every PR is slow — invest in remote cache (Nx Cloud, Vercel Remote Cache) early.\nDependency hoisting: shared peer deps can cause version conflicts across workspaces — use pnpm\'s strict peer-dep enforcement.\nIDE performance: very large monorepos with 100+ packages slow TypeScript language server — use project references and explicit tsconfig paths.\nOwnership confusion: without CODEOWNERS, it is unclear who is responsible for shared packages under change pressure.',
+    flashcards: [
+      card('What is the primary advantage of a monorepo over polyrepo for a shared design system?', 'Atomic changes — you update the design system and every consuming app in a single commit, with a single CI run, eliminating the version-bump/publish/update cycle.'),
+      card('What is "affected" build optimisation and why does it matter?', 'Tools like Nx and Turborepo analyse the dependency graph and only rebuild/retest packages affected by a given change — reducing CI time from minutes to seconds on large repos.'),
+      card('What is the workspace: protocol in pnpm and why use it?', 'workspace:* means "use the local workspace version of this package" — guarantees apps always use the latest local code instead of a published npm version.'),
+      card('What is remote caching in Turborepo/Nx?', 'Build artefacts are cached in a remote store (Vercel, Nx Cloud). If the inputs to a task have not changed, the cached output is restored instead of re-running — CI times drop dramatically across team members.'),
+      card('What is the main argument for polyrepo over monorepo?', 'Independent repository permissions, smaller clone sizes, and cleaner separation of ownership — preferred when teams have significantly different security requirements or tech stacks.'),
+      card('How does Turborepo define task pipelines?', 'turbo.json declares task dependencies: "build" depends on "^build" (upstream packages must build first). This enables correct parallel execution order across the dependency graph.'),
+    ],
+    apis: [
+      api('turbo run', 'turbo run <task> [--filter=<pkg>]', 'Runs a task across all packages in topological order with caching.', 'task name and optional filter', 'task outputs (cached or fresh)', "turbo run build --filter='@org/ui'\nturbo run test --filter='...[HEAD^1]'", 'Tasks must be declared in turbo.json pipeline before they can be run.'),
+      api('nx affected', 'nx affected --target=<task>', 'Runs a task only on projects affected by current changes vs base branch.', 'target task and optional base/head', 'filtered task execution', 'nx affected --target=test\nnx affected --target=build --base=main', 'Requires nx.json project graph configuration. Most accurate when commit history is available.'),
+      api('pnpm -r', 'pnpm -r run <script>', 'Runs a script in all workspace packages recursively.', 'script name', 'script output per package', 'pnpm -r run lint\npnpm -r --filter @org/ui run build', 'Order is not guaranteed — use turbo or nx for dependency-ordered execution.'),
+      api('workspace protocol', '"@org/pkg": "workspace:*"', 'Instructs pnpm/yarn to resolve the dependency from the local workspace.', 'semver range or *', 'local package resolution', '"dependencies": { "@org/ui": "workspace:*" }', 'workspace:* always uses the current local version. workspace:^ uses local version matching semver range.'),
+      api('turbo.json pipeline', '{ "pipeline": { "build": { "dependsOn": ["^build"], "outputs": ["dist/**"] } } }', 'Declares task dependencies and cacheable outputs for the Turborepo task graph.', 'task names and dependency arrays', 'pipeline config', "{\n  \"pipeline\": {\n    \"build\": { \"dependsOn\": [\"^build\"], \"outputs\": [\"dist/**\"] },\n    \"test\":  { \"dependsOn\": [\"build\"] },\n    \"lint\":  {}\n  }\n}", '"^build" means all upstream packages\' build tasks must complete first.'),
+      api('nx.json / project.json', 'nx.json global config; project.json per-project targets', 'Defines Nx project graph, caching rules, and per-project task configurations.', 'JSON config files', 'Nx workspace configuration', "// project.json\n{\n  \"targets\": {\n    \"build\": { \"executor\": \"@nx/webpack:webpack\", \"outputs\": [\"{projectRoot}/dist\"] },\n    \"test\":  { \"executor\": \"@nx/jest:jest\" }\n  }\n}", 'Nx infers many targets automatically; explicit project.json overrides inference.'),
+    ],
+    refs: [
+      ref('monorepo.tools', 'https://monorepo.tools/'),
+      ref('Turborepo Docs', 'https://turbo.build/repo/docs'),
+      ref('Nx Docs', 'https://nx.dev/getting-started/intro'),
+      ref('pnpm Workspaces', 'https://pnpm.io/workspaces'),
+      ref('Lerna Docs', 'https://lerna.js.org/'),
+    ],
+    relatedProjectIds: [],
+  });
+  skills.push(monorepo);
+
+  [
+    ['Why Monorepos', 'Atomic cross-package changes, shared tooling, single CI pipeline, and easier refactoring across package boundaries.', "# Problem in polyrepo: update shared utils\n# 1. Bump version in @org/utils → publish\n# 2. Update @org/web → bump dep → PR\n# 3. Update @org/app → bump dep → PR\n# Three PRs, three CI runs, version sync risk\n\n# In monorepo:\n# 1. Change @org/utils\n# 2. Update all consumers in same commit\n# One PR, one CI run, atomic change"],
+    ['Nx vs Turborepo vs Lerna', 'Nx: full-featured with code generation, project graph, and plugins. Turborepo: simpler, focused on build caching. Lerna: legacy, now delegates to Nx for task running.', "# Turborepo — minimal config\n# turbo.json\n{ \"pipeline\": { \"build\": { \"dependsOn\": [\"^build\"] } } }\n\n# Nx — richer tooling\n# nx.json\n{ \"tasksRunnerOptions\": { \"default\": { \"runner\": \"nx/tasks-runners/default\" } } }\n\n# Lerna (modern)\n# delegates to nx under the hood:\nlerna run build --since=HEAD^1"],
+    ['Build Caching', 'Local and remote caching avoids re-running tasks whose inputs (source files, env, deps) have not changed — the biggest CI time saver.', "# turbo.json — declare what to cache\n{\n  \"pipeline\": {\n    \"build\": {\n      \"outputs\": [\"dist/**\", \".next/**\"],\n      \"inputs\": [\"src/**\", \"package.json\"]\n    }\n  }\n}\n\n# Remote cache (Vercel)\nNX_CLOUD_ACCESS_TOKEN=... nx run-many --target=build\n# or\nVERCEL_REMOTE_CACHE_TOKEN=... turbo run build"],
+    ['Selective Testing & Building', 'Run only tasks in packages affected by the current change, not the entire repo — keeps CI fast as the repo grows.', "# Turborepo — affected by changes since main\nturbo run test --filter='...[origin/main]'\n\n# Nx affected\nnx affected --target=test --base=origin/main\n\n# pnpm filter (manual)\npnpm --filter @org/ui... run test\n# '...' means @org/ui and all its dependents"],
+    ['Shared Deps Management', 'Root-level devDependencies, workspace protocol for internal packages, and version sync tools prevent divergence.', "# pnpm-workspace.yaml\npackages:\n  - 'apps/*'\n  - 'packages/*'\n\n# Root package.json — shared tooling at root\n{\n  \"devDependencies\": {\n    \"typescript\": \"^5.4.0\",\n    \"eslint\": \"^9.0.0\",\n    \"vitest\": \"^1.0.0\"\n  }\n}\n\n# Sync versions with syncpack\nnpx syncpack list-mismatches"],
+    ['Trade-offs vs Polyrepo', 'Monorepo wins on sharing and atomicity. Polyrepo wins on isolation, permissions, and independent scaling.', "# Monorepo pros:\n# + Atomic changes across packages\n# + Shared lint/test/build config\n# + Easier dependency graph visibility\n# + Single PR for cross-cutting refactors\n\n# Monorepo cons:\n# - Slower git operations at very large scale\n# - Complex CI setup without caching investment\n# - IDE TypeScript perf degrades with many packages\n# - Fine-grained access control is harder"],
+  ].forEach(([name, definition, codeExample]) => {
+    skills.push(mk(name, 'state', monorepo.id, {
+      definition,
+      codeExample,
+      flashcards: [
+        card(`What is the key tooling decision in ${name}?`, 'Whether to invest in Nx (rich features, steeper setup) or Turborepo (simpler, faster start) — determined by team size and need for code generation.'),
+        card(`What breaks first in ${name} without proper setup?`, 'CI time — without build caching and affected-only runs, CI becomes proportionally slower with every package added.'),
+      ],
+    }));
+  });
+
+  // ─── MVC (beginner to intermediate) ─────────────────────────────────────────
+  const mvc = mk('MVC', 'state', null, {
+    definition:
+      'MVC (Model-View-Controller) separates an application into three roles: Model owns data and business logic, View renders the UI, Controller handles user input and mediates between Model and View. It is the dominant pattern in server-rendered frameworks (Rails, Laravel, ASP.NET) and influenced early single-page app frameworks.',
+    codeExample:
+      "// Express MVC example — server-side\n// Model (data + business logic)\nclass UserModel {\n  static async findById(id) {\n    return db.query('SELECT * FROM users WHERE id = ?', [id]);\n  }\n  static async create(data) {\n    return db.query('INSERT INTO users SET ?', [data]);\n  }\n}\n\n// Controller (handles request, calls model, selects view)\nclass UserController {\n  async show(req, res) {\n    const user = await UserModel.findById(req.params.id);\n    if (!user) return res.status(404).render('error', { message: 'Not found' });\n    res.render('users/show', { user });\n  }\n}\n\n// View — users/show.ejs\n// <h1><%= user.name %></h1>",
+    whenUsed:
+      'Applies to server-side frameworks (Express + template engines, Rails-style APIs). React\'s unidirectional flow is a deliberate departure from classic MVC\'s two-way binding.',
+    gotchas:
+      'Fat controllers: business logic creeping into controllers makes them hard to test. Keep controllers thin — they should only orchestrate, never compute.\nView-model coupling: views that reach into model internals create tight coupling — pass view-model DTOs instead.\nTwo-way binding (MVVM variant): Angular-style two-way binding can make data flow hard to trace at scale.\nMVC in SPAs: React deliberately avoids classic MVC — components blend view and controller concerns with hooks separating state management.',
+    flashcards: [
+      card('What is the single responsibility of each MVC layer?', 'Model: data and business rules. View: rendering data as UI. Controller: receiving input, invoking model methods, selecting the view to render.'),
+      card('Why did React move away from classic MVC?', 'Classic MVC\'s two-way data binding and event-driven updates become hard to trace in complex UIs. React\'s unidirectional flow (state → render → action → state) is more predictable.'),
+      card('What is the "fat controller" anti-pattern?', 'Business logic accumulating in controllers rather than models — controllers become hard to unit test and changes break multiple request handlers at once.'),
+      card('What is the difference between MVC and MVVM?', 'MVVM (Model-View-ViewModel) adds a ViewModel layer that binds directly to View via two-way data binding (Angular, Vue), automating sync between UI and state. MVC uses explicit controller mediation.'),
+      card('When does MVC still make sense in modern development?', 'Server-rendered applications (Rails, Laravel, Django), REST APIs where controllers map to resource endpoints, and admin panels where the simplicity of request → model → response outweighs SPA complexity.'),
+      card('What is the Law of Demeter and why is it relevant to MVC?', 'A module should only talk to its direct neighbours. In MVC: Views should not call Model methods directly; Controllers mediate. Violations create tight coupling that makes refactoring cascade.'),
+    ],
+    apis: [],
+    refs: [
+      ref('MVC Pattern (MDN)', 'https://developer.mozilla.org/en-US/docs/Glossary/MVC'),
+      ref('Ruby on Rails MVC', 'https://guides.rubyonrails.org/getting_started.html#mvc-and-you'),
+      ref('Martin Fowler — GUI Architectures', 'https://martinfowler.com/eaaDev/uiArchs.html'),
+    ],
+    relatedProjectIds: [],
+  });
+  skills.push(mvc);
+
+  [
+    ['Model, View, Controller', 'Three distinct roles with clear boundaries: Model owns data integrity, View renders without logic, Controller routes input to model operations.', "// Thin controller (good)\nclass OrderController {\n  async create(req, res) {\n    const order = await OrderService.create(req.body, req.user);\n    res.status(201).json(order);\n  }\n}\n\n// Service/Model owns logic\nclass OrderService {\n  static async create(data, user) {\n    await validateStock(data.items);\n    const order = await Order.create({ ...data, userId: user.id });\n    await notifyWarehouse(order);\n    return order;\n  }\n}"],
+    ['MVP vs MVVM vs MVC', 'Three related patterns with different View-logic coupling strategies, suited to different frameworks and testability requirements.', "// MVC — Controller mediates\nController → Model → view.render(data)\n\n// MVP — Presenter replaces Controller; View is passive\nView.onButtonClick → Presenter.handleSave()\nPresenter → Model.save() → View.showSuccess()\n// View has no logic; Presenter is fully testable\n\n// MVVM — ViewModel binds to View two-way\nViewModel.name = 'Alice' → <input value='Alice' /> auto-updates\n<input> changes → ViewModel.name updates auto\n// Angular/Vue approach"],
+    ['Two-Way Binding', 'MVVM pattern where View and ViewModel stay in sync automatically — convenient but can obscure data flow in large apps.', "// Angular two-way binding\n<input [(ngModel)]='user.name' />\n// Changing the input updates user.name in the component\n// Changing user.name updates the input value\n\n// React's deliberate one-way alternative\n<input value={user.name} onChange={(e) => setName(e.target.value)} />\n// Explicit: change event → state update → re-render\n// Easier to trace; more verbose"],
+    ['Pros/Cons in Modern Web', 'MVC\'s strengths in server rendering; its limitations in client-side SPA complexity drove the React/component model.', "// MVC strengths:\n// + Clear separation for server-rendered apps\n// + Rails/Laravel convention reduces decision fatigue\n// + Straightforward for CRUD resource APIs\n\n// MVC limitations in SPAs:\n// - Controller becomes a grab-bag as UI complexity grows\n// - View state (loading, validation) doesn't fit Model cleanly\n// - Two-way binding obscures mutation sources\n// React solution: components + unidirectional state"],
+    ['When MVC Still Makes Sense', 'Server-rendered apps, REST APIs, admin tools, and domains with clear resource→action mappings benefit from MVC conventions.', "// Ruby on Rails — MVC as convention\nrails generate scaffold User name:string email:string\n# Generates:\n# app/models/user.rb\n# app/controllers/users_controller.rb\n# app/views/users/*.html.erb\n# db/migrate/..._create_users.rb\n\n// Express resource controller\nrouter.get('/users/:id', userController.show);\nrouter.post('/users',     userController.create);\nrouter.patch('/users/:id', userController.update);\nrouter.delete('/users/:id', userController.destroy);"],
+  ].forEach(([name, definition, codeExample]) => {
+    skills.push(mk(name, 'state', mvc.id, {
+      definition,
+      codeExample,
+      flashcards: [
+        card(`What is the core design principle behind ${name}?`, 'Separation of concerns — each layer has one job and cannot do the job of another.'),
+        card(`Where does ${name} break down in practice?`, 'When business logic bleeds into the wrong layer — typically fat controllers or views with embedded query logic.'),
+      ],
+    }));
+  });
+
+  // ─── MONOLITHIC (beginner to intermediate) ───────────────────────────────────
+  const monolith = mk('Monolithic', 'state', null, {
+    definition:
+      'A monolithic architecture packages all application concerns — UI, business logic, and data access — into a single deployable unit. It is simpler to develop, test, and deploy at early scale, and avoids the distributed-systems complexity of microservices. The trade-off is that scaling, independent deployment, and large-team coordination become harder as the application grows.',
+    codeExample:
+      "// Typical modular monolith structure (Node.js/Express)\n// A single deployable, but logically separated by module\n\n// src/\n//   modules/\n//     orders/\n//       orders.controller.js\n//       orders.service.js\n//       orders.repository.js\n//     users/\n//       users.controller.js\n//       ...\n//   shared/\n//     db.js\n//     auth.middleware.js\n//   app.js         ← single entry point\n\n// All modules share one DB connection, one process, one deploy.\n// Extract to microservices only when a specific module's scaling\n// needs can't be met within the monolith.",
+    whenUsed:
+      'The right default for most projects at founding. Shopify, Stack Overflow, GitHub all scaled significantly as monoliths before selectively extracting services.',
+    gotchas:
+      'Big Ball of Mud: without module boundaries, cross-concern imports proliferate — any module imports any other, creating an unstructured tangle.\nDeployment coupling: a bug in one module requires redeploying the entire application.\nScaling ceiling: you can only scale the entire application, not individual high-load modules independently.\nTest suite slowdown: a single test run for the whole application grows linearly — invest in test layering (unit/integration/e2e) early.',
+    flashcards: [
+      card('What is the strongest argument for starting with a monolith over microservices?', '"Monolith first" (Martin Fowler): service boundaries are hard to get right without deep domain understanding. A premature microservice split creates distributed-system complexity without the scale justification.'),
+      card('What is a modular monolith and how does it differ from a Big Ball of Mud?', 'A modular monolith enforces strict module boundaries (no cross-module direct imports — only public APIs) while remaining a single deployable. A Big Ball of Mud has no boundaries — everything imports everything.'),
+      card('At what point does a monolith justify extraction to microservices?', 'When a specific module has independent scaling needs, a separate release cadence, or a different tech stack requirement — not just because the codebase is "large".'),
+      card('How does a monolith simplify database operations that microservices complicate?', 'All modules share one transactional database — atomic cross-module operations are trivial. Microservices require distributed transactions (saga pattern) or eventual consistency, which is significantly harder.'),
+      card('What is the "strangler fig" pattern for monolith migration?', 'New functionality is built as separate services while the monolith shrinks. A facade/proxy routes requests — over time the monolith is "strangled" and replaced by services without a big-bang rewrite.'),
+      card('Why do most startups default to monolith architecture?', 'Fastest time to market, simplest deployment (one process, one DB), easiest debugging, and cheapest infrastructure. The scale problem is a good problem to have — solve it when it actually arrives.'),
+    ],
+    apis: [],
+    refs: [
+      ref('MonolithFirst (Martin Fowler)', 'https://martinfowler.com/bliki/MonolithFirst.html'),
+      ref('Modular Monolith (Sam Newman)', 'https://samnewman.io/blog/2019/02/19/monolith-to-microservices/'),
+      ref('Strangler Fig Pattern', 'https://martinfowler.com/bliki/StranglerFigApplication.html'),
+      ref('Shopify Monolith Blog', 'https://shopify.engineering/deconstructing-monolith-designing-software-maximizes-developer-productivity'),
+    ],
+    relatedProjectIds: [],
+  });
+  skills.push(monolith);
+
+  [
+    ['Definition & Characteristics', 'Single codebase, single deployable, shared process and database. All modules run in the same runtime and can call each other directly.', "// Everything in one deploy unit\n// Starting a monolith is as simple as:\nnode src/app.js\n\n// vs microservices startup:\ndocker-compose up  # 8 services\n// Each service: its own port, DB, health check, logs, deploy\n\n// Monolith: one process, one DB, one log stream, one deploy"],
+    ['Pros', 'Simpler development loop, atomic transactions across modules, easier local debugging, single deployment artifact, no network latency between modules.', "// Atomic transaction spanning two 'modules' — trivial in monolith\nawait db.transaction(async (tx) => {\n  await tx('orders').insert(order);\n  await tx('inventory').decrement({ id: item.id }, 'quantity', 1);\n  await tx('payments').insert(payment);\n  // All three commit or all rollback\n});\n\n// In microservices: requires saga pattern or 2PC\n// — significantly more complex and failure-prone"],
+    ['Cons', 'Scaling requires duplicating the whole app, deployment risk affects all modules, large teams create merge conflicts, tech stack is shared.', "// Scaling problem:\n// CPU spike in PDF generation → must scale entire app\n// In microservices: only scale the PDF service\n\n// Deployment risk:\n// Bug in user module → redeploy billing, payments, reporting too\n\n// Team collision:\n// 10 teams modifying the same codebase\n// → long PR queues, merge conflicts, integration hell"],
+    ['Modular Monolith', 'Strict internal boundaries with a public module API — gets most of monolith benefits while avoiding the Big Ball of Mud, and makes future extraction easier.', "// Strict module boundary — only export public API\n// src/modules/orders/index.js\nexport { createOrder, getOrder, listOrders } from './orders.service';\n// ❌ Never import from orders/orders.repository.js directly\n\n// Dependency rule enforced by ESLint plugin:\n// eslint-plugin-import — no-restricted-imports\n// modules/billing must not import from modules/orders internals"],
+    ['When to Start With Monolith', 'Default choice for new products — premature microservice splits create distributed complexity before domain boundaries are understood.', "// Decision checklist:\n// ✅ Start monolith if:\n// - Team < 10 engineers\n// - Domain not yet fully understood\n// - < 1M requests/day\n// - Budget / infra constraints\n\n// Consider extracting when:\n// - Specific module has 10x traffic of others\n// - Module needs different tech stack\n// - Team > 50 and deployment coordination is a bottleneck"],
+    ['Migration Paths to Microservices', 'Strangler Fig: incrementally route traffic to new services while the monolith shrinks. Branch by abstraction: introduce interface in monolith, swap implementation behind it.', "// Strangler Fig — step by step\n// 1. Add a proxy/API gateway in front of monolith\n// 2. Extract User Auth to its own service\n// 3. Proxy routes /auth/* to new service\n// 4. Test — old monolith auth still handles fallback\n// 5. Once new service is stable, remove monolith auth module\n// 6. Repeat for next module\n\n// Key: the monolith continues to serve production\n// throughout — no big-bang rewrite"],
+  ].forEach(([name, definition, codeExample]) => {
+    skills.push(mk(name, 'state', monolith.id, {
+      definition,
+      codeExample,
+      flashcards: [
+        card(`What is the practical test for whether ${name} is the right choice?`, 'Does the team have a clear, stable domain boundary that justifies the operational overhead? If not, stay with the simpler option.'),
+        card(`What signal tells you it is time to move beyond ${name}?`, 'A specific module consistently causing deployment delays, scaling bottlenecks, or team coordination friction — not just code size.'),
+      ],
+    }));
+  });
+
+  return skills;
 }
