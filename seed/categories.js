@@ -20,6 +20,6 @@ export const categories = [
   { id: 'design-patterns', name: 'Design Patterns',        emoji: '🎯', color: '#9333EA' },
   { id: 'embedded',        name: 'Embedded Systems',       emoji: '⚡', color: '#E11D48' },
   { id: 'tools',           name: 'Tools',                  emoji: '🛠️', color: '#6B7280' },
-  { id: 'perf',            name: 'Performance',            emoji: '⚡', color: '#F59E0B' },
+  { id: 'perf',            name: 'Performance',            emoji: '⚡', color: '#FFC800' },
   { id: 'webgl',           name: 'WebGL & 3D',             emoji: '🔷', color: '#FF6B35' },
 ];

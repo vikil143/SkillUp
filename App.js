@@ -31,7 +31,7 @@ import { uid } from './seed/helpers';
 const STORAGE_KEY = 'skillup-data-v1';
 const STREAK_KEY = 'skillup-streak-v1';
 // Bump this string whenever seed content changes — forces migration to re-run
-const SEED_VERSION = '2026-05-20-v4';
+const SEED_VERSION = '2026-05-20-v5';
 
 const COLORS = {
   primary: '#58CC02',
