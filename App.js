@@ -36,7 +36,8 @@ import { COLORS } from './src/theme/colors';
 const STORAGE_KEY = 'skillup-data-v1';
 const STREAK_KEY = 'skillup-streak-v1';
 // Bump this string whenever seed content changes — forces migration to re-run
-const SEED_VERSION = '2026-05-20-v6';
+const SEED_VERSION = '2026-05-20-v7';
+const REQUIRED_SEED_SKILLS = ['frontend||JavaScript + React Senior Interview'];
 
 const loadData = async () => {
   try {
@@ -221,7 +222,11 @@ export default function App() {
       if (stored && stored.categories) {
         // Call SEED() once so all IDs are consistent across every migration step
         const seed = SEED();
-        const needsContentSync = stored.seedVersion !== SEED_VERSION;
+        const hasMissingRequiredSeedSkill = REQUIRED_SEED_SKILLS.some((key) => {
+          const [categoryId, name] = key.split('||');
+          return !stored.skills.some((s) => s.categoryId === categoryId && s.name === name);
+        });
+        const needsContentSync = stored.seedVersion !== SEED_VERSION || hasMissingRequiredSeedSkill;
 
         // Migration: ensure new categories exist
         seed.categories.forEach((sc) => {
