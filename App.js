@@ -254,6 +254,76 @@ export default function App() {
           const webglSeed = SEED().skills.filter((s) => s.categoryId === 'webgl');
           stored.skills.push(...webglSeed);
         }
+        // Migration: merge new seed content (flashcards, apis, refs, structured fields)
+        // into existing stored skills so audit additions become visible without a full wipe.
+        {
+          const seedSkills = SEED().skills;
+          stored.skills.forEach((storedSkill) => {
+            const seedMatch = seedSkills.find(
+              (ss) => ss.name === storedSkill.name && ss.categoryId === storedSkill.categoryId
+            );
+            if (!seedMatch) return;
+
+            // Merge flashcards — add any seed card whose question isn't already present
+            const existingQs = new Set((storedSkill.flashcards || []).map((f) => f.q));
+            (seedMatch.flashcards || []).forEach((sf) => {
+              if (!existingQs.has(sf.q)) {
+                storedSkill.flashcards.push(sf);
+              }
+            });
+
+            // Merge APIs — add any seed API whose name isn't already present
+            const existingApiNames = new Set(
+              (storedSkill.apis || []).map((a) => a.name.toLowerCase())
+            );
+            (seedMatch.apis || []).forEach((sa) => {
+              if (!existingApiNames.has(sa.name.toLowerCase())) {
+                storedSkill.apis.push(sa);
+              }
+            });
+
+            // Merge refs — add any seed ref whose URL isn't already present
+            const existingUrls = new Set((storedSkill.refs || []).map((r) => r.url));
+            (seedMatch.refs || []).forEach((sr) => {
+              if (!existingUrls.has(sr.url)) {
+                storedSkill.refs.push(sr);
+              }
+            });
+
+            // Merge structured fields — fill only if stored value is empty
+            if (!storedSkill.structured) storedSkill.structured = {};
+            ['definition', 'codeExample', 'whenUsed', 'gotchas'].forEach((field) => {
+              if (!storedSkill.structured[field] && seedMatch.structured?.[field]) {
+                storedSkill.structured[field] = seedMatch.structured[field];
+              }
+            });
+          });
+
+          // Also push entire new skills that exist in seed but not in stored
+          // (e.g. sub-topics added by the audit like MD5 sub-topics, SHA sub-topics, SVG sub-topics)
+          const storedNames = new Set(
+            stored.skills.map((s) => `${s.categoryId}||${s.name}||${s.parentId ?? ''}`)
+          );
+          seedSkills.forEach((ss) => {
+            // Resolve parentId: the stored parent may have a different id than the seed parent.
+            // Match parent by name+categoryId, then use the stored parent's id.
+            let resolvedParentId = null;
+            if (ss.parentId) {
+              const seedParent = seedSkills.find((p) => p.id === ss.parentId);
+              if (seedParent) {
+                const storedParent = stored.skills.find(
+                  (sp) => sp.name === seedParent.name && sp.categoryId === seedParent.categoryId
+                );
+                resolvedParentId = storedParent ? storedParent.id : null;
+              }
+            }
+            const key = `${ss.categoryId}||${ss.name}||${resolvedParentId ?? ''}`;
+            if (!storedNames.has(key)) {
+              stored.skills.push({ ...ss, parentId: resolvedParentId });
+              storedNames.add(key);
+            }
+          });
+        }
         setData(stored);
         await saveData(stored);
       } else {

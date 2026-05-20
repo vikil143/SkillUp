@@ -552,5 +552,339 @@ export default function buildFrontendSkills() {
     );
   });
 
+  // Added by Claude Code audit — 2026-05-20
+
+  // React.js — additional top-level flashcards
+  react.flashcards.push(
+    card('What does useLayoutEffect do that useEffect cannot?', 'It fires synchronously after DOM mutations but before paint, making it safe for measuring DOM dimensions without visual flicker.'),
+    card('How does React 18 automatic batching differ from React 17?', 'React 18 batches state updates inside async callbacks, timeouts, and native event handlers — not just synthetic event handlers as before.'),
+    card('What is the purpose of useImperativeHandle?', 'It customises the ref value a parent receives via forwardRef, exposing only the imperative API surface you intend.'),
+    card('Why can context not replace a state manager for high-frequency updates?', 'Every context consumer re-renders on value reference change; purpose-built stores like Zustand/Redux use subscriptions that re-render only affected slices.'),
+    card('What triggers a React render that is NOT setState?', 'Context value change, parent re-render (unless memoised), and forceUpdate — understanding all three prevents surprise renders.'),
+  );
+
+  // React.js — additional APIs
+  react.apis.push(
+    api('useLayoutEffect', 'useLayoutEffect(effect: () => void | (() => void), deps?)', 'Fires synchronously after DOM mutations and before browser paint; use for layout measurement.', 'effect and optional deps', 'void', "useLayoutEffect(() => {\n  const { height } = ref.current.getBoundingClientRect();\n  setHeight(height);\n}, []);", 'Calling setState inside without a guard causes infinite re-renders.'),
+    api('useTransition', 'const [isPending, startTransition] = useTransition()', 'Marks state updates as non-urgent so urgent renders (typing) are not blocked.', 'none', '[isPending boolean, startTransition fn]', "const [isPending, startTransition] = useTransition();\nstartTransition(() => setTab('results'));", 'startTransition callback must be synchronous.'),
+    api('useDeferredValue', 'useDeferredValue<T>(value: T): T', 'Returns a deferred copy of a value that lags behind when the UI is busy.', 'value to defer', 'deferred value', 'const deferredQuery = useDeferredValue(query);', 'Does not guarantee a fixed delay — React decides when to update.'),
+  );
+
+  // React — Components & Props sub-topic: add specific flashcards
+  reactComponents.flashcards.push(
+    card('What is the children prop and when is it preferable to named slots?', 'children is the implicit composition slot for arbitrary subtrees; it keeps parent markup clean when content is unknown at design time.'),
+    card('Why does prop drilling become a maintainability problem?', 'Intermediate components receive props only to pass them down, coupling unrelated layers and making refactoring expensive.'),
+  );
+
+  // Next.js sub-topics — replace boilerplate by adding specific cards alongside existing ones
+  // (existing generic cards stay; these add real content per sub-topic)
+  // We push to individual sub-topic nodes by referencing the skills array positions.
+  // The Next.js forEach-generated sub-topics are at the end of the next section;
+  // we identify them by name after they were pushed.
+  skills.forEach((s) => {
+    if (s.parentId !== next.id) return;
+    const specific = {
+      'App Router fundamentals': [
+        card('What is the difference between page.tsx and route.ts in App Router?', 'page.tsx renders UI for a URL segment; route.ts defines HTTP handlers (GET/POST etc.) for that segment — they cannot coexist.'),
+        card('Why does App Router use nested layouts instead of a single _app?', 'Nested layouts allow segment-level persistence, reducing re-renders when navigating between sibling pages that share a parent layout.'),
+      ],
+      'Server Components vs Client Components': [
+        card('What is the one rule for importing between server and client components?', 'Server components can import client components, but client components cannot import server components — only pass them as props/children.'),
+        card('Why does moving a component to "use client" increase bundle size?', 'All its transitive imports become part of the client bundle; large libraries pulled into client components ship to the browser unnecessarily.'),
+      ],
+      'Server Actions': [
+        card('How do Server Actions handle progressive enhancement?', 'A <form> with a Server Action works without JavaScript because it falls back to a native HTML POST; JS enhances it with optimistic UI.'),
+        card('What security check is mandatory inside a Server Action?', 'Auth/session validation — Server Actions are publicly callable endpoints; omitting checks allows unauthenticated mutation.'),
+      ],
+      'Routing (dynamic, parallel, intercepting, groups)': [
+        card('What is a parallel route and when is it useful?', 'Parallel routes (@slot convention) render multiple independent pages in the same layout simultaneously, ideal for dashboards with independently loading panels.'),
+        card('What problem do intercepting routes solve?', 'They show a route in a modal overlay on client navigation while rendering the full page on direct URL access — enabling photo-feed modal patterns.'),
+      ],
+      'Data Fetching & Caching': [
+        card('What does `cache: "no-store"` on a fetch call mean in Next.js?', 'The request bypasses all caching and fetches fresh data on every render — equivalent to getServerSideProps behaviour.'),
+        card('How does revalidateTag relate to fetch `tags` option?', 'You tag a fetch with `{ next: { tags: ["posts"] } }` and call revalidateTag("posts") in a Server Action to purge only those cached responses.'),
+      ],
+      'Layouts & Templates': [
+        card('When is template.tsx the right choice over layout.tsx?', 'When you need components to remount on navigation (e.g., route-level animation triggers, resetting scroll position, or re-running effects per page visit).'),
+        card('Can a layout.tsx read search params?', 'No — layouts do not re-render on search param changes; use a Client Component or page.tsx for search-param-dependent UI.'),
+      ],
+      'Loading & Error UI': [
+        card('What React primitive does loading.tsx wrap route content with?', 'Suspense — Next.js automatically wraps the page segment in <Suspense fallback={<Loading />}>.'),
+        card('What is the difference between error.tsx and global-error.tsx?', 'error.tsx catches errors in its segment and children; global-error.tsx catches errors in the root layout itself and must include <html>/<body>.'),
+      ],
+      'Middleware': [
+        card('Where does Next.js middleware run?', 'At the edge, before the request reaches any route — it can rewrite, redirect, or set response headers without spinning up a full serverless function.'),
+        card('What should middleware never do for performance?', 'Import heavy Node.js modules or perform slow I/O — middleware runs on every matching request and must stay lightweight.'),
+      ],
+      'API Routes / Route Handlers': [
+        card('How does a Route Handler differ from a Server Action for mutations?', 'Route Handlers are standard HTTP endpoints callable from anywhere; Server Actions are tied to React rendering and called via RSC protocol from within the app.'),
+        card('Why use NextResponse.json() over Response.json() in Route Handlers?', 'NextResponse extends Response with Next.js utilities like cookie helpers and rewrite support.'),
+      ],
+      'Performance (Image, Font, Script)': [
+        card('What does next/font do at build time?', 'It downloads and self-hosts the font, generates a CSS variable, and eliminates the external font network request — preventing layout shift.'),
+        card('Why is priority prop important on above-the-fold next/image?', 'It adds a <link rel="preload"> and disables lazy loading so the image fetches immediately, improving LCP score.'),
+      ],
+    };
+    const cards = specific[s.name];
+    if (cards) s.flashcards.push(...cards);
+  });
+
+  // Next.js — additional APIs
+  next.apis.push(
+    api('generateStaticParams', 'generateStaticParams(): Promise<Params[]>', 'Pre-generates dynamic route segments at build time for static rendering.', 'none — returns array of param objects', 'array of segment params', "export async function generateStaticParams() {\n  const posts = await getPosts();\n  return posts.map((p) => ({ slug: p.slug }));\n}", 'Runs at build time; must be exported from a dynamic segment page.'),
+    api('generateMetadata', 'generateMetadata({ params, searchParams }): Promise<Metadata>', 'Dynamically generates <head> metadata per route segment.', 'route params and search params', 'Metadata object', "export async function generateMetadata({ params }) {\n  const post = await getPost(params.slug);\n  return { title: post.title };\n}", 'Must be in a Server Component file; cannot co-exist with static metadata export.'),
+    api('next/link', '<Link href="...">children</Link>', 'Client-side navigation component with prefetching.', 'href, optional replace/prefetch/scroll props', 'anchor element with routing', '<Link href="/dashboard">Go</Link>', 'prefetch={false} reduces bandwidth on large nav menus.'),
+  );
+
+  // TypeScript — additional top-level flashcards
+  ts.flashcards.push(
+    card('What does the `infer` keyword do in conditional types?', 'It declares a type variable within the conditional pattern to extract and name a sub-type — e.g., `T extends Promise<infer U> ? U : T` extracts the resolved type.'),
+    card('How does `never` enable exhaustive checking in switch statements?', 'Assign the default case to a variable typed `never`; if a union member is unhandled, TypeScript errors because the value cannot be assigned to never.'),
+    card('What is the difference between `type` and `interface` for extension?', 'Interfaces support declaration merging; types use intersection (&). Interfaces are open (can be augmented); types are closed after declaration.'),
+    card('Why is `keyof typeof obj` useful?', 'It derives a union of string literal keys from a runtime object without maintaining a separate type — useful for option maps and config objects.'),
+  );
+
+  // TypeScript — additional APIs
+  ts.apis.push(
+    api('NonNullable', 'NonNullable<T>', 'Removes null and undefined from a type.', 'T: possibly-nullable type', 'type without null/undefined', 'type Id = NonNullable<string | null>; // string', 'Does not deep-remove nullability from nested types.'),
+    api('Exclude', 'Exclude<T, U>', 'Removes union members assignable to U from T.', 'T: source union, U: members to remove', 'filtered union type', "type Shape = 'circle' | 'square' | 'triangle';\ntype NoCircle = Exclude<Shape, 'circle'>;", 'Order matters: Exclude<T,U> not Exclude<U,T>.'),
+    api('Extract', 'Extract<T, U>', 'Keeps only union members assignable to U.', 'T: source union, U: members to keep', 'filtered union type', "type Strings = Extract<string | number | boolean, string>;", 'Useful for narrowing event handler types from broad unions.'),
+    api('infer', 'T extends SomeType<infer U> ? U : never', 'Declares a type variable inside a conditional type for extraction.', 'conditional type expression', 'inferred type', "type Unwrap<T> = T extends Promise<infer U> ? U : T;", 'Only valid inside conditional type extends clause.'),
+  );
+
+  // TypeScript sub-topics — add specific cards
+  skills.forEach((s) => {
+    if (s.parentId !== ts.id) return;
+    const specific = {
+      'Basic Types & Inference': [
+        card('When does TypeScript widen a literal type to its base type?', 'When assigned to a `let` variable — `let x = "hello"` infers `string`, not `"hello"`. Use `const` or `as const` to preserve the literal.'),
+        card('What does `strictNullChecks` change?', 'It makes null and undefined distinct types rather than assignable to everything, catching most null-dereference bugs at compile time.'),
+      ],
+      'Interfaces vs Types': [
+        card('When does declaration merging with interfaces cause a bug?', 'When a third-party library merges into a global interface (like Window) and your code inadvertently depends on that merged shape elsewhere.'),
+        card('Which supports mapped/conditional types — interface or type alias?', 'Only type aliases support computed/mapped/conditional type expressions; interfaces require explicit property declarations.'),
+      ],
+      'Generics': [
+        card('What is a generic constraint and why use one?', '`<T extends SomeType>` limits the shapes T can take, letting you safely access properties of T without casting.'),
+        card('Why do generic defaults exist?', 'They let callers omit type arguments when the default covers the common case: `function wrap<T = string>(v: T)`.'),
+      ],
+      'Utility Types': [
+        card('What is the difference between Partial<T> and Required<T>?', 'Partial makes all properties optional; Required makes all properties mandatory (removes `?` modifiers).'),
+        card('When is ReturnType useful in practice?', 'When you want to type a variable to the return value of a function without duplicating the type — especially for factory functions.'),
+      ],
+      'Discriminated Unions': [
+        card('What makes a union "discriminated"?', 'A common literal property (the discriminant) that TypeScript can narrow on — e.g., `{ kind: "circle" }` vs `{ kind: "square" }`.'),
+        card('How do you enforce exhaustive handling of a discriminated union?', 'Use a default branch that assigns to `never`: `const _: never = val` — compilation fails if a case is unhandled.'),
+      ],
+      'Type Narrowing & Guards': [
+        card('What is the difference between `typeof` guard and `instanceof` guard?', '`typeof` narrows primitives; `instanceof` narrows class instances. Neither works for plain object shape discrimination — use a user-defined type guard.'),
+        card('What does `is` keyword do in a type guard return type?', '`value is SomeType` tells TypeScript that when the function returns true, the parameter is narrowed to SomeType in the calling scope.'),
+      ],
+      'Conditional Types': [
+        card('What is a distributive conditional type?', 'When T in `T extends U ? X : Y` is a naked type parameter, TypeScript distributes over union members: `string | number extends string ? ...` applies the condition to each member separately.'),
+        card('How do you prevent distribution in a conditional type?', 'Wrap T in a tuple: `[T] extends [U] ? X : Y` — this disables distribution and treats the union as a whole.'),
+      ],
+      'Mapped Types': [
+        card('How do you make all properties readonly with a mapped type?', '`{ readonly [K in keyof T]: T[K] }` — equivalent to the built-in `Readonly<T>`.'),
+        card('What does `-?` mean in a mapped type?', 'It removes the optional modifier from each mapped property, making them all required.'),
+      ],
+      'Template Literal Types': [
+        card('What is a practical use of template literal types?', 'Typing event name strings like `on${Capitalize<EventName>}` to derive handler prop names from a union of event names.'),
+        card('Can template literal types combine two unions?', 'Yes — `type AB = \`${A}_${B}\`` produces a cross-product union of all A×B string combinations.'),
+      ],
+      'Module Declarations': [
+        card('What is ambient declaration and when do you write one?', 'An ambient declaration (`declare module "x"`) tells TypeScript the shape of a module without providing an implementation — used when no @types package exists.'),
+        card('How do you augment a third-party module type?', 'Create a .d.ts file with `declare module "library" { interface ExistingType { newProp: string } }` — declaration merging adds your property to the existing type.'),
+      ],
+    };
+    const cards = specific[s.name];
+    if (cards) s.flashcards.push(...cards);
+  });
+
+  // JavaScript ES6+ — additional top-level flashcards
+  js.flashcards.push(
+    card('What does structuredClone do that JSON.parse(JSON.stringify()) does not?', 'structuredClone handles circular references, Date objects, Maps, Sets, and ArrayBuffers correctly without the JSON round-trip lossy conversion.'),
+    card('When does optional chaining (?.) differ from short-circuit &&?', 'Optional chaining stops at the first nullish value and returns undefined; && short-circuits on any falsy value including 0 and empty string.'),
+    card('What are logical assignment operators (&&=, ||=, ??=)?', 'They combine a logical check with assignment: `a ||= b` only assigns b if a is falsy — useful for default-setting without re-triggering setters.'),
+    card('Why is WeakMap useful for associating private data with DOM nodes?', 'Entries are garbage-collected when the key object is collected, avoiding memory leaks that a regular Map would cause by holding strong key references.'),
+    card('How does a generator enable lazy infinite sequences?', 'It yields values on demand and suspends execution between yields, so it can produce values from an unbounded series without materialising them all.'),
+  );
+
+  // JavaScript ES6+ — additional APIs
+  js.apis.push(
+    api('Array.prototype.filter', 'arr.filter((value, index, array) => boolean)', 'Returns new array with items passing the predicate.', 'predicate callback', 'new filtered array', 'const active = users.filter((u) => u.active);', 'Does not mutate; returns empty array if nothing passes.'),
+    api('Array.prototype.find', 'arr.find((value, index) => boolean)', 'Returns first item passing predicate, or undefined.', 'predicate callback', 'item or undefined', 'const admin = users.find((u) => u.role === "admin");', 'Returns undefined not null when nothing matches.'),
+    api('Array.prototype.flat', 'arr.flat(depth?)', 'Flattens nested arrays by the given depth.', 'optional depth (default 1)', 'new flat array', 'const flat = [[1,2],[3,[4]]].flat(2);', 'Infinity depth fully flattens; be cautious with unknown structure.'),
+    api('Promise.any', 'Promise.any(iterable)', 'Resolves with first fulfilled promise; rejects only if all fail.', 'iterable of promises', 'Promise<value>', "const fastest = await Promise.any([fetchA(), fetchB()]);", 'Rejects with AggregateError containing all rejection reasons.'),
+    api('structuredClone', 'structuredClone(value, options?)', 'Deep clones a value using the structured clone algorithm.', 'value and optional transfer list', 'deep clone', 'const copy = structuredClone(complexObj);', 'Cannot clone functions, DOM nodes, or class instances (loses prototype).'),
+  );
+
+  // JavaScript ES6+ sub-topics — add specific cards
+  skills.forEach((s) => {
+    if (s.parentId !== js.id) return;
+    const specific = {
+      'Variables & Scoping': [
+        card('What is the Temporal Dead Zone (TDZ)?', 'The span between entering a block scope and the let/const declaration line; accessing the variable in this zone throws a ReferenceError.'),
+        card('Why prefer const over let by default?', 'It signals immutable binding intent, prevents accidental reassignment, and helps readers identify stable values without scanning further code.'),
+      ],
+      'Functions (arrow, this, closures)': [
+        card('Why cannot arrow functions be used as constructors?', 'They do not have their own `this` binding or `prototype` property, so `new ArrowFn()` throws a TypeError.'),
+        card('What is the difference between `.call()`, `.apply()`, and `.bind()`?', '.call and .apply invoke immediately with a given this (apply takes args as array); .bind returns a new function with this permanently bound.'),
+      ],
+      'Objects & Prototypes': [
+        card('What is Object.create(proto) used for?', 'It creates an object with the specified prototype, enabling manual prototype chain setup without constructors or class syntax.'),
+        card('Why does hasOwnProperty matter when iterating with for...in?', 'for...in traverses the full prototype chain; hasOwnProperty filters to only direct properties, avoiding unintended inherited key access.'),
+      ],
+      'Promises & Async/Await': [
+        card('What happens if you await a non-Promise value?', 'It is wrapped in Promise.resolve() and the resolved value is returned immediately — await on a plain value is safe but unnecessary.'),
+        card('Why is unhandled promise rejection dangerous in Node.js?', 'In recent Node versions it terminates the process; in browsers it surfaces as uncaught error. Always attach .catch() or use try/catch around await.'),
+      ],
+      'Iterators & Generators': [
+        card('What contract must an iterator object fulfil?', 'It must have a `next()` method returning `{ value, done }` — generators implement this automatically.'),
+        card('How do you make a custom class iterable?', 'Implement `[Symbol.iterator]()` returning an iterator object; then the class works in for...of, spread, and destructuring.'),
+      ],
+      'Destructuring, Spread & Rest': [
+        card('What is the difference between rest in parameters and rest in destructuring?', 'Both collect remaining items, but parameter rest (`...args`) captures extra function arguments while destructuring rest (`const { a, ...rest } = obj`) captures remaining object/array elements.'),
+        card('Can you destructure with default values?', 'Yes — `const { x = 0, y = 0 } = point` uses defaults only when the property is undefined, not when it is null or 0.'),
+      ],
+      'Modules (ESM vs CommonJS)': [
+        card('Why can ESM imports be statically analysed but CJS require() cannot?', 'ESM import declarations are top-level and evaluated at parse time; require() is a runtime function call that can be conditional or dynamic.'),
+        card('What is the dual package hazard in Node.js?', 'A package exposing both CJS and ESM entry points can end up with two separate module instances loaded — breaking instanceof checks and singleton state.'),
+      ],
+      'Classes': [
+        card('What does a private class field (#field) do differently than a closure-based private?', 'It is enforced by the runtime (accessing from outside throws) and is accessible within the class body; closure-based private values exist only in the constructor scope.'),
+        card('When should you use static class methods?', 'For factory methods, utility operations on the class type, and behaviour that does not need access to instance state.'),
+      ],
+      'Event Loop & Microtasks': [
+        card('In what order do these run: setTimeout(fn,0), Promise.resolve().then(fn), queueMicrotask(fn)?', 'queueMicrotask and Promise.then both run in the microtask queue before the next macrotask, so both fire before setTimeout — order between the two microtasks is FIFO.'),
+        card('Why can a long microtask chain starve the render pipeline?', 'The browser only paints between tasks (macrotasks); if microtasks keep scheduling more microtasks, the paint callback never gets a chance to run.'),
+      ],
+      'Array/Object methods': [
+        card('What does Array.from do that the spread operator cannot?', 'Array.from accepts a mapFn second argument for immediate transformation, and handles array-like objects (e.g., NodeList) without needing iterable protocol support.'),
+        card('Why is Object.assign shallow and when does that matter?', 'It copies own enumerable property references, so nested objects still share identity — mutations to nested values affect both source and target.'),
+      ],
+    };
+    const cards = specific[s.name];
+    if (cards) s.flashcards.push(...cards);
+  });
+
+  // HTML5 — additional APIs
+  html.apis.push(
+    api('localStorage / sessionStorage', 'localStorage.setItem(key, value) / getItem(key) / removeItem(key)', 'Persists string key-value pairs in the browser; localStorage survives tab close, sessionStorage does not.', 'string key and value', 'string or null', "localStorage.setItem('theme', 'dark');\nconst theme = localStorage.getItem('theme');", 'Values are always strings; JSON.stringify/parse required for objects.'),
+    api('IntersectionObserver', 'new IntersectionObserver(callback, options)', 'Observes when elements enter or exit the viewport.', 'callback and threshold/root options', 'observer instance', "const io = new IntersectionObserver(([entry]) => {\n  if (entry.isIntersecting) load();\n});\nio.observe(lazyImg);", 'Disconnect observer when no longer needed to prevent leaks.'),
+    api('ResizeObserver', 'new ResizeObserver(callback)', 'Fires when observed element dimensions change.', 'callback with ResizeObserverEntry[]', 'observer instance', "const ro = new ResizeObserver(([e]) => setWidth(e.contentRect.width));\nro.observe(el);", 'Can cause loop if callback itself resizes the observed element.'),
+    api('<video> / <audio>', '<video src controls width height poster />', 'Native media playback with JS API for play/pause/seek.', 'src, controls, autoplay, loop, muted attrs', 'HTMLMediaElement', "<video src='/demo.mp4' controls muted playsinline />", 'autoplay requires muted on most browsers; use playsinline for iOS.'),
+    api('MutationObserver', 'new MutationObserver(callback)', 'Watches for DOM tree changes (child list, attributes, text).', 'callback with MutationRecord[]', 'observer instance', "const mo = new MutationObserver((muts) => console.log(muts));\nmo.observe(target, { childList: true, subtree: true });", 'Disconnect when done; deep subtree observation on large trees is expensive.'),
+  );
+
+  // HTML5 sub-topics — add specific cards
+  skills.forEach((s) => {
+    if (s.parentId !== html.id) return;
+    const specific = {
+      'Semantic Elements': [
+        card('What semantic element should wrap a self-contained syndicated piece of content?', '<article> — it is independently distributable (e.g., a blog post, news story, or forum entry). Use <section> for thematically grouped content within a page.'),
+        card('Why does heading hierarchy matter beyond visual styling?', 'Screen readers build a document outline from heading levels; a skipped h1→h3 or multiple h1s breaks navigation for assistive technology users.'),
+      ],
+      'Forms & Validation': [
+        card('What does the `novalidate` attribute on a form do?', 'It disables native browser validation so you can implement custom JS validation while still using the Constraint Validation API for state tracking.'),
+        card('Why must every form input have an associated <label>?', 'Labels provide the accessible name for inputs; without them screen readers cannot describe the field, and click target size shrinks to the control itself.'),
+      ],
+      'Accessibility & ARIA': [
+        card('What is the first rule of ARIA?', 'Do not use ARIA if a native HTML element or attribute provides the semantics and behaviour you need.'),
+        card('What is aria-live used for?', 'It marks a region whose content updates dynamically; screen readers announce changes to polite (after current speech) or assertive (interrupt) live regions.'),
+      ],
+      'Media': [
+        card('What does the `srcset` attribute on <img> enable?', 'It lets the browser select the most appropriate image source based on device pixel ratio or viewport width, reducing bandwidth on low-DPI displays.'),
+        card('Why should <video> include the `playsinline` attribute for mobile?', 'Without it, iOS Safari forces full-screen playback; `playsinline` allows inline video in the page flow, important for UX consistency.'),
+      ],
+      'Canvas basics': [
+        card('What is the difference between canvas 2D context and WebGL context?', '2D context provides a high-level imperative drawing API; WebGL exposes raw GPU programming via shaders, required for 3D or GPU-accelerated effects.'),
+        card('Why should canvas dimensions be set via attributes, not CSS?', 'CSS scales the canvas element but the drawing buffer stays at its attribute dimensions; mismatches cause blurry rendering.'),
+      ],
+      'Web Storage APIs': [
+        card('Why must you never store sensitive data in localStorage?', 'It is accessible to any JS on the same origin — an XSS vulnerability can exfiltrate everything. Use httpOnly cookies for auth tokens.'),
+        card('What is the storage event and when does it fire?', 'It fires on other tabs/windows of the same origin when localStorage changes, enabling cross-tab state synchronisation.'),
+      ],
+      'Meta tags & SEO': [
+        card('What does <meta name="viewport" content="width=device-width, initial-scale=1"> do?', 'It tells mobile browsers to set viewport width to device width and use 1:1 scale, preventing the 980px default that makes pages appear zoomed-out.'),
+        card('Why are Open Graph meta tags important?', 'They control how page previews appear on social platforms (title, image, description) when links are shared.'),
+      ],
+      'Web Components basics': [
+        card('What are the three browser APIs that compose Web Components?', 'Custom Elements (define new HTML tags), Shadow DOM (encapsulated scoped DOM/styles), and HTML Templates (<template>/<slot> for declarative fragments).'),
+        card('Why does Shadow DOM provide style encapsulation?', 'Styles defined inside a shadow root do not leak out and external styles do not pierce in by default — each component has an isolated style scope.'),
+      ],
+    };
+    const cards = specific[s.name];
+    if (cards) s.flashcards.push(...cards);
+  });
+
+  // CSS3 — additional top-level flashcards
+  css.flashcards.push(
+    card('What triggers a new stacking context?', 'position + z-index (non-auto), opacity < 1, transform, filter, isolation: isolate, and will-change — understanding this prevents z-index fights.'),
+    card('What is a Block Formatting Context and why does it matter?', 'A BFC contains floats, prevents margin collapse with children, and does not overlap adjacent floats — created by overflow, display: flow-root, flex/grid containers.'),
+    card('What does `aspect-ratio` replace in modern CSS?', 'The padding-top percentage hack for maintaining proportional boxes — `aspect-ratio: 16/9` is declarative and works with actual height constraints.'),
+    card('How does `gap` in Grid differ from margin for spacing?', 'gap only applies between grid/flex items, not on outer edges — eliminating the need for negative-margin hacks and first/last-child overrides.'),
+    card('What are logical properties and why do they matter for i18n?', 'Properties like `margin-inline-start` map to left/right based on writing direction — they make layouts automatically correct for RTL languages without override rules.'),
+  );
+
+  // CSS3 — additional APIs
+  css.apis.push(
+    api('@media', '@media (condition) { ... }', 'Applies styles conditionally based on viewport, device, or preference features.', 'media feature expressions', 'conditional rule block', '@media (max-width: 768px) { .sidebar { display: none; } }', 'Prefer min-width (mobile-first) over max-width for scalability.'),
+    api('@keyframes', '@keyframes name { from { ... } to { ... } }', 'Defines animation steps for use with animation property.', 'animation name and step declarations', 'animation definition', "@keyframes fadeIn { from { opacity: 0 } to { opacity: 1 } }", 'Keyframe selectors can use percentage values for multi-step animations.'),
+    api('animation', 'animation: name duration timing-function delay iteration fill-mode', 'Applies a keyframe animation to an element.', 'shorthand animation values', 'animated element', '.toast { animation: fadeIn 300ms ease forwards; }', 'Use will-change: transform/opacity sparingly to hint GPU compositing.'),
+    api('transition', 'transition: property duration timing-function delay', 'Smoothly interpolates CSS property changes.', 'target property and timing', 'animated property change', '.btn { transition: background-color 200ms ease; }', 'Transitioning all properties is wasteful; be explicit about which properties.'),
+    api('transform', 'transform: translate() scale() rotate() skew()', 'Applies 2D/3D geometric transformations without affecting layout.', 'transform function list', 'visual transformation', '.card:hover { transform: translateY(-4px) scale(1.01); }', 'transform creates a new stacking context and compositing layer.'),
+    api(':is() / :where()', ':is(selector-list) / :where(selector-list)', ':is() matches any selector in list with the highest specificity in the list; :where() always has zero specificity.', 'forgiving selector list', 'matched elements', ':is(h1, h2, h3) { line-height: 1.2; }', ':where() is safer for utility resets as it cannot accidentally win specificity battles.'),
+  );
+
+  // CSS3 sub-topics — add specific cards
+  skills.forEach((s) => {
+    if (s.parentId !== css.id) return;
+    const specific = {
+      'Selectors & Specificity': [
+        card('How is specificity calculated?', 'IDs = 1-0-0, classes/attributes/pseudo-classes = 0-1-0, elements/pseudo-elements = 0-0-1. Inline styles are 1-0-0-0. Higher wins; same specificity means last-declared wins.'),
+        card('Why does :not() take on the specificity of its argument?', '`:not(.foo)` has class-level specificity (0-1-0), not zero — this surprises developers who expect the negation to be free.'),
+      ],
+      'Box Model': [
+        card('What does `box-sizing: border-box` change?', 'Width and height include padding and border, not just content — making layout arithmetic predictable without subtracting padding manually.'),
+        card('When does margin collapse happen and when does it not?', 'Adjacent block margins collapse vertically; it does not happen inside flex/grid containers, with overflow (not visible), or with padding/border between margins.'),
+      ],
+      'Flexbox': [
+        card('What is the difference between flex-basis and width?', 'flex-basis sets the initial main-axis size before flex-grow/shrink adjust it; it takes precedence over width when flex-direction is row.'),
+        card('What causes flex children to overflow their container?', 'flex-shrink: 0 prevents shrinking, and min-width: auto on flex items defaults to their content width — set min-width: 0 to allow shrinking below content size.'),
+      ],
+      'Grid': [
+        card('What does `grid-template-areas` buy you over line-based placement?', 'Named areas make template intent readable and let you reorganise layout by changing the template string without touching child placement rules.'),
+        card('What is the difference between implicit and explicit grid tracks?', 'Explicit tracks are defined by grid-template-columns/rows; implicit tracks are auto-created for items that overflow — control them with grid-auto-columns/rows.'),
+      ],
+      'Positioning': [
+        card('What is the difference between position: absolute and position: fixed?', 'Absolute positions relative to the nearest positioned ancestor; fixed positions relative to the viewport and does not scroll with the page.'),
+        card('What makes position: sticky not work?', 'An ancestor with overflow: hidden/auto/scroll clips the sticky element; the sticky container must have enough height for the element to stick within.'),
+      ],
+      'Transitions & Animations': [
+        card('Why should you prefer CSS transitions over JS-driven style changes for simple effects?', 'CSS transitions are handled by the compositor thread and avoid main thread JS; they are interruptible and perform better under scroll/interaction load.'),
+        card('What is the purpose of animation-fill-mode: forwards?', 'It retains the final keyframe state after the animation completes instead of reverting to the original property value.'),
+      ],
+      'Transforms': [
+        card('Why does transform not affect document flow?', "Transformed elements remain in normal flow for layout purposes — other elements don't reflow around them; only the visual rendering moves."),
+        card('What is `transform-origin` and why does it matter for rotation?', 'It sets the pivot point for transform operations; default is 50% 50% (center), but rotating a card around its edge requires transform-origin: left center.'),
+      ],
+      'Responsive Design': [
+        card('What is the mobile-first approach in media queries?', 'Base styles target small screens; min-width queries progressively enhance for larger viewports — avoiding override-heavy max-width patterns.'),
+        card('What is the difference between px, em, and rem in responsive design?', 'px is fixed; em is relative to the parent font-size (compounds in nesting); rem is relative to the root font-size (consistent and predictable).'),
+      ],
+      'Custom Properties': [
+        card('How do CSS custom properties differ from Sass variables at runtime?', 'CSS custom properties resolve at paint time and can be changed with JS or per-selector overrides; Sass variables are compiled away and cannot change after build.'),
+        card('What is the var() fallback and when should you use it?', '`var(--token, fallback)` uses fallback if --token is not defined in scope — essential for partial theme implementations or optional design tokens.'),
+      ],
+      'Pseudo-classes & Pseudo-elements': [
+        card('What is the difference between :focus and :focus-visible?', ':focus applies on any focus method; :focus-visible applies only when focus was reached via keyboard, enabling visible indicators for keyboard users without outlining mouse clicks.'),
+        card('What can ::before and ::after not contain?', 'They cannot contain interactive elements (buttons, inputs); they are purely presentational. They also require content: "" to render.'),
+      ],
+    };
+    const cards = specific[s.name];
+    if (cards) s.flashcards.push(...cards);
+  });
+
   return skills;
 }

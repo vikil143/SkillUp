@@ -347,5 +347,220 @@ export default function buildBackendSkills() {
     );
   });
 
+  // Added by Claude Code audit — 2026-05-20
+
+  // Node.js — additional top-level flashcards
+  node.flashcards.push(
+    card('What is AsyncLocalStorage and why is it useful?', 'It provides request-scoped context (like a trace ID) that flows through async call chains without passing it as a parameter everywhere.'),
+    card('How do uncaughtException and unhandledRejection differ?', 'uncaughtException fires for synchronous throws that escape all handlers; unhandledRejection fires for Promise rejections with no .catch(). Both can crash the process.'),
+    card('When would you use cluster module over worker_threads?', 'cluster spawns separate OS processes sharing a port for CPU scaling across cores; worker_threads share memory within one process for CPU-bound parallel computation.'),
+    card('Why is --max-old-space-size important in production?', 'Node defaults to ~1.5 GB V8 heap; without tuning, memory-heavy services hit OOM before the host machine is exhausted.'),
+    card('What does module.exports vs export default mean for dual CJS/ESM packages?', 'Packages can ship both via "exports" field in package.json with "require" and "import" conditions — the dual package hazard arises if consumers load both copies.'),
+  );
+
+  // Node.js — additional APIs
+  node.apis.push(
+    api('path.join / path.resolve', 'path.join(...segments) / path.resolve(...segments)', 'Joins path segments safely (join) or resolves an absolute path (resolve).', 'path string segments', 'string path', "import { join } from 'node:path';\nconst p = join(__dirname, 'config', 'app.json');", 'Use path APIs instead of string concatenation to avoid OS separator bugs.'),
+    api('child_process.spawn', "spawn(command, args, options)", 'Spawns a child process and streams stdout/stderr.', 'command, args array, options', 'ChildProcess instance', "import { spawn } from 'node:child_process';\nconst ls = spawn('ls', ['-lh', '/tmp']);", 'Use spawn over exec for large output to avoid buffer overflow.'),
+    api('timers/promises', 'setTimeout(ms), setInterval(ms)', 'Promisified timer utilities from node:timers/promises.', 'delay in ms', 'Promise', "import { setTimeout as delay } from 'node:timers/promises';\nawait delay(500);", 'Prefer over wrapping setTimeout in a manual Promise.'),
+    api('AsyncLocalStorage', 'new AsyncLocalStorage(); .run(store, fn); .getStore()', 'Propagates request-scoped context through async call chains.', 'store value and callback', 'scoped store access', "const als = new AsyncLocalStorage();\nals.run({ reqId: 'r1' }, () => doWork());\n// inside doWork:\nals.getStore().reqId;", 'Store is undefined outside a run() context.'),
+  );
+
+  // Node.js sub-topics — specific flashcards
+  skills.forEach((s) => {
+    if (s.parentId !== node.id) return;
+    const specific = {
+      'Event Loop & Concurrency': [
+        card('What are the phases of the Node.js event loop in order?', 'timers → pending callbacks → idle/prepare → poll → check (setImmediate) → close callbacks. Microtasks (Promise jobs, nextTick) drain between each phase.'),
+        card('Why does process.nextTick fire before Promise microtasks?', 'nextTick queue is drained before the Promise microtask queue in each turn — it has higher priority and can starve I/O if overused recursively.'),
+      ],
+      'Modules & Package Management': [
+        card('What is the "exports" field in package.json used for?', 'It defines public entry points and condition-based resolution (require vs import vs browser), replacing "main" and enabling subpath exports.'),
+        card('Why is package-lock.json important for reproducible builds?', 'It pins the exact resolved version and integrity hash of every dependency, ensuring the same tree installs in CI and production.'),
+      ],
+      'File System & Streams': [
+        card('When should you use a stream instead of readFile?', 'For large files where loading the entire content into memory would cause spikes — streams process chunks incrementally with bounded memory.'),
+        card('What does stream.pipeline() do that manual pipe() does not?', 'pipeline() automatically forwards errors between stages and calls destroy() on all streams on failure — preventing the resource leaks that manual piping causes on error.'),
+      ],
+      'Process & Environment': [
+        card('Why should config be validated at startup?', 'Failing fast on missing/malformed env vars prevents partially-initialised services from running in a broken state that only surfaces under specific traffic.'),
+        card('What does process.exitCode do vs process.exit()?', 'Setting process.exitCode lets the process finish its event loop before exiting with that code; process.exit() terminates immediately, skipping cleanup handlers.'),
+      ],
+      'Error Handling Patterns': [
+        card('What is the operational vs programmer error distinction in Node?', 'Operational errors (network timeout, ENOENT) are expected and should be handled gracefully; programmer errors (TypeError, RangeError) indicate bugs and should crash the process.'),
+        card('Why wrap async route handlers in a try/catch or async wrapper?', 'Unhandled rejection in an async Express handler bypasses the centralized error middleware unless the error is explicitly forwarded via next(err).'),
+      ],
+      'Worker Threads': [
+        card('How do worker threads share data without copying?', 'SharedArrayBuffer with Atomics for concurrent low-level access, or transferable objects (ArrayBuffer) which are moved rather than copied.'),
+        card('What is a common mistake with worker thread error handling?', "Not listening for the 'error' event on the worker — unhandled worker errors are emitted as events, not thrown in the parent thread."),
+      ],
+      'Testing Node Services': [
+        card('Why hit a real database in integration tests instead of mocking?', 'Mocks diverge from real driver behaviour over time; integration tests catch schema changes, query planner issues, and constraint violations that mocks miss.'),
+        card('What is supertest used for in Express testing?', 'It wraps an Express app and allows HTTP-level assertions without binding to a real port — testing routes, status codes, and response bodies in-process.'),
+      ],
+    };
+    const cards = specific[s.name];
+    if (cards) s.flashcards.push(...cards);
+  });
+
+  // Express.js — additional top-level flashcards
+  express.flashcards.push(
+    card('What does helmet() do for an Express app?', 'It sets ~15 security-related HTTP response headers (CSP, HSTS, X-Frame-Options, etc.) with safe defaults to harden against common browser attacks.'),
+    card('How does morgan differ from pino/winston for logging?', 'Morgan is request-focused HTTP middleware; pino/winston are general-purpose structured loggers. Use morgan for access logs and pino for application logs.'),
+    card('Why is rate-limiting middleware essential before auth routes?', 'Without it, login and token endpoints are exposed to unlimited brute-force and credential-stuffing attacks.'),
+    card('What is the async wrapper pattern for Express routes?', 'A higher-order function that wraps async handlers: `const wrap = fn => (req,res,next) => fn(req,res,next).catch(next)` — forwards all rejections to error middleware.'),
+  );
+
+  // Express.js — additional APIs
+  express.apis.push(
+    api('express.urlencoded', 'express.urlencoded({ extended: boolean })', 'Parses URL-encoded form bodies into req.body.', 'extended: true uses qs, false uses querystring', 'middleware', "app.use(express.urlencoded({ extended: false }));", 'Required for HTML form POST submissions.'),
+    api('express.static', 'express.static(root, options?)', 'Serves static files from a directory.', 'root directory path and options', 'middleware', "app.use('/assets', express.static('public'));", 'Set maxAge for cache-control on production static assets.'),
+    api('res.cookie', 'res.cookie(name, value, options?)', 'Sets a Set-Cookie response header.', 'name, value, and cookie options', 'response', "res.cookie('token', jwt, { httpOnly: true, secure: true, sameSite: 'strict' });", 'Always set httpOnly and secure for auth cookies.'),
+    api('res.redirect', 'res.redirect([status,] url)', 'Sends a redirect response.', 'optional status code (default 302) and URL', 'response', "res.redirect(301, '/new-path');", '301 is permanent (cached); 302 is temporary. Choose deliberately.'),
+    api('req.params / req.query', 'req.params.id / req.query.page', 'Accesses route path parameters and query string values.', 'named param from route pattern or query key', 'string or undefined', "app.get('/users/:id', (req) => req.params.id);\n// GET /users?page=2 → req.query.page === '2'", 'All values are strings; parse/validate before use.'),
+  );
+
+  // Express sub-topics — specific flashcards
+  skills.forEach((s) => {
+    if (s.parentId !== express.id) return;
+    const specific = {
+      'Middleware Architecture': [
+        card('What is the four-argument signature for error-handling middleware?', '(err, req, res, next) — Express detects the arity and routes errors to this handler when next(err) is called anywhere upstream.'),
+        card('Why must body-parser middleware come before route handlers?', 'Middleware executes in registration order; routes that read req.body will get undefined if the parser has not run yet.'),
+      ],
+      'Routing & Modular Routers': [
+        card('What does express.Router() give you that app.use() alone does not?', 'A mini-application with its own middleware stack and route table that can be mounted at any prefix — enabling feature-based modularisation without path coupling.'),
+        card('Why use router.param() for repeated param validation?', 'It runs once per request for a named param, centralising existence/type checks instead of duplicating them across every route that uses that param.'),
+      ],
+      'Validation & Sanitization': [
+        card('What is the difference between validation and sanitization?', 'Validation checks if input meets constraints (type, range, format) and rejects invalid data; sanitization transforms input (trim, escape) to a safe form before use.'),
+        card('Why should validation schemas be defined outside route handlers?', 'Colocating schema definitions with business logic couples transport concerns to domain logic — schemas should be reusable across routes and test suites.'),
+      ],
+      'Auth Middleware': [
+        card('Where should auth middleware sit in the Express pipeline?', 'After body/cookie parsers but before any routes that require a user identity — typically mounted globally on an /api prefix or per-router.'),
+        card('Why should auth middleware attach user to req rather than return directly?', 'Attaching to req.user allows downstream handlers and middleware to access identity without re-verifying the token on every use.'),
+      ],
+      'Error Handling': [
+        card('What happens if error middleware calls next() without an error?', 'Express treats it as passing to the next non-error middleware — be explicit: either send a response or call next(err) to keep propagating.'),
+        card('Why should production error responses omit stack traces?', 'Stack traces reveal file paths, dependency versions, and internal logic — useful for attackers building exploit payloads.'),
+      ],
+      'Security Hardening': [
+        card('What does `app.set("trust proxy", 1)` do in a load-balanced deployment?', 'It trusts the X-Forwarded-For and X-Forwarded-Proto headers from one hop upstream, making req.ip and secure cookies work correctly behind a reverse proxy.'),
+        card('What is CORS and why must it be explicitly configured?', 'Cross-Origin Resource Sharing lets browsers make cross-origin requests; without explicit allow-list, browsers block frontend JS calls to your API from different origins.'),
+      ],
+      'Observability & Logging': [
+        card('What fields should every request log include?', 'Request ID, method, path, status, duration, user ID (if authed), and error type — sufficient to trace any request through distributed systems.'),
+        card('Why use structured JSON logs over string logs in production?', 'JSON logs are machine-parseable by log aggregators (Datadog, Loki) enabling filtering, alerting, and dashboards without regex parsing.'),
+      ],
+    };
+    const cards = specific[s.name];
+    if (cards) s.flashcards.push(...cards);
+  });
+
+  // REST APIs — additional top-level flashcards
+  rest.flashcards.push(
+    card('What is the difference between safe and idempotent HTTP methods?', 'Safe methods (GET, HEAD, OPTIONS) have no side effects. Idempotent methods (GET, PUT, DELETE) produce the same result when called multiple times. POST is neither.'),
+    card('What is content negotiation in REST?', 'Client sends Accept header with preferred media type; server responds with matching Content-Type or 406 Not Acceptable if it cannot satisfy the request.'),
+    card('What does a 422 Unprocessable Entity status communicate vs 400?', '400 means the request is syntactically malformed; 422 means the syntax is valid but the semantic content fails validation (e.g., business rule violation).'),
+    card('Why include a Location header in 201 Created responses?', 'It points the client directly to the newly created resource URI, eliminating a follow-up lookup request.'),
+  );
+
+  // REST APIs — additional APIs
+  rest.apis.push(
+    api('Content-Type / Accept', 'Content-Type: application/json / Accept: application/json', 'Content-Type describes the body format sent; Accept declares what the client can receive.', 'header values', 'media type negotiation', "res.set('Content-Type', 'application/json');\n// client: fetch(url, { headers: { Accept: 'application/json' } })", 'Mismatch returns 415 Unsupported Media Type or 406 Not Acceptable.'),
+    api('Location header', 'Location: /v1/resources/{id}', 'Points to the newly created or redirected resource URI.', 'absolute or relative URL', 'header string', "res.set('Location', `/v1/orders/${order.id}`).status(201).json(order);", 'Required on 201 Created and 3xx redirect responses for discoverability.'),
+    api('Retry-After header', 'Retry-After: <seconds> or <http-date>', 'Tells clients when they may retry after 429 or 503.', 'seconds integer or HTTP date', 'header string', "res.set('Retry-After', '30').status(429).json({ error: 'rate_limited' });", 'Without this, clients use exponential backoff guessing — often wrong.'),
+    api('Link header (pagination)', 'Link: <url>; rel="next", <url>; rel="prev"', 'Communicates pagination cursors via standard header.', 'URL and relation type', 'header string', 'res.set("Link", `<${nextUrl}>; rel="next"`);', 'Preferred over body-embedded pagination in hypermedia APIs.'),
+  );
+
+  // REST sub-topics — specific flashcards
+  skills.forEach((s) => {
+    if (s.parentId !== rest.id) return;
+    const specific = {
+      'Resource Modeling': [
+        card('What is the difference between a resource and a collection endpoint?', '/orders is a collection (returns list, accepts POST); /orders/{id} is a resource (returns single item, accepts GET/PUT/PATCH/DELETE).'),
+        card('When should you use a sub-resource vs a query parameter?', 'Sub-resource (/users/u1/orders) for ownership/containment relationships; query param (?userId=u1) for filtering across a flat collection.'),
+      ],
+      'Status Codes & Error Shapes': [
+        card('What is the RFC 7807 Problem Details format?', 'A standard JSON error shape with `type`, `title`, `status`, `detail`, and optional `instance` — reduces bespoke error format proliferation.'),
+        card('When should 409 Conflict be returned instead of 422?', '409 when the request conflicts with current resource state (duplicate, optimistic lock failure); 422 when the payload itself is semantically invalid.'),
+      ],
+      'Pagination & Filtering': [
+        card('Why is keyset pagination more stable than offset on live data?', 'Offset skips N rows after sorting — inserts/deletes before that offset shift the window; keyset anchors to a stable cursor value immune to concurrent writes.'),
+        card('What is the downside of cursor pagination?', 'You cannot jump to arbitrary pages — only forward/backward navigation is possible, which can frustrate admin/reporting use cases.'),
+      ],
+      'Idempotency': [
+        card('How do idempotency keys work for POST requests?', 'Client generates a unique key per logical operation, sends it as a header; server stores the key+result and returns the stored result on duplicate requests rather than re-executing.'),
+        card('Why is DELETE usually idempotent but not always safe?', 'Deleting a non-existent resource returns 404 not 204 — technically correct but callers should treat repeated 404 as idempotent success in retry logic.'),
+      ],
+      'Versioning Strategies': [
+        card('What are the three main REST versioning strategies?', 'URI path (/v1/), Accept header (application/vnd.api+json;version=1), and custom header (API-Version: 1). URI versioning is most cache-friendly and explicit.'),
+        card('What is a non-breaking API change?', 'Adding new optional fields, new endpoints, or new enum values are typically non-breaking; removing/renaming fields or changing types always require a version bump.'),
+      ],
+      'Caching & Conditional Requests': [
+        card('What is the difference between Cache-Control: private and public?', 'public allows CDN/shared cache storage; private restricts to the end-user browser cache — use private for authenticated user-specific responses.'),
+        card('How does If-None-Match work with ETags?', 'Client sends the ETag it received as If-None-Match; server returns 304 Not Modified if the resource has not changed, saving payload transfer.'),
+      ],
+      'Rate Limiting': [
+        card('What is the token bucket algorithm?', 'Each client has a bucket that refills at a fixed rate; each request consumes a token. Allows burst up to bucket capacity while enforcing average rate.'),
+        card('Why rate-limit per user rather than per IP in authenticated APIs?', 'Shared IPs (NAT, corporate proxies) would throttle multiple legitimate users; per-user limiting accurately tracks individual consumption.'),
+      ],
+    };
+    const cards = specific[s.name];
+    if (cards) s.flashcards.push(...cards);
+  });
+
+  // WebSockets — additional top-level flashcards
+  ws.flashcards.push(
+    card('What is the HTTP Upgrade handshake in WebSocket?', 'Client sends HTTP/1.1 request with `Upgrade: websocket` and `Sec-WebSocket-Key`; server responds 101 Switching Protocols and the connection becomes full-duplex TCP.'),
+    card('Why does WS framing mask client-to-server messages?', 'RFC 6455 requires masking to prevent cache poisoning via intermediaries that might misinterpret WS frames as HTTP — servers must unmask; masking is not encryption.'),
+    card('What is the fan-out amplification problem?', 'A single message to N connected clients requires N socket.send() calls; on large deployments this blocks the event loop — offload to worker threads or a pub/sub broker.'),
+    card('When is Socket.IO preferable over raw ws?', 'When you need automatic reconnection, room/namespace abstractions, binary message framing, and fallback transports (long-polling) out of the box.'),
+  );
+
+  // WebSockets — additional APIs
+  ws.apis.push(
+    api('EventSource (SSE)', 'new EventSource(url)', 'Browser API for one-way server-to-client event streams over HTTP.', 'URL of SSE endpoint', 'EventSource instance', "const es = new EventSource('/events');\nes.onmessage = (e) => console.log(e.data);", 'Simpler than WS for push-only notifications; auto-reconnects by default.'),
+    api('Socket.IO emit/on', 'io.emit(event, data) / socket.on(event, fn)', 'Higher-level event-based messaging over WebSocket with rooms.', 'event name and data payload', 'void / callback', "io.to('room1').emit('update', payload);\nsocket.on('join', (room) => socket.join(room));", 'Socket.IO protocol is not raw WS — plain WS clients cannot connect.'),
+    api('ws client (browser)', 'new WebSocket(url, protocols?)', 'Browser-native WebSocket client constructor.', 'URL and optional subprotocols', 'WebSocket instance', "const ws = new WebSocket('wss://api.example.com/ws');\nws.onmessage = (e) => handle(JSON.parse(e.data));", 'Always use wss:// (TLS) in production.'),
+  );
+
+  // WebSocket sub-topics — specific flashcards
+  skills.forEach((s) => {
+    if (s.parentId !== ws.id) return;
+    const specific = {
+      'Connection Lifecycle': [
+        card('What are the four WebSocket readyState values?', 'CONNECTING (0), OPEN (1), CLOSING (2), CLOSED (3) — always check OPEN before calling send() to avoid errors.'),
+        card('Why should the server send a close frame before terminating?', 'A clean close frame (code 1000) allows the client to distinguish intentional shutdown from network failure and implement appropriate reconnection logic.'),
+      ],
+      'Pub/Sub Fan-out': [
+        card('Why use Redis pub/sub for WebSocket fan-out across multiple servers?', 'Each server only knows about its own connected clients; Redis acts as the broker so a message published on server A reaches clients connected to server B.'),
+        card('What is the difference between broadcasting to all clients vs a room?', 'Broadcasting to all (wss.clients) is O(n) across every connection; rooms limit fan-out to relevant subscribers, reducing both CPU and bandwidth.'),
+      ],
+      'Presence & Heartbeats': [
+        card('What is the recommended heartbeat interval for WebSockets?', '30 seconds is a common default — short enough to detect dead connections before load balancer idle timeouts (typically 60s), long enough not to waste bandwidth.'),
+        card('How do you implement presence using WebSocket events?', 'On connect, add user to a presence set and broadcast join; on close/error, remove and broadcast leave — use a separate store (Redis) for multi-server presence.'),
+      ],
+      'Message Protocol Design': [
+        card('Why include a `version` field in message envelopes?', 'It allows servers and clients to handle multiple protocol generations simultaneously during rolling deploys without breaking existing connections.'),
+        card('What is the advantage of binary framing (MessagePack) over JSON?', 'Smaller payload for numeric/binary data, faster serialisation — important for high-frequency tick data or media streaming over WebSockets.'),
+      ],
+      'Auth & Re-auth': [
+        card('Why is cookie-based auth preferred over token-in-URL for WS?', 'Tokens in URLs appear in logs and browser history; cookies are sent automatically on the upgrade request and can use httpOnly/secure flags.'),
+        card('How do you handle token expiry on a long-lived WebSocket connection?', 'Send an application-level re-auth message with a fresh token before access token expires; server verifies and updates the session without dropping the connection.'),
+      ],
+      'Backpressure & Flow Control': [
+        card('What does socket.bufferedAmount indicate?', 'The number of bytes queued for sending but not yet transmitted — if this grows, the client is consuming slower than the server is producing; pause sending until it drains.'),
+        card('How do you implement server-side backpressure with the ws library?', "Check socket.readyState === OPEN and monitor bufferedAmount; pause upstream data source (pause() on a stream or stop polling) when the buffer exceeds a threshold."),
+      ],
+      'Horizontal Scaling': [
+        card('What is sticky sessions and why might you need it for WebSockets?', 'Sticky sessions route a client to the same server instance; needed when in-memory session state is not externalised — avoids mid-conversation server hops.'),
+        card('What replaces sticky sessions in a stateless WS architecture?', 'Externalise all session state to Redis and use pub/sub for fan-out — any server can handle any client connection without affinity.'),
+      ],
+    };
+    const cards = specific[s.name];
+    if (cards) s.flashcards.push(...cards);
+  });
+
   return skills;
 }

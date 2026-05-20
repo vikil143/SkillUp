@@ -335,5 +335,196 @@ export default function buildSecuritySkills() {
   });
   skills.push(sha);
 
+  // Added by Claude Code audit — 2026-05-20
+
+  // JWT — additional top-level flashcards
+  jwt.flashcards.push(
+    card('What is the operational difference between RS256 and HS256?', 'HS256 uses one shared secret — both issuer and verifier must hold it. RS256 uses a private key to sign and a public key to verify — resource servers can verify without holding the secret.'),
+    card('What is a JWKS endpoint and why does it matter?', 'A JWKS endpoint (/.well-known/jwks.json) publishes the public keys used for token verification, enabling key rotation without redeploying all services.'),
+    card('How does the `nbf` (not-before) claim differ from `iat` (issued-at)?', 'iat records when the token was created; nbf sets when it becomes valid — useful for delayed activation or pre-issued tokens.'),
+    card('What is JWE and when would you use it over JWT?', 'JWE is an encrypted JWT — the payload is confidential, not just signed. Use it when claims contain PII and the token may pass through untrusted intermediaries.'),
+  );
+
+  // JWT — additional APIs
+  jwt.apis.push(
+    api('JWKS endpoint', 'GET /.well-known/jwks.json', 'Publishes public keys for RS256/ES256 token verification.', 'none — public endpoint', 'JSON Web Key Set', '{ keys: [{ kty: "RSA", kid: "key1", n: "...", e: "AQAB" }] }', 'Cache the JWKS response (with TTL) to avoid per-request key fetches.'),
+    api('RS256 key generation', 'crypto.generateKeyPairSync("rsa", { modulusLength: 2048 })', 'Generates RSA keypair for asymmetric JWT signing.', 'algorithm and key options', '{ privateKey, publicKey }', "const { privateKey, publicKey } = crypto.generateKeyPairSync('rsa', {\n  modulusLength: 2048,\n  publicKeyEncoding: { type: 'spki', format: 'pem' },\n  privateKeyEncoding: { type: 'pkcs8', format: 'pem' },\n});", 'Store private key in secrets manager; only distribute public key.'),
+  );
+
+  // JWT sub-topics — specific flashcards
+  skills.forEach((s) => {
+    if (s.parentId !== jwt.id) return;
+    const specific = {
+      'Token Structure & Claims': [
+        card('What are the three dot-separated parts of a JWT?', 'Header (algorithm + type), Payload (claims), Signature — each is base64url-encoded. Only the signature provides integrity; the header and payload are readable by anyone.'),
+        card('What is the difference between registered, public, and private claims?', 'Registered claims (iss, sub, aud, exp, nbf, iat, jti) are standardised. Public claims are collision-resistant names. Private claims are custom — agreed between issuer and consumer.'),
+      ],
+      'Signing Algorithms (HS/RS/ES)': [
+        card('Why is ES256 (ECDSA) increasingly preferred over RS256?', 'ES256 produces shorter signatures (~64 bytes vs ~256 bytes) with equivalent security, reducing token size and verification overhead.'),
+        card('Why must the `alg: none` algorithm be explicitly rejected?', 'The none algorithm means no signature is verified — an attacker can craft arbitrary claims if your library accepts it without explicit rejection.'),
+      ],
+      'Access vs Refresh Tokens': [
+        card('What is the recommended access token lifetime?', '5–15 minutes — short enough to limit the window of misuse if stolen, long enough to avoid excessive refresh overhead.'),
+        card('Why should refresh tokens be stored server-side in a database?', 'Server storage enables immediate revocation — you can invalidate a refresh token without waiting for it to expire, critical for logout and compromise response.'),
+      ],
+      'Revocation Strategies': [
+        card('Why is stateless JWT revocation inherently difficult?', 'JWTs are self-contained and valid until expiry — the only ways to revoke are short expiry + refresh, a server-side denylist keyed on jti, or using opaque tokens with introspection.'),
+        card('What is refresh token rotation and what attack does it detect?', 'Issue a new refresh token on every use and invalidate the old one. If the old token is presented again, it indicates theft — invalidate the entire token family.'),
+      ],
+      'Storage & CSRF/XSS Tradeoffs': [
+        card('Why does httpOnly cookie storage protect against XSS?', 'httpOnly cookies are not accessible via document.cookie in JavaScript — an XSS payload cannot read or exfiltrate the token.'),
+        card('What CSRF mitigation is required when using cookie-stored JWTs?', 'SameSite=Strict or SameSite=Lax prevents cross-site request forgery for most cases; for fine-grained control also validate a custom CSRF header or double-submit cookie.'),
+      ],
+      'Audience/Issuer Validation': [
+        card('What is a token substitution attack?', 'A token issued for service A is presented to service B. Validating the `aud` claim prevents this — service B rejects tokens whose audience does not include its identifier.'),
+        card('Why pin allowed algorithms in jwt.verify options?', 'Without explicit algorithm pinning, a manipulated token header could switch to a weaker algorithm — always pass `algorithms: ["RS256"]` explicitly.'),
+      ],
+    };
+    const cards = specific[s.name];
+    if (cards) s.flashcards.push(...cards);
+  });
+
+  // OAuth sub-topics — specific flashcards
+  skills.forEach((s) => {
+    if (s.parentId !== oauth.id) return;
+    const specific = {
+      'OAuth Roles & Actors': [
+        card('What are the four OAuth roles?', 'Resource Owner (user), Client (app requesting access), Authorization Server (issues tokens), Resource Server (API that accepts tokens).'),
+        card('What is the difference between a confidential and public OAuth client?', 'Confidential clients can securely hold a client_secret (server-side apps); public clients (SPAs, mobile apps) cannot — they must use PKCE instead of client secrets.'),
+      ],
+      'Authorization Code + PKCE': [
+        card('What entropy is required for the PKCE code verifier?', 'At least 32 cryptographically random bytes (256 bits) — insufficient entropy makes the verifier guessable and negates PKCE protection.'),
+        card('Why is the authorization code single-use?', 'Codes expire after one exchange to limit the window for interception; a server should reject any code presented more than once.'),
+      ],
+      'Scopes & Consent': [
+        card('What is incremental authorisation?', 'Requesting only the scopes needed for the current action rather than all scopes upfront — reduces consent friction and follows least-privilege principle.'),
+        card('Why should scopes not map directly to database roles?', 'OAuth scopes represent delegated access grants to an API; RBAC roles are internal resource permissions. Mapping them directly couples the auth layer to internal implementation.'),
+      ],
+      'Refresh Token Rotation': [
+        card('What is refresh token family invalidation?', 'When a reused (stolen) refresh token is detected, invalidate all tokens in the same lineage — prevents the attacker from continuing to use any token from that session.'),
+        card('Why give refresh tokens a sliding vs absolute expiry?', 'Sliding expiry extends the session with each use (good UX for active users); absolute expiry forces re-authentication after a fixed period regardless — choose based on security policy.'),
+      ],
+      'OIDC Basics': [
+        card('What does the ID token contain that an access token does not?', 'The ID token carries user identity claims (sub, email, name, picture) for the client application; the access token carries authorization for resource server API calls.'),
+        card('Why should you not use the access token to identify the user?', 'Access tokens are opaque to the client in many flows and their format is not guaranteed — the ID token is the correct place to read user identity.'),
+      ],
+      'Token Introspection & Revocation': [
+        card('What does an introspection response of `active: false` mean?', 'The token is expired, revoked, or otherwise invalid — the resource server must reject the request.'),
+        card('Why cache introspection responses carefully?', 'Caching an active: true response too long means a revoked token continues to work during the cache TTL — use short TTLs (30–60s) for revocation-sensitive APIs.'),
+      ],
+    };
+    const cards = specific[s.name];
+    if (cards) s.flashcards.push(...cards);
+  });
+
+  // Keycloak sub-topics — specific flashcards
+  skills.forEach((s) => {
+    if (s.parentId !== keycloak.id) return;
+    const specific = {
+      'Realm & Client Configuration': [
+        card('What is Valid Redirect URIs and why must it be exact?', 'Keycloak only redirects auth codes to URIs on this allowlist — wildcard entries like https://app.example.com/* can allow open-redirect attacks that exfiltrate auth codes.'),
+        card('What is the difference between public and confidential client access types?', 'Confidential clients authenticate with a client secret on the token endpoint; public clients (SPAs, mobile) cannot hold secrets and rely on PKCE.'),
+      ],
+      'Role-Based Access Control': [
+        card('How do realm roles differ from composite roles?', 'Composite roles aggregate other roles — assigning a composite role to a user implicitly grants all its contained roles, simplifying management of permission bundles.'),
+        card('Why should backends validate roles from the token rather than querying Keycloak on every request?', 'Token validation is local and fast; querying Keycloak on every request adds latency and creates a dependency on Keycloak availability for every API call.'),
+      ],
+      'Identity Federation': [
+        card('What is first broker login flow in Keycloak?', 'The flow executed the first time a user authenticates through an external IdP — determines whether to auto-create a local account, prompt for review, or link to existing accounts.'),
+        card('Why can claim mapping errors lock users out of brokered identity?', 'If the mapper cannot extract a required attribute (e.g., email) from the IdP token, Keycloak may refuse to create or link the account.'),
+      ],
+      'Token Mappers': [
+        card('What is a hardcoded claim mapper?', 'A mapper that injects a fixed value into every token for all users in the realm or client — useful for adding a static audience or service identifier claim.'),
+        card('Why should you minimise claims in access tokens?', 'Every claim increases token size (sent with every API request) and may expose sensitive user attributes to any service that receives the token.'),
+      ],
+      'Session & Token Lifetimes': [
+        card('What is SSO Session Idle vs Max in Keycloak?', 'Idle timeout resets on each user interaction; Max is the absolute ceiling regardless of activity — use both to balance UX and security.'),
+        card('Why do long access token lifetimes increase risk?', 'A stolen access token remains valid until expiry — no server-side revocation for standard JWT access tokens. Short lifetimes limit the exposure window.'),
+      ],
+      'Admin Automation': [
+        card('How do you authenticate against the Keycloak Admin REST API?', 'Obtain a token from the master realm using client credentials (grant_type=client_credentials) with a service account that has realm management roles.'),
+        card('What should you export from Keycloak for disaster recovery?', 'Full realm export (users, clients, roles, identity providers, flows) — store it versioned in source control and test importing regularly.'),
+      ],
+    };
+    const cards = specific[s.name];
+    if (cards) s.flashcards.push(...cards);
+  });
+
+  // MD5 — additional flashcards (target 6–10; currently 4)
+  md5.flashcards.push(
+    card('What is a collision in hash functions and why is it dangerous for MD5?', 'A collision is two different inputs producing the same digest. MD5 collisions are computationally feasible — attackers can forge matching files or certificates.'),
+    card('When is MD5 still acceptable in modern software?', 'Non-security checksum use cases where collision resistance is irrelevant and no adversary controls the input — e.g., cache-busting query strings, content-addressing in low-security systems.'),
+    card('Why is salted MD5 still insecure for password storage?', 'MD5 is extremely fast — a GPU can compute billions of MD5 hashes per second. Even with a salt, a brute-force attack on a leaked hash is feasible within hours.'),
+    card('What should replace MD5 in new code?', 'SHA-256 for integrity checks, HMAC-SHA256 for message authentication, and Argon2id/bcrypt/scrypt for password hashing — never MD5 for any security-sensitive purpose.'),
+  );
+
+  // MD5 — additional APIs
+  md5.apis.push(
+    api('Streaming hash (MD5)', 'crypto.createHash("md5") with stream piping', 'Computes MD5 of large file without loading it entirely into memory.', 'readable stream piped to hash', 'hex digest', "import { createHash } from 'node:crypto';\nimport { createReadStream } from 'node:fs';\nconst hash = createHash('md5');\ncreateReadStream('file.bin').pipe(hash).on('finish', () => console.log(hash.digest('hex')));", 'Streaming prevents memory spikes but is still insecure for adversarial contexts.'),
+    api('crypto.getHashes()', 'crypto.getHashes()', 'Lists all hash algorithms supported by the current OpenSSL build.', 'none', 'string[]', "console.log(crypto.getHashes()); // includes 'md5', 'sha256', ...", 'Use to verify algorithm availability before committing to a choice.'),
+  );
+
+  // MD5 — sub-topics (0 exist; need 3+)
+  const md5Collision = mk('Collision Attacks & Weaknesses', 'auth', md5.id, {
+    definition: 'MD5 collision resistance is broken — two different inputs can be crafted to produce the same hash. This undermines any use case relying on MD5 for integrity or authenticity guarantees.',
+    codeExample: "// Conceptual — do not use MD5 for integrity\n// Wang & Yu (2004) demonstrated practical MD5 collisions.\n// Modern tools can generate colliding files in seconds.\nconst a = crypto.createHash('md5').update(fileA).digest('hex');\nconst b = crypto.createHash('md5').update(fileB).digest('hex');\n// a === b even if fileA !== fileB (collision)",
+    flashcards: [
+      card('What was the Flame malware MD5 attack?', 'Flame used an MD5 chosen-prefix collision to forge a legitimate-looking Microsoft code-signing certificate, enabling it to spread as a Windows Update.'),
+      card('What is a chosen-prefix collision?', 'An attack where two arbitrary chosen prefixes can be extended with crafted suffixes to produce the same MD5 hash — stronger than identical-prefix collisions.'),
+      card('Why does MD5 collision resistance matter for TLS certificates?', 'Certificate authorities that signed with MD5 allowed attackers to forge trusted certificates by exploiting MD5 collisions.'),
+    ],
+  });
+
+  const md5Legacy = mk('Legacy Use Cases', 'auth', md5.id, {
+    definition: 'MD5 persists in systems where its use predates modern cryptography knowledge, or where non-adversarial checksums are acceptable and collision resistance is not required.',
+    codeExample: "// Acceptable: cache-busting asset fingerprinting (non-adversarial)\nconst assetHash = crypto.createHash('md5').update(assetContent).digest('hex').slice(0, 8);\nconst url = `/static/app.${assetHash}.js`;\n// NOT acceptable: file integrity checks, password storage, signatures",
+    flashcards: [
+      card('Name two contexts where MD5 is still seen in production.', 'HTTP ETag generation in some web servers, and legacy checksum verification in older package managers (pre-SHA256 era).'),
+      card('What should you do when you encounter MD5 in an existing codebase?', 'Add a migration issue — replace with SHA-256 for integrity checks or Argon2id for passwords. Document the change clearly so reviewers understand the security improvement.'),
+    ],
+  });
+
+  const md5Migration = mk('Migration to SHA-2/3', 'auth', md5.id, {
+    definition: 'Migrating from MD5 to SHA-256 (or Argon2id for passwords) improves security posture without significant performance cost in most applications.',
+    codeExample: "// Before (insecure):\nconst digest = crypto.createHash('md5').update(data).digest('hex');\n\n// After (secure for integrity):\nconst digest = crypto.createHash('sha256').update(data).digest('hex');\n\n// For passwords — use bcrypt/argon2, not raw SHA:\nimport argon2 from 'argon2';\nconst hash = await argon2.hash(password);",
+    flashcards: [
+      card('Is SHA-256 a drop-in replacement for MD5 in all contexts?', 'For non-security checksums and integrity use cases — yes. For password storage — no. SHA-256 is too fast; use Argon2id, bcrypt, or scrypt with appropriate cost parameters.'),
+      card('What is the risk of migrating password hashes from MD5 to bcrypt?', 'You cannot re-hash existing passwords without knowing the plaintext. Use a lazy migration: when users next log in, verify against MD5, then immediately re-hash with bcrypt.'),
+    ],
+  });
+  skills.push(md5Collision, md5Legacy, md5Migration);
+
+  // SHA — sub-topics (0 exist; need 3+)
+  const shaFamily = mk('SHA-2 Family Overview', 'auth', sha.id, {
+    definition: 'SHA-2 is a family of hash functions standardised by NIST including SHA-224, SHA-256, SHA-384, and SHA-512. SHA-256 is the most widely used variant for integrity checks, certificates, and HMAC constructions.',
+    codeExample: "import { createHash } from 'node:crypto';\n\nconst sha256 = createHash('sha256').update('data').digest('hex'); // 64 hex chars\nconst sha512 = createHash('sha512').update('data').digest('hex'); // 128 hex chars\nconst sha384 = createHash('sha384').update('data').digest('hex'); // 96 hex chars",
+    flashcards: [
+      card('What is the output size of SHA-256 vs SHA-512?', 'SHA-256 produces 256-bit (32-byte) digests; SHA-512 produces 512-bit (64-byte) digests. Larger digests provide more collision resistance but cost more storage/transmission.'),
+      card('When is SHA-512 preferred over SHA-256?', 'On 64-bit platforms SHA-512 can be faster than SHA-256 due to 64-bit arithmetic. Also required when protocol/compliance mandates it (some TLS cipher suites).'),
+      card('Is SHA-256 collision resistant?', 'Yes — no practical collision attacks are known against SHA-2. It replaced MD5 and SHA-1 as the standard for integrity and signature use cases.'),
+    ],
+  });
+
+  const shaHmac = mk('HMAC Construction & Key Usage', 'auth', sha.id, {
+    definition: 'HMAC (Hash-based Message Authentication Code) combines a cryptographic hash with a secret key to provide both integrity and authenticity. HMAC-SHA256 is the standard for API request signing and webhook verification.',
+    codeExample: "import { createHmac, timingSafeEqual } from 'node:crypto';\n\nfunction signPayload(payload, secret) {\n  return createHmac('sha256', secret).update(payload).digest('hex');\n}\n\nfunction verifySignature(payload, signature, secret) {\n  const expected = signPayload(payload, secret);\n  return timingSafeEqual(Buffer.from(signature, 'hex'), Buffer.from(expected, 'hex'));\n}",
+    flashcards: [
+      card('Why does HMAC resist length extension attacks that plain SHA does not?', 'HMAC wraps the hash in a nested construction (inner and outer hash with the key) that prevents appending data to produce a valid MAC without knowing the key.'),
+      card('What is the minimum recommended HMAC key length?', 'At least 256 bits (32 bytes) of cryptographically random data — shorter keys reduce the security level regardless of the hash algorithm used.'),
+      card('Why must HMAC comparison use timingSafeEqual?', 'Regular string/buffer comparison short-circuits on first mismatch, leaking timing information that reveals how many bytes match — timingSafeEqual takes constant time.'),
+    ],
+  });
+
+  const shaPasswords = mk('Password Hashing — Why SHA Alone Fails', 'auth', sha.id, {
+    definition: 'Raw SHA-256 is inadequate for password storage because it is too fast — enabling high-speed brute-force attacks on leaked hashes. Dedicated password hashing algorithms add deliberate computational cost and memory hardness.',
+    codeExample: "// WRONG — fast hash, brute-forceable:\nconst bad = createHash('sha256').update(password + salt).digest('hex');\n\n// CORRECT — memory-hard, cost-tunable:\nimport argon2 from 'argon2';\nconst hash = await argon2.hash(password, {\n  type: argon2.argon2id,\n  memoryCost: 65536, // 64 MB\n  timeCost: 3,\n  parallelism: 1,\n});",
+    flashcards: [
+      card('What is the difference between Argon2d, Argon2i, and Argon2id?', 'Argon2d maximises GPU resistance; Argon2i resists side-channel attacks; Argon2id is the hybrid — NIST recommends Argon2id for password hashing.'),
+      card('What cost parameters should you tune in Argon2id?', 'memoryCost (RAM used — higher is better), timeCost (iterations), and parallelism. Target ~300–500ms on your target hardware; adjust as hardware improves over time.'),
+      card('What is peppering and how does it complement hashing?', 'A pepper is a server-side secret mixed into the hash before storage — even if the database leaks, hashes cannot be cracked without the pepper from the application configuration.'),
+    ],
+  });
+  skills.push(shaFamily, shaHmac, shaPasswords);
+
   return skills;
 }

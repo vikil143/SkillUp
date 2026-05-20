@@ -212,5 +212,152 @@ export default function buildDatabaseSkills() {
     );
   });
 
+  // Added by Claude Code audit — 2026-05-20
+
+  // MongoDB — additional top-level flashcards
+  mongo.flashcards.push(
+    card('What is a TTL index and when do you use it?', 'A TTL index on a Date field automatically deletes documents after a specified number of seconds — ideal for sessions, cache entries, and temporary records.'),
+    card('How do change streams work in MongoDB?', 'Change streams use the oplog to emit real-time insert/update/delete events on a collection — enabling reactive server-push without polling.'),
+    card('What is connection pooling and why does maxPoolSize matter?', 'The driver reuses a pool of persistent connections; maxPoolSize caps concurrent connections to the server — too low starves throughput, too high overloads the server.'),
+    card('Why should you prefer $set over full document replacement in updateOne?', 'Full replacement can accidentally erase fields not included in the update payload; $set modifies only specified paths.'),
+    card('What is the difference between findOne and findOneAndUpdate?', 'findOne is a read; findOneAndUpdate atomically modifies and returns the document (before or after) — eliminating a read-modify-write race condition.'),
+  );
+
+  // MongoDB — additional APIs
+  mongo.apis.push(
+    api('deleteOne / deleteMany', 'collection.deleteOne(filter) / deleteMany(filter)', 'Deletes one or all matching documents.', 'filter object', 'DeleteResult', "await users.deleteOne({ _id: userId });\nawait sessions.deleteMany({ expiresAt: { $lt: new Date() } });", 'Missing filter in deleteMany removes ALL documents.'),
+    api('findOneAndUpdate', 'collection.findOneAndUpdate(filter, update, options?)', 'Atomically finds, updates, and returns the document.', 'filter, update operators, returnDocument option', 'Promise<Document | null>', "const updated = await users.findOneAndUpdate(\n  { _id },\n  { $set: { lastLogin: new Date() } },\n  { returnDocument: 'after' }\n);", 'Returns null if no document matches — handle explicitly.'),
+    api('countDocuments', 'collection.countDocuments(filter?, options?)', 'Returns count of matching documents.', 'optional filter', 'Promise<number>', "const total = await orders.countDocuments({ status: 'open' });", 'Prefer over collection.count() which is deprecated.'),
+    api('watch (change streams)', 'collection.watch(pipeline?, options?)', 'Subscribes to real-time change events on a collection.', 'optional aggregation pipeline and options', 'ChangeStream cursor', "const stream = users.watch([{ $match: { operationType: 'insert' } }]);\nstream.on('change', (ev) => notify(ev.fullDocument));", 'Requires replica set or sharded cluster; not available on standalone.'),
+  );
+
+  // MongoDB sub-topics — specific flashcards
+  skills.forEach((s) => {
+    if (s.parentId !== mongo.id) return;
+    const specific = {
+      'Data Modeling (embed vs reference)': [
+        card('What is the "one-to-many with document reference" pattern?', 'Store the parent _id inside each child document — analogous to a foreign key. Use when children are numerous, independently updated, or shared across parents.'),
+        card('Why can embedding unbounded arrays be dangerous?', 'MongoDB documents have a 16 MB size limit; an array that grows indefinitely will eventually hit this limit and break writes.'),
+      ],
+      'CRUD Patterns': [
+        card('What does upsert: true do in updateOne?', 'If no document matches the filter, MongoDB inserts a new document combining the filter and update — useful for idempotent write operations.'),
+        card('Why use bulkWrite instead of many individual writes?', 'bulkWrite batches operations into fewer round-trips, dramatically reducing latency for high-volume insert/update workloads.'),
+      ],
+      'Indexes & Query Plans': [
+        card('What is a compound index prefix rule?', 'MongoDB can use a compound index {a:1, b:1, c:1} for queries on (a), (a,b), or (a,b,c) but not on (b) or (c) alone — the left-most fields must be present.'),
+        card('What does COLLSCAN in explain() output mean?', 'Collection scan — the query examined every document. An index is missing or the query predicate cannot use the available indexes.'),
+      ],
+      'Aggregation Pipeline': [
+        card('Why should $match come as early as possible in a pipeline?', 'An early $match filters documents before later stages process them, allowing MongoDB to use indexes and reducing the amount of data flowing through the pipeline.'),
+        card('What does $lookup do and what is its performance concern?', '$lookup performs a left outer join to another collection — it can be expensive without an index on the foreign field and may not use indexes for the joined collection.'),
+      ],
+      'Transactions & Sessions': [
+        card('What storage engine requirement exists for MongoDB transactions?', 'Multi-document transactions require WiredTiger storage engine and a replica set (or sharded cluster) — they are not available on standalone instances.'),
+        card('Why must transaction callbacks be idempotent?', 'MongoDB may automatically retry transactions on transient errors (TransientTransactionError) — the callback must be safe to run multiple times without unintended side effects.'),
+      ],
+      'Sharding & Replication': [
+        card('What is the shard key and why is choice critical?', 'The shard key determines how data is distributed across shards. A poor choice (low cardinality, monotonically increasing like ObjectId) creates hotspots and uneven distribution.'),
+        card('What is a replica set election?', 'When the primary becomes unreachable, replica set members vote to elect a new primary — requires a majority of members to be reachable, so odd member counts are recommended.'),
+      ],
+      'Schema Validation': [
+        card('How do you enforce a schema in MongoDB?', 'Use `validator` with $jsonSchema in createCollection or collMod — MongoDB checks the schema on insert/update and rejects documents that fail validation.'),
+        card('What does validationAction: "warn" do vs "error"?', '"error" rejects invalid documents; "warn" allows them but logs a warning — useful for gradual schema enforcement on existing collections.'),
+      ],
+    };
+    const cards = specific[s.name];
+    if (cards) s.flashcards.push(...cards);
+  });
+
+  // MySQL sub-topics — specific flashcards
+  skills.forEach((s) => {
+    if (s.parentId !== mysql.id) return;
+    const specific = {
+      'Relational Modeling': [
+        card('What is normalisation and when do you denormalise?', 'Normalisation removes data redundancy by splitting into related tables. Denormalise (store computed/joined values) when read performance on hot queries outweighs write overhead.'),
+        card('What is a surrogate key vs a natural key?', 'Surrogate key is an artificial identifier (auto-increment, UUID) with no business meaning; natural key uses a real-world value (email, ISBN) — surrogates are simpler to join but natural keys enforce real-world uniqueness.'),
+      ],
+      'Joins & Query Optimization': [
+        card('What is the difference between INNER JOIN and LEFT JOIN?', 'INNER JOIN returns only rows with matches in both tables; LEFT JOIN returns all rows from the left table with NULLs for unmatched right-table columns.'),
+        card('What does "Using filesort" in EXPLAIN mean?', 'MySQL could not use an index to satisfy the ORDER BY and is sorting in memory/on disk — add an index covering the sort columns to eliminate it.'),
+      ],
+      'Indexes & Composite Keys': [
+        card('What is an index covering query?', 'A query where all selected and filtered columns are present in the index — MySQL reads only the index structure without accessing table rows, maximising performance.'),
+        card('Why can too many indexes hurt write performance?', 'Every INSERT/UPDATE/DELETE must update all applicable indexes — tables with 10+ indexes on write-heavy workloads can see significant throughput degradation.'),
+      ],
+      'Transactions & Isolation': [
+        card('What is a phantom read and which isolation level prevents it?', 'A phantom read is when a transaction re-runs a range query and sees new rows inserted by another transaction. SERIALIZABLE prevents it; REPEATABLE READ does not for range queries.'),
+        card('How do you handle a deadlock in application code?', 'Catch the deadlock error (MySQL error 1213) and retry the transaction — deadlocks are transient by design and the retried transaction will usually succeed.'),
+      ],
+      'Migrations': [
+        card('Why should schema migrations be version-controlled?', 'Migrations as code ensure every environment applies the same changes in the same order, enabling reproducible database state across dev/staging/prod.'),
+        card('What is a reversible migration?', 'A migration that includes both an up (apply) and a down (rollback) operation — critical for safe production rollbacks when a deployment must be reverted.'),
+      ],
+      'Replication & Backups': [
+        card('What is MySQL binary log replication used for?', 'Replica servers stream the binary log from the primary and apply the same statements/row changes, enabling read scaling and failover.'),
+        card('Why is a logical backup (mysqldump) different from a physical backup?', 'mysqldump exports SQL statements that recreate data — portable but slow to restore at scale. Physical backups (xtrabackup) copy data files directly — faster restore but tied to MySQL version.'),
+      ],
+      'Keyset Pagination': [
+        card('How does keyset pagination avoid the offset performance problem?', 'Instead of OFFSET N (scan and discard N rows), keyset uses WHERE id > lastSeenId ORDER BY id LIMIT n — the index jumps directly to the cursor position.'),
+        card('What is the limitation of keyset pagination?', 'You cannot jump to an arbitrary page number — only sequential forward navigation is possible. Also requires a unique, indexed sort key.'),
+      ],
+    };
+    const cards = specific[s.name];
+    if (cards) s.flashcards.push(...cards);
+  });
+
+  // Firebase — additional top-level flashcards
+  firebase.flashcards.push(
+    card('What is the difference between getDoc and onSnapshot for a single document?', 'getDoc is a one-time read returning a Promise; onSnapshot establishes a real-time listener and calls back on every change — use getDoc when live updates are not needed.'),
+    card('How are Firestore read/write costs calculated?', 'Each document read, write, or delete counts as one operation. onSnapshot listeners count reads on every document in the result set per snapshot — design queries to minimise document counts returned.'),
+    card('What is a subcollection and when do you use it?', 'A collection nested inside a document — use for high-cardinality one-to-many data (e.g., user → messages) where the parent document should not grow unbounded with child data.'),
+    card('How does Firebase Auth integrate with Firestore Security Rules?', 'request.auth in rules is populated by Firebase Auth — you can restrict document access to `request.auth.uid == resource.data.userId` to enforce per-user data isolation.'),
+  );
+
+  // Firebase — additional APIs
+  firebase.apis.push(
+    api('getDoc', 'getDoc(docRef)', 'Fetches a single document once.', 'DocumentReference', 'Promise<DocumentSnapshot>', "const snap = await getDoc(doc(db, 'users', uid));\nif (snap.exists()) console.log(snap.data());", 'snap.exists() must be checked before snap.data() to avoid undefined errors.'),
+    api('deleteDoc', 'deleteDoc(docRef)', 'Deletes a document by reference.', 'DocumentReference', 'Promise<void>', "await deleteDoc(doc(db, 'sessions', sessionId));", 'Does not delete subcollections — those must be deleted separately.'),
+    api('writeBatch', 'writeBatch(db)', 'Performs up to 500 writes atomically in one commit.', 'db instance', 'WriteBatch instance', "const batch = writeBatch(db);\nbatch.set(doc(db,'logs',id), entry);\nbatch.update(doc(db,'counters','total'), { n: increment(1) });\nawait batch.commit();", 'Batch does not guarantee read-modify-write atomicity — use runTransaction for that.'),
+    api('arrayUnion / arrayRemove / increment', 'arrayUnion(...items) / arrayRemove(...items) / increment(n)', 'Atomic field-level transforms for arrays and numeric counters.', 'values to add/remove or numeric delta', 'FieldValue sentinel', "await updateDoc(ref, {\n  tags: arrayUnion('featured'),\n  score: increment(1),\n});", 'These are server-evaluated — do not read-modify-write the array yourself to avoid race conditions.'),
+    api('collectionGroup', 'collectionGroup(db, collectionId)', 'Queries all subcollections with the given ID across the entire database.', 'collection ID string', 'query object', "const q = query(collectionGroup(db, 'messages'), where('unread', '==', true));", 'Requires a composite index with __name__ and the queried fields.'),
+  );
+
+  // Firebase sub-topics — specific flashcards
+  skills.forEach((s) => {
+    if (s.parentId !== firebase.id) return;
+    const specific = {
+      'Firestore Data Modeling': [
+        card('What is the fan-out write pattern in Firestore?', 'Writing denormalised copies of data to multiple documents for fast reads — e.g., duplicating a username into every post document to avoid a join lookup.'),
+        card('Why should document size be kept under 1 MB?', 'Firestore has a 1 MB document size limit; large documents also mean every read loads the entire document — split large payloads into subcollections.'),
+      ],
+      'Realtime Listeners': [
+        card('What is the metadata.hasPendingWrites field on a snapshot?', 'It is true when the snapshot reflects a local optimistic write not yet confirmed by the server — useful for showing pending state in the UI.'),
+        card('How do you listen to multiple documents efficiently?', 'Use a single query listener rather than individual document listeners — fewer network connections and Firestore charges per snapshot, not per listener.'),
+      ],
+      'Security Rules': [
+        card('What does `allow write: if false` in rules mean?', 'No client can write to that path at all — useful for server-only documents that should only be mutated via Cloud Functions with the Admin SDK.'),
+        card('What is the difference between resource and request.resource in rules?', 'resource is the current document data (before write); request.resource is the incoming data (after write) — use both to validate that only allowed fields changed.'),
+      ],
+      'Indexes & Query Limits': [
+        card('What query operations always require a composite index in Firestore?', 'Queries with inequality filters on one field combined with ordering on a different field, or any query combining multiple inequality filters.'),
+        card('What happens when a required Firestore index is missing?', 'The query throws a permission/index error with a link to the Firebase console to create the index — missing indexes are a common first-deploy production surprise.'),
+      ],
+      'Transactions & Batched Writes': [
+        card('What is the maximum number of documents in a batched write?', '500 documents per batch.commit() — for larger datasets, split into multiple batches or use the Admin SDK bulk writer.'),
+        card('Why might a Firestore transaction retry multiple times?', 'If a document read inside the transaction is modified by another client before commit, Firestore aborts and retries — callbacks must be idempotent.'),
+      ],
+      'Offline Sync': [
+        card('How does Firestore offline persistence work?', 'The SDK caches documents locally and serves reads from cache when offline; writes are queued and synced when connectivity resumes.'),
+        card('What is the risk of relying on offline data for security decisions?', 'Cached data may be stale — always re-verify sensitive state on the server (via Cloud Functions or after a fresh online fetch) before critical actions.'),
+      ],
+      'Cloud Functions Integration': [
+        card('What is the difference between onWrite and onUpdate Firestore triggers?', 'onWrite fires for create, update, and delete; onUpdate fires only when an existing document changes — use onUpdate when you only care about modifications.'),
+        card('Why use the Admin SDK inside Cloud Functions?', 'Admin SDK bypasses security rules, enabling trusted server-side writes that clients should not be allowed to perform directly.'),
+      ],
+    };
+    const cards = specific[s.name];
+    if (cards) s.flashcards.push(...cards);
+  });
+
   return skills;
 }
