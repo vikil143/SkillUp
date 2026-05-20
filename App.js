@@ -30,6 +30,8 @@ import { uid } from './seed/helpers';
 // ============================================================
 const STORAGE_KEY = 'skillup-data-v1';
 const STREAK_KEY = 'skillup-streak-v1';
+// Bump this string whenever seed content changes — forces migration to re-run
+const SEED_VERSION = '2026-05-20-v4';
 
 const COLORS = {
   primary: '#58CC02',
@@ -234,9 +236,12 @@ export default function App() {
     (async () => {
       const stored = await loadData();
       if (stored && stored.categories) {
+        // Call SEED() once so all IDs are consistent across every migration step
+        const seed = SEED();
+        const needsContentSync = stored.seedVersion !== SEED_VERSION;
+
         // Migration: ensure new categories exist
-        const seedCats = SEED().categories;
-        seedCats.forEach((sc) => {
+        seed.categories.forEach((sc) => {
           if (!stored.categories.find((c) => c.id === sc.id)) {
             stored.categories.push(sc);
           }
@@ -251,13 +256,11 @@ export default function App() {
         if (authCat && authCat.name === 'Auth & Security') authCat.name = 'Security & Auth';
         // Migration: seed webgl skills if the category is newly added
         if (!stored.skills.some((s) => s.categoryId === 'webgl')) {
-          const webglSeed = SEED().skills.filter((s) => s.categoryId === 'webgl');
-          stored.skills.push(...webglSeed);
+          stored.skills.push(...seed.skills.filter((s) => s.categoryId === 'webgl'));
         }
-        // Migration: merge new seed content (flashcards, apis, refs, structured fields)
-        // into existing stored skills so audit additions become visible without a full wipe.
-        {
-          const seedSkills = SEED().skills;
+        // Migration: merge new seed content when SEED_VERSION has changed
+        if (needsContentSync) {
+          const seedSkills = seed.skills;
           stored.skills.forEach((storedSkill) => {
             const seedMatch = seedSkills.find(
               (ss) => ss.name === storedSkill.name && ss.categoryId === storedSkill.categoryId
@@ -267,9 +270,7 @@ export default function App() {
             // Merge flashcards — add any seed card whose question isn't already present
             const existingQs = new Set((storedSkill.flashcards || []).map((f) => f.q));
             (seedMatch.flashcards || []).forEach((sf) => {
-              if (!existingQs.has(sf.q)) {
-                storedSkill.flashcards.push(sf);
-              }
+              if (!existingQs.has(sf.q)) storedSkill.flashcards.push(sf);
             });
 
             // Merge APIs — add any seed API whose name isn't already present
@@ -277,20 +278,16 @@ export default function App() {
               (storedSkill.apis || []).map((a) => a.name.toLowerCase())
             );
             (seedMatch.apis || []).forEach((sa) => {
-              if (!existingApiNames.has(sa.name.toLowerCase())) {
-                storedSkill.apis.push(sa);
-              }
+              if (!existingApiNames.has(sa.name.toLowerCase())) storedSkill.apis.push(sa);
             });
 
             // Merge refs — add any seed ref whose URL isn't already present
             const existingUrls = new Set((storedSkill.refs || []).map((r) => r.url));
             (seedMatch.refs || []).forEach((sr) => {
-              if (!existingUrls.has(sr.url)) {
-                storedSkill.refs.push(sr);
-              }
+              if (!existingUrls.has(sr.url)) storedSkill.refs.push(sr);
             });
 
-            // Merge structured fields — fill only if stored value is empty
+            // Fill empty structured fields from seed
             if (!storedSkill.structured) storedSkill.structured = {};
             ['definition', 'codeExample', 'whenUsed', 'gotchas'].forEach((field) => {
               if (!storedSkill.structured[field] && seedMatch.structured?.[field]) {
@@ -299,14 +296,11 @@ export default function App() {
             });
           });
 
-          // Also push entire new skills that exist in seed but not in stored
-          // (e.g. sub-topics added by the audit like MD5 sub-topics, SHA sub-topics, SVG sub-topics)
+          // Push new skills/sub-topics that exist in seed but not in stored
           const storedNames = new Set(
             stored.skills.map((s) => `${s.categoryId}||${s.name}||${s.parentId ?? ''}`)
           );
           seedSkills.forEach((ss) => {
-            // Resolve parentId: the stored parent may have a different id than the seed parent.
-            // Match parent by name+categoryId, then use the stored parent's id.
             let resolvedParentId = null;
             if (ss.parentId) {
               const seedParent = seedSkills.find((p) => p.id === ss.parentId);
@@ -323,6 +317,8 @@ export default function App() {
               storedNames.add(key);
             }
           });
+
+          stored.seedVersion = SEED_VERSION;
         }
         setData(stored);
         await saveData(stored);
