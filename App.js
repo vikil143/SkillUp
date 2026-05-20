@@ -27,6 +27,7 @@ import { uid } from './seed/helpers';
 import { getQuestionCards } from './src/domain/questions';
 import QuestionEditModal from './src/features/questions/QuestionEditModal';
 import QuestionsScreen from './src/features/questions/QuestionsScreen';
+import RichAnswerText from './src/features/questions/RichAnswerText';
 import { COLORS } from './src/theme/colors';
 
 // ============================================================
@@ -35,7 +36,7 @@ import { COLORS } from './src/theme/colors';
 const STORAGE_KEY = 'skillup-data-v1';
 const STREAK_KEY = 'skillup-streak-v1';
 // Bump this string whenever seed content changes — forces migration to re-run
-const SEED_VERSION = '2026-05-20-v5';
+const SEED_VERSION = '2026-05-20-v6';
 
 const loadData = async () => {
   try {
@@ -1325,7 +1326,8 @@ function ReviseMode({ data, bumpXP }) {
         <Text style={styles.reviseQ}>❓ {card.q}</Text>
         {revealed && (
           <View style={styles.reviseAnswer}>
-            <Text style={styles.reviseAText}>💡 {card.a}</Text>
+            <Text style={styles.reviseHint}>💡 Answer</Text>
+            <RichAnswerText value={card.a} textStyle={styles.reviseAText} />
           </View>
         )}
 
@@ -2289,6 +2291,13 @@ const styles = StyleSheet.create({
   reviseAnswer: {
     backgroundColor: '#F0FAFF', borderWidth: 2, borderColor: '#84D8FF',
     borderStyle: 'dashed', borderRadius: 14, padding: 14, marginTop: 14,
+  },
+  reviseHint: {
+    color: COLORS.blueDark,
+    fontSize: 12,
+    fontWeight: '900',
+    marginBottom: 8,
+    textTransform: 'uppercase',
   },
   reviseAText: { fontSize: 14, color: COLORS.text, lineHeight: 21, fontWeight: '600' },
   progressBar: {

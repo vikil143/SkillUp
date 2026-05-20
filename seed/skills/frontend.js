@@ -60,6 +60,321 @@ export default function buildFrontendSkills() {
   });
   skills.push(react);
 
+  const seniorInterview = mk('JavaScript + React Senior Interview', 'frontend', null, {
+    definition:
+      'A focused senior interview revision set covering JavaScript runtime fundamentals, async behavior, browser events, and React rendering concepts.',
+    codeExample:
+      "Promise.resolve().then(() => console.log('microtask'));\nsetTimeout(() => console.log('callback'), 0);\n\nfunction outer() {\n  let count = 0;\n  return () => ++count;\n}",
+    flashcards: [
+      card('What are Global Execution Context and Function Execution Context?', `JavaScript executes code inside execution contexts.
+
+Global Execution Context is created when JavaScript starts. It contains global variables, global functions, the this reference, memory creation phase, and code execution phase.
+
+Function Execution Context is created whenever a function is invoked. It has its own memory, variables, parameters, inner functions, scope chain, and this binding.
+
+Every execution context runs in memory creation phase and code execution phase, and the call stack manages these contexts.`),
+      card('What are Memory Phase and Execution Phase?', `Every execution context runs in two phases.
+
+Memory Creation Phase allocates memory for variables, functions, and parameters. var variables start as undefined, and function declarations are stored completely.
+
+Execution Phase runs code line by line and assigns actual values.
+
+\`\`\`js
+var a = 10;
+// Memory phase: a = undefined
+// Execution phase: a = 10
+\`\`\``),
+      card('What is Lexical Environment?', `Lexical means where code is physically written.
+
+Every execution context contains local memory plus a reference to the outer lexical environment. JavaScript uses lexical scoping, so inner functions can access variables from outer functions.
+
+\`\`\`js
+function outer() {
+  let a = 10;
+
+  function inner() {
+    console.log(a);
+  }
+
+  inner();
+}
+\`\`\``),
+      card('What is Closure?', `A closure is a function bundled together with its lexical environment.
+
+It lets a function remember outer-scope variables even after the outer function has finished.
+
+\`\`\`js
+function outer() {
+  let counter = 0;
+
+  return function inner() {
+    counter++;
+    console.log(counter);
+  };
+}
+
+const fn = outer();
+fn(); // 1
+fn(); // 2
+\`\`\`
+
+Used in debouncing, memoization, React hooks, data privacy, and timers.`),
+      card('What is Debouncing?', `Debouncing delays function execution until the user stops triggering events for a specified time.
+
+Used in search bars, resize handlers, and API optimization.
+
+\`\`\`js
+function debounce(fn, delay) {
+  let timer;
+
+  return function (...args) {
+    clearTimeout(timer);
+    timer = setTimeout(() => {
+      fn.apply(this, args);
+    }, delay);
+  };
+}
+\`\`\`
+
+Closure preserves the timer variable between calls.`),
+      card('How does this work in JavaScript?', `this depends on how a function is invoked, not where it is written.
+
+In a normal function called directly in browser non-strict mode, this is window. In an object method, this refers to the object before the dot. Arrow functions do not create their own this; they inherit lexical this from the surrounding scope.
+
+\`\`\`js
+const user = {
+  name: 'Vikil',
+  greet() {
+    console.log(this.name);
+  },
+};
+\`\`\``),
+      card('What is the difference between call, apply, and bind?', `call executes immediately with comma-separated arguments.
+
+\`\`\`js
+fn.call(thisArg, arg1, arg2);
+\`\`\`
+
+apply executes immediately with arguments passed as an array.
+
+\`\`\`js
+fn.apply(thisArg, [arg1, arg2]);
+\`\`\`
+
+bind returns a new function and does not execute immediately.
+
+\`\`\`js
+const boundFn = fn.bind(thisArg);
+\`\`\``),
+      card('What is Prototype in JavaScript?', `Prototype is an object from which other objects inherit properties and methods.
+
+Every object has an internal prototype reference. Arrays can use methods such as map because they are available on Array.prototype.
+
+\`\`\`js
+const arr = [1, 2, 3];
+arr.map((n) => n * 2);
+\`\`\``),
+      card('What is Prototype Chain?', `When a property is not found directly on an object, JavaScript searches upward through linked prototypes. This lookup process is the prototype chain.
+
+\`\`\`js
+const user = { name: 'Vikil' };
+user.toString(); // found on Object.prototype
+\`\`\``),
+      card('What is Object Delegation?', `Objects delegate property lookup to prototype objects.
+
+\`\`\`js
+const animal = {
+  eat() {
+    console.log('Eating');
+  },
+};
+
+const dog = Object.create(animal);
+dog.eat();
+\`\`\`
+
+React class components also use prototype delegation. Methods such as setState come from React.Component.prototype.`),
+      card('What is Event Bubbling?', `Event bubbling means an event travels upward from the target element to its ancestors.
+
+\`\`\`js
+parent.addEventListener('click', () => console.log('Parent'));
+child.addEventListener('click', () => console.log('Child'));
+
+// Click child:
+// Child
+// Parent
+\`\`\``),
+      card('What is Event Capturing?', `Event capturing travels from the top ancestor down to the target element.
+
+Enable it by passing true as the third addEventListener argument.
+
+\`\`\`js
+parent.addEventListener('click', handler, true);
+\`\`\`
+
+The flow is parent first, then child.`),
+      card('What is Event Delegation?', `Event delegation attaches one listener to a parent instead of adding listeners to many children. It uses event bubbling.
+
+\`\`\`js
+ul.addEventListener('click', (e) => {
+  console.log(e.target);
+});
+\`\`\`
+
+Benefits: better performance, less memory usage, and support for dynamic elements. React internally uses event delegation.`),
+      card('What is a Promise?', `A Promise is an object representing the eventual completion or failure of an async operation.
+
+States: pending, fulfilled, and rejected.
+
+\`\`\`js
+const promise = new Promise((resolve, reject) => {
+  resolve('Success');
+});
+\`\`\``),
+      card('Why do Promise callbacks execute before setTimeout?', `Promise callbacks go into the microtask queue. setTimeout callbacks go into the callback queue. The event loop gives microtasks higher priority.
+
+\`\`\`js
+console.log(1);
+
+setTimeout(() => console.log(2));
+
+Promise.resolve().then(() => console.log(3));
+
+console.log(4);
+// 1, 4, 3, 2
+\`\`\``),
+      card('How does async/await work internally?', `async/await is syntactic sugar over Promises.
+
+async functions always return a Promise. await pauses execution of the current async function until the Promise settles, but it does not block the JavaScript thread.
+
+\`\`\`js
+async function test() {
+  const data = await fetch('/api');
+  console.log(data);
+}
+\`\`\``),
+      card('What is Virtual DOM?', 'Virtual DOM is a lightweight JavaScript representation of the real DOM. React creates a virtual tree, compares it with the previous tree, and updates only the changed parts of the real DOM.'),
+      card('What is Reconciliation in React?', 'Reconciliation is the process of comparing the old Virtual DOM with the new Virtual DOM so React can identify the minimal real DOM updates needed.'),
+      card('Why are keys important in React?', `Keys help React identify elements efficiently during reconciliation. They should be stable and unique among siblings.
+
+Using index as key is risky, especially when items can be inserted, deleted, or reordered.
+
+\`\`\`jsx
+items.map((item) => <Row key={item.id} item={item} />);
+\`\`\``),
+      card('What is React Fiber?', `React Fiber is React's reconciliation engine. It breaks rendering work into small interruptible units.
+
+Fiber enables scheduling, prioritization, interruptible rendering, and concurrent features.
+
+Render phase calculates changes and can pause or resume. Commit phase updates the real DOM and cannot pause.`),
+      card('What is useEffect?', `useEffect handles side effects in React, such as API calls, subscriptions, timers, and event listeners.
+
+Effects run after the commit phase.
+
+\`\`\`js
+useEffect(() => {
+  console.log('Effect');
+}, []);
+\`\`\``),
+      card('How does the dependency array work?', `React shallowly compares dependencies. The effect runs when a dependency value changes.
+
+\`\`\`js
+useEffect(() => {
+  sync(count);
+}, [count]);
+\`\`\`
+
+Objects and functions often create new references, which can cause repeated effects if they are dependencies.`),
+      card('When does a cleanup function run?', `Cleanup runs before the next effect execution and during component unmount.
+
+\`\`\`js
+useEffect(() => {
+  const id = setInterval(() => {}, 1000);
+  return () => clearInterval(id);
+}, []);
+\`\`\``),
+      card('What is stale closure in React?', `Effects capture variables from the render where they were created.
+
+\`\`\`js
+useEffect(() => {
+  setInterval(() => {
+    console.log(count);
+  }, 1000);
+}, []);
+\`\`\`
+
+This effect always sees the old count value because count was captured from the initial render.`),
+      card('What is batching in React?', `Batching means React combines multiple state updates into a single render.
+
+\`\`\`js
+setCount(1);
+setName('Vikil');
+\`\`\`
+
+React can process these together instead of rendering after each update.`),
+      card('Why does setState feel asynchronous?', `React queues updates instead of changing state immediately. The current render snapshot remains unchanged.
+
+\`\`\`js
+setCount(count + 1);
+console.log(count); // old value from this render
+\`\`\``),
+      card('Why are functional updates important?', `Functional updates use the latest state from React's update queue and avoid stale snapshots.
+
+\`\`\`js
+setCount((c) => c + 1);
+\`\`\`
+
+They are important when next state depends on previous state.`),
+      card('What is startTransition?', `startTransition marks updates as low-priority so urgent updates, like typing, stay responsive.
+
+\`\`\`js
+startTransition(() => {
+  setBigList(data);
+});
+\`\`\``),
+      card('What is useMemo?', `useMemo memoizes expensive calculations and recalculates only when dependencies change.
+
+\`\`\`js
+const result = useMemo(() => {
+  return expensiveCalculation(data);
+}, [data]);
+\`\`\`
+
+Use it for expensive work or stable derived references, not every small expression.`),
+      card('What is useCallback?', `useCallback memoizes function references.
+
+It is useful when a memoized child component depends on function prop identity.
+
+\`\`\`js
+const handleClick = useCallback(() => {
+  console.log('Clicked');
+}, []);
+\`\`\``),
+      card('What is React.memo?', `React.memo prevents unnecessary component re-renders when props have not changed.
+
+\`\`\`js
+export default React.memo(Component);
+\`\`\`
+
+It uses shallow prop comparison by default.`),
+      card('What is Suspense in React?', `Suspense lets React show fallback UI while waiting for async work such as lazy loading, data fetching, or streaming UI.
+
+\`\`\`jsx
+<Suspense fallback={<Loader />}>
+  <Dashboard />
+</Suspense>
+\`\`\``),
+      card('What is the difference between SSR, CSR, and SSG?', `CSR renders in the browser.
+
+SSR generates HTML on the server for each request.
+
+SSG generates HTML at build time and serves static pages.`),
+      card('What is Hydration?', 'Hydration is the process where React attaches event listeners and client behavior to server-rendered HTML. It is commonly used in SSR frameworks like Next.js.'),
+      card('What is Concurrent Rendering?', 'Concurrent Rendering lets React pause rendering, resume rendering, and prioritize updates. It is enabled by Fiber architecture. React is not multi-threaded; concurrent means interruptible scheduling.'),
+    ],
+  });
+  skills.push(seniorInterview);
+
   const reactComponents = mk('Components & Props', 'frontend', react.id, {
     definition: 'Components are reusable UI units. Props are read-only inputs that flow from parent to child, enabling composition and isolation.',
     codeExample:

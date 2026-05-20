@@ -9,6 +9,7 @@ import {
 } from 'react-native';
 import { getQuestionCards } from '../../domain/questions';
 import { COLORS } from '../../theme/colors';
+import RichAnswerText from './RichAnswerText';
 
 function darken(hex) {
   const c = hex.replace('#', '');
@@ -57,7 +58,11 @@ const QuestionRow = memo(function QuestionRow({ item, onEdit }) {
         <Chip color={COLORS.blue}>{item.trail.join(' / ')}</Chip>
       </View>
       <Text style={styles.flashQ}>❓ {item.q}</Text>
-      {!!item.a && <Text style={styles.questionAnswer}>{item.a}</Text>}
+      {!!item.a && (
+        <View style={styles.questionAnswer}>
+          <RichAnswerText value={item.a} />
+        </View>
+      )}
     </Pressable>
   );
 });
@@ -259,14 +264,10 @@ const styles = StyleSheet.create({
   chipText: { fontWeight: '800', fontSize: 12 },
   flashQ: { fontWeight: '800', color: COLORS.text, fontSize: 15, marginBottom: 6 },
   questionAnswer: {
-    color: COLORS.text,
-    fontSize: 13,
-    lineHeight: 20,
     paddingTop: 8,
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
     borderStyle: 'dashed',
-    fontWeight: '600',
   },
   emptyText: { color: '#BBB', fontStyle: 'italic', fontSize: 14, fontWeight: '600' },
 });
