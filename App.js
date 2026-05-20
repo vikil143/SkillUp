@@ -327,18 +327,24 @@ export default function App() {
     });
   }, []);
 
-  const navigate = (screen, params = {}) => {
+  const navigate = useCallback((screen, params = {}) => {
     setHistory((h) => [...h, view]);
     setView({ screen, ...params });
-  };
-  const goBack = () => {
+  }, [view]);
+  const goBack = useCallback(() => {
     setHistory((h) => {
       if (h.length === 0) return h;
       const prev = h[h.length - 1];
       setView(prev);
       return h.slice(0, -1);
     });
-  };
+  }, []);
+  const addQuestion = useCallback(() => {
+    setEditing({ type: 'question', item: {} });
+  }, []);
+  const editQuestion = useCallback((q) => {
+    setEditing({ type: 'question', item: q });
+  }, []);
 
   const bumpXP = useCallback((amount) => {
     setStreak((s) => {
@@ -371,8 +377,8 @@ export default function App() {
         <QuestionsScreen
           data={data}
           navigate={navigate}
-          onAdd={() => setEditing({ type: 'question', item: {} })}
-          onEdit={(q) => setEditing({ type: 'question', item: q })}
+          onAdd={addQuestion}
+          onEdit={editQuestion}
         />
       ) : (
         <ScrollView

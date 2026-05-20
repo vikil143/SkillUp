@@ -1,11 +1,10 @@
-import React, { useMemo, useState } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import {
   FlatList,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
-  TouchableOpacity,
   View,
 } from 'react-native';
 import { getQuestionCards } from '../../domain/questions';
@@ -19,23 +18,91 @@ function darken(hex) {
   return `#${[r, g, b].map((x) => x.toString(16).padStart(2, '0')).join('')}`;
 }
 
-function Chip({ children, color = COLORS.primary }) {
+const Chip = memo(function Chip({ children, color = COLORS.primary }) {
   return (
     <View style={[styles.chip, { backgroundColor: color + '22', borderColor: color + '88' }]}>
       <Text style={[styles.chipText, { color: darken(color) }]}>{children}</Text>
     </View>
   );
-}
+});
 
-function ActionButton({ children, color = COLORS.primary, onPress }) {
+const ActionButton = memo(function ActionButton({ children, color = COLORS.primary, onPress }) {
   return (
-    <TouchableOpacity onPress={onPress} activeOpacity={0.8} style={[styles.actionBtn, { backgroundColor: color }]}>
+    <Pressable
+      onPressIn={onPress}
+      unstable_pressDelay={0}
+      style={({ pressed }) => [
+        styles.actionBtn,
+        { backgroundColor: color, opacity: pressed ? 0.75 : 1 },
+      ]}
+    >
       <Text style={styles.actionBtnText}>{children}</Text>
-    </TouchableOpacity>
+    </Pressable>
   );
-}
+});
 
-export default function QuestionsScreen({ data, navigate, onAdd, onEdit }) {
+const QuestionRow = memo(function QuestionRow({ item, onEdit }) {
+  const openQuestion = useCallback(() => onEdit(item), [item, onEdit]);
+  return (
+    <Pressable
+      onPress={openQuestion}
+      unstable_pressDelay={0}
+      style={({ pressed }) => [
+        styles.questionCard,
+        pressed && styles.pressedCard,
+      ]}
+    >
+      <View style={styles.tagRow}>
+        <Chip color={item.categoryColor}>{item.categoryEmoji} {item.categoryName}</Chip>
+        <Chip color={COLORS.blue}>{item.trail.join(' / ')}</Chip>
+      </View>
+      <Text style={styles.flashQ}>❓ {item.q}</Text>
+      {!!item.a && <Text style={styles.questionAnswer}>{item.a}</Text>}
+    </Pressable>
+  );
+});
+
+const SkillFilterChip = memo(function SkillFilterChip({ item, categories, selectedSkillId, onSelect }) {
+  const select = useCallback(() => onSelect(item.id), [item.id, onSelect]);
+  if (item.id === 'all') {
+    const on = selectedSkillId === 'all';
+    return (
+      <Pressable
+        onPress={select}
+        unstable_pressDelay={0}
+        style={[
+          styles.choiceChip,
+          on && styles.choiceChipActiveNeutral,
+        ]}
+      >
+        <Text style={[
+          styles.choiceChipText,
+          on && styles.choiceChipTextActive,
+        ]}>All</Text>
+      </Pressable>
+    );
+  }
+
+  const cat = categories.find((c) => c.id === item.categoryId);
+  const on = selectedSkillId === item.id;
+  return (
+    <Pressable
+      onPress={select}
+      unstable_pressDelay={0}
+      style={[
+        styles.choiceChip,
+        on && { backgroundColor: cat?.color || COLORS.blue, borderColor: cat?.color || COLORS.blue },
+      ]}
+    >
+      <Text style={[
+        styles.choiceChipText,
+        on && styles.choiceChipTextActive,
+      ]}>{cat?.emoji || '📁'} {item.name}</Text>
+    </Pressable>
+  );
+});
+
+function QuestionsScreen({ data, navigate, onAdd, onEdit }) {
   const [query, setQuery] = useState('');
   const [selectedSkillId, setSelectedSkillId] = useState('all');
   const allCards = useMemo(() => getQuestionCards(data), [data]);
@@ -54,55 +121,25 @@ export default function QuestionsScreen({ data, navigate, onAdd, onEdit }) {
     [allCards, q, selectedSkillId]
   );
 
-  const renderQuestion = ({ item }) => (
-    <Pressable
-      onPress={() => onEdit(item)}
-      style={styles.questionCard}
-    >
-      <View style={styles.tagRow}>
-        <Chip color={item.categoryColor}>{item.categoryEmoji} {item.categoryName}</Chip>
-        <Chip color={COLORS.blue}>{item.trail.join(' / ')}</Chip>
-      </View>
-      <Text style={styles.flashQ}>❓ {item.q}</Text>
-      {!!item.a && <Text style={styles.questionAnswer}>{item.a}</Text>}
-    </Pressable>
+  const openRevise = useCallback(() => navigate('revise'), [navigate]);
+  const selectSkill = useCallback((id) => setSelectedSkillId(id), []);
+
+  const renderQuestion = useCallback(
+    ({ item }) => <QuestionRow item={item} onEdit={onEdit} />,
+    [onEdit]
   );
 
-  const renderSkillFilter = ({ item }) => {
-    if (item.id === 'all') {
-      const on = selectedSkillId === 'all';
-      return (
-        <TouchableOpacity
-          onPress={() => setSelectedSkillId('all')}
-          style={[
-            styles.choiceChip,
-            on && styles.choiceChipActiveNeutral,
-          ]}
-        >
-          <Text style={[
-            styles.choiceChipText,
-            on && styles.choiceChipTextActive,
-          ]}>All</Text>
-        </TouchableOpacity>
-      );
-    }
-    const cat = data.categories.find((c) => c.id === item.categoryId);
-    const on = selectedSkillId === item.id;
-    return (
-      <TouchableOpacity
-        onPress={() => setSelectedSkillId(item.id)}
-        style={[
-          styles.choiceChip,
-          on && { backgroundColor: cat?.color || COLORS.blue, borderColor: cat?.color || COLORS.blue },
-        ]}
-      >
-        <Text style={[
-          styles.choiceChipText,
-          on && styles.choiceChipTextActive,
-        ]}>{cat?.emoji || '📁'} {item.name}</Text>
-      </TouchableOpacity>
-    );
-  };
+  const renderSkillFilter = useCallback(
+    ({ item }) => (
+      <SkillFilterChip
+        item={item}
+        categories={data.categories}
+        selectedSkillId={selectedSkillId}
+        onSelect={selectSkill}
+      />
+    ),
+    [data.categories, selectedSkillId, selectSkill]
+  );
 
   const ListHeader = (
     <View>
@@ -130,7 +167,7 @@ export default function QuestionsScreen({ data, navigate, onAdd, onEdit }) {
         />
         <View style={styles.actionRow}>
           <ActionButton onPress={onAdd}>+ Add question</ActionButton>
-          <ActionButton color={COLORS.blue} onPress={() => navigate('revise')}>Revise shuffled</ActionButton>
+          <ActionButton color={COLORS.blue} onPress={openRevise}>Revise shuffled</ActionButton>
         </View>
       </View>
     </View>
@@ -159,6 +196,8 @@ export default function QuestionsScreen({ data, navigate, onAdd, onEdit }) {
     />
   );
 }
+
+export default memo(QuestionsScreen);
 
 const styles = StyleSheet.create({
   list: { flex: 1 },
@@ -207,6 +246,7 @@ const styles = StyleSheet.create({
     padding: 14,
     marginBottom: 10,
   },
+  pressedCard: { opacity: 0.75 },
   tagRow: { flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 },
   chip: {
     borderWidth: 1,

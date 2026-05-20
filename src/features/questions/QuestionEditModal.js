@@ -1,10 +1,10 @@
-import React, { useState } from 'react';
+import React, { memo, useCallback, useMemo, useState } from 'react';
 import {
   Alert,
+  FlatList,
   KeyboardAvoidingView,
   Platform,
   Pressable,
-  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -44,6 +44,30 @@ function Chip({ children, color = COLORS.primary }) {
   );
 }
 
+const SkillPickerRow = memo(function SkillPickerRow({ skill, category, active, trail, onSelect }) {
+  const select = useCallback(() => onSelect(skill.id), [onSelect, skill.id]);
+  return (
+    <Pressable
+      onPress={select}
+      unstable_pressDelay={0}
+      style={[
+        styles.skillPickerRow,
+        active && {
+          borderColor: category?.color || COLORS.blue,
+          backgroundColor: (category?.color || COLORS.blue) + '14',
+        },
+      ]}
+    >
+      <Text style={styles.skillEmoji}>{category?.emoji || '📁'}</Text>
+      <View style={styles.skillTextWrap}>
+        <Text style={styles.skillName}>{skill.name}</Text>
+        <Text style={styles.skillMeta}>{trail}</Text>
+      </View>
+      {active && <Text style={[styles.check, { color: category?.color || COLORS.blue }]}>✓</Text>}
+    </Pressable>
+  );
+});
+
 export default function QuestionEditModal({ data, question, update, onClose }) {
   const isNew = !question.id;
   const [form, setForm] = useState({
@@ -52,12 +76,64 @@ export default function QuestionEditModal({ data, question, update, onClose }) {
     q: question.q || '',
     a: question.a || '',
   });
-  const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const setField = useCallback((k, v) => setForm((f) => ({ ...f, [k]: v })), []);
   const selectedSkill = data.skills.find((s) => s.id === form.skillId);
   const selectedCat = selectedSkill
     ? data.categories.find((c) => c.id === selectedSkill.categoryId)
     : null;
-
+  const categoryById = useMemo(
+    () => new Map(data.categories.map((category) => [category.id, category])),
+    [data.categories]
+  );
+  const selectSkill = useCallback((skillId) => setField('skillId', skillId), [setField]);
+  const renderSkill = useCallback(
+    ({ item }) => (
+      <SkillPickerRow
+        skill={item}
+        category={categoryById.get(item.categoryId)}
+        trail={getSkillTrail(data.skills, item.id).join(' / ')}
+        active={form.skillId === item.id}
+        onSelect={selectSkill}
+      />
+    ),
+    [categoryById, data.skills, form.skillId, selectSkill]
+  );
+  const listHeader = (
+    <View>
+      <Field label="QUESTION *">
+        <TextInput
+          style={[styles.input, styles.textarea]}
+          multiline
+          value={form.q}
+          onChangeText={(v) => setField('q', v)}
+          placeholder="What do you want to revise?"
+          placeholderTextColor={COLORS.textLight}
+        />
+      </Field>
+      <Field label="ANSWER">
+        <TextInput
+          style={[styles.input, styles.textarea, styles.answerInput]}
+          multiline
+          value={form.a}
+          onChangeText={(v) => setField('a', v)}
+          placeholder="Add the answer you want to reveal later."
+          placeholderTextColor={COLORS.textLight}
+        />
+      </Field>
+      <Field label="LINKED SKILL / TOPIC / SUB-TOPIC">
+        {selectedSkill && (
+          <View style={styles.tagRow}>
+            <Chip color={selectedCat?.color || COLORS.blue}>
+              {selectedCat?.emoji || '📁'} {selectedCat?.name || 'Category'}
+            </Chip>
+            <Chip color={COLORS.blue}>
+              {getSkillTrail(data.skills, selectedSkill.id).join(' / ')}
+            </Chip>
+          </View>
+        )}
+      </Field>
+    </View>
+  );
   const save = () => {
     if (!form.skillId) {
       Alert.alert('Missing skill', 'Add a skill first, then link this question to it.');
@@ -99,7 +175,6 @@ export default function QuestionEditModal({ data, question, update, onClose }) {
       },
     ]);
   };
-
   return (
     <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalBackdrop}>
       <Pressable style={styles.backdropFill} onPress={onClose} />
@@ -110,66 +185,17 @@ export default function QuestionEditModal({ data, question, update, onClose }) {
             <Text style={styles.closeText}>✕</Text>
           </TouchableOpacity>
         </View>
-        <ScrollView style={styles.formScroll} keyboardShouldPersistTaps="handled">
-          <Field label="QUESTION *">
-            <TextInput
-              style={[styles.input, styles.textarea]}
-              multiline
-              value={form.q}
-              onChangeText={(v) => setField('q', v)}
-              placeholder="What do you want to revise?"
-              placeholderTextColor={COLORS.textLight}
-            />
-          </Field>
-          <Field label="ANSWER">
-            <TextInput
-              style={[styles.input, styles.textarea, styles.answerInput]}
-              multiline
-              value={form.a}
-              onChangeText={(v) => setField('a', v)}
-              placeholder="Add the answer you want to reveal later."
-              placeholderTextColor={COLORS.textLight}
-            />
-          </Field>
-          <Field label="LINKED SKILL / TOPIC / SUB-TOPIC">
-            {selectedSkill && (
-              <View style={styles.tagRow}>
-                <Chip color={selectedCat?.color || COLORS.blue}>
-                  {selectedCat?.emoji || '📁'} {selectedCat?.name || 'Category'}
-                </Chip>
-                <Chip color={COLORS.blue}>
-                  {getSkillTrail(data.skills, selectedSkill.id).join(' / ')}
-                </Chip>
-              </View>
-            )}
-            <ScrollView style={styles.skillList} nestedScrollEnabled>
-              {data.skills.map((skill) => {
-                const cat = data.categories.find((c) => c.id === skill.categoryId);
-                const on = form.skillId === skill.id;
-                return (
-                  <TouchableOpacity
-                    key={skill.id}
-                    onPress={() => setField('skillId', skill.id)}
-                    style={[
-                      styles.skillPickerRow,
-                      on && {
-                        borderColor: cat?.color || COLORS.blue,
-                        backgroundColor: (cat?.color || COLORS.blue) + '14',
-                      },
-                    ]}
-                  >
-                    <Text style={styles.skillEmoji}>{cat?.emoji || '📁'}</Text>
-                    <View style={styles.skillTextWrap}>
-                      <Text style={styles.skillName}>{skill.name}</Text>
-                      <Text style={styles.skillMeta}>{getSkillTrail(data.skills, skill.id).join(' / ')}</Text>
-                    </View>
-                    {on && <Text style={[styles.check, { color: cat?.color || COLORS.blue }]}>✓</Text>}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </Field>
-        </ScrollView>
+        <FlatList
+          style={styles.formList}
+          data={data.skills}
+          keyExtractor={(item) => item.id}
+          renderItem={renderSkill}
+          keyboardShouldPersistTaps="handled"
+          ListHeaderComponent={listHeader}
+          initialNumToRender={12}
+          maxToRenderPerBatch={12}
+          windowSize={5}
+        />
         <View style={styles.footer}>
           <Button onPress={save}>Save</Button>
           {!isNew && <Button color={COLORS.red} onPress={del}>Delete</Button>}
@@ -212,7 +238,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
   },
   closeText: { fontSize: 16 },
-  formScroll: { maxHeight: 520 },
+  formList: { maxHeight: 560 },
   field: { marginBottom: 14 },
   fieldLabel: {
     fontSize: 11,
@@ -244,7 +270,6 @@ const styles = StyleSheet.create({
     marginBottom: 6,
   },
   chipText: { fontWeight: '800', fontSize: 12 },
-  skillList: { maxHeight: 220 },
   skillPickerRow: {
     flexDirection: 'row',
     alignItems: 'center',
