@@ -1,0 +1,25 @@
+// seed/categories.js — all skill categories
+// Colors are hardcoded to avoid importing from App.js
+export const categories = [
+  { id: 'frontend',        name: 'Frontend',               emoji: '🎨', color: '#58CC02' },
+  { id: 'state',           name: 'State & Architecture',   emoji: '🧩', color: '#1CB0F6' },
+  { id: 'styling',         name: 'Styling',                emoji: '💅', color: '#FF86D0' },
+  { id: 'backend',         name: 'Backend & APIs',         emoji: '🔌', color: '#FF9600' },
+  { id: 'dataviz',         name: 'Data Viz',               emoji: '📊', color: '#CE82FF' },
+  { id: 'databases',       name: 'Databases',              emoji: '🗄️', color: '#2EC4B6' },
+  { id: 'auth',            name: 'Security & Auth',        emoji: '🔐', color: '#FF4B4B' },
+  { id: 'testing',         name: 'Testing & Build',        emoji: '🧪', color: '#FFC800' },
+  { id: 'devops',          name: 'DevOps & CI/CD',         emoji: '🚀', color: '#235390' },
+  { id: 'cloud',           name: 'Cloud & Hosting',        emoji: '☁️', color: '#84D8FF' },
+  { id: 'mobile',          name: 'Mobile',                 emoji: '📱', color: '#A56AFF' },
+  { id: 'payments',        name: 'Payments',               emoji: '💳', color: '#02CD7C' },
+  { id: 'ai',              name: 'AI Tools',               emoji: '🤖', color: '#F75590' },
+  { id: 'method',          name: 'Methodology',            emoji: '🏃', color: '#FF6D00' },
+  { id: 'internet',        name: 'Internet & Networking',  emoji: '🌐', color: '#4A8BF5' },
+  { id: 'genai',           name: 'Gen AI',                 emoji: '🧠', color: '#C026D3' },
+  { id: 'design-patterns', name: 'Design Patterns',        emoji: '🎯', color: '#9333EA' },
+  { id: 'embedded',        name: 'Embedded Systems',       emoji: '⚡', color: '#E11D48' },
+  { id: 'tools',           name: 'Tools',                  emoji: '🛠️', color: '#6B7280' },
+  { id: 'perf',            name: 'Performance',            emoji: '⚡', color: '#F59E0B' },
+  { id: 'webgl',           name: 'WebGL & 3D',             emoji: '🔷', color: '#FF6B35' },
+];
