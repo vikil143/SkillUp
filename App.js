@@ -441,6 +441,14 @@ export default function App() {
             onEdit={(e) => setEditing({ type: 'experience', item: e })}
           />
         )}
+        {view.screen === 'questions' && (
+          <QuestionsScreen
+            data={data}
+            navigate={navigate}
+            onAdd={() => setEditing({ type: 'question', item: {} })}
+            onEdit={(q) => setEditing({ type: 'question', item: q })}
+          />
+        )}
         {view.screen === 'revise' && (
           <ReviseMode data={data} bumpXP={bumpXP} />
         )}
@@ -450,11 +458,13 @@ export default function App() {
       {(view.screen === 'category-detail' ||
         view.screen === 'skills-home' ||
         view.screen === 'projects' ||
-        view.screen === 'experience') && (
+        view.screen === 'experience' ||
+        view.screen === 'questions') && (
         <Fab
           onPress={() => {
             if (view.screen === 'projects') setEditing({ type: 'project', item: {} });
             else if (view.screen === 'experience') setEditing({ type: 'experience', item: {} });
+            else if (view.screen === 'questions') setEditing({ type: 'question', item: {} });
             else if (view.screen === 'category-detail')
               setEditing({ type: 'skill', item: { categoryId: view.categoryId } });
             else setEditing({ type: 'category', item: {} });
@@ -519,6 +529,7 @@ function BottomNav({ current, navigate }) {
     { key: 'skills-home', label: 'Skills', emoji: '📚' },
     { key: 'projects', label: 'Projects', emoji: '🚀' },
     { key: 'experience', label: 'Career', emoji: '💼' },
+    { key: 'questions', label: 'Questions', emoji: '❓' },
     { key: 'revise', label: 'Revise', emoji: '⚡' },
   ];
   const isActive = (k) =>
@@ -652,6 +663,39 @@ function countDescendants(skills, parentId) {
   count += direct.length;
   direct.forEach((d) => { count += countDescendants(skills, d.id); });
   return count;
+}
+
+function getSkillTrail(skills, skillId) {
+  const trail = [];
+  let current = skills.find((s) => s.id === skillId);
+  const seen = new Set();
+  while (current && !seen.has(current.id)) {
+    trail.unshift(current.name);
+    seen.add(current.id);
+    current = current.parentId ? skills.find((s) => s.id === current.parentId) : null;
+  }
+  return trail;
+}
+
+function getQuestionCards(data) {
+  const cards = [];
+  data.skills.forEach((skill) => {
+    const category = data.categories.find((c) => c.id === skill.categoryId);
+    const trail = getSkillTrail(data.skills, skill.id);
+    (skill.flashcards || []).forEach((card) => {
+      cards.push({
+        ...card,
+        skillId: skill.id,
+        skillName: skill.name,
+        categoryId: skill.categoryId,
+        categoryName: category?.name || 'Uncategorized',
+        categoryEmoji: category?.emoji || '📁',
+        categoryColor: category?.color || COLORS.blue,
+        trail,
+      });
+    });
+  });
+  return cards;
 }
 
 // ============================================================
@@ -985,6 +1029,104 @@ function TreeNode({ skill, allSkills, depth, categoryColor, onPress }) {
 }
 
 // ============================================================
+// QUESTIONS
+// ============================================================
+function QuestionsScreen({ data, navigate, onAdd, onEdit }) {
+  const [query, setQuery] = useState('');
+  const [selectedSkillId, setSelectedSkillId] = useState('all');
+  const allCards = getQuestionCards(data);
+  const q = query.trim().toLowerCase();
+  const cards = allCards.filter((card) => {
+    const matchesText = !q ||
+      card.q.toLowerCase().includes(q) ||
+      (card.a || '').toLowerCase().includes(q) ||
+      card.trail.join(' ').toLowerCase().includes(q) ||
+      card.categoryName.toLowerCase().includes(q);
+    const matchesSkill = selectedSkillId === 'all' || card.skillId === selectedSkillId;
+    return matchesText && matchesSkill;
+  });
+
+  return (
+    <View>
+      <Text style={styles.screenTitle}>❓ Questions</Text>
+      <Text style={styles.screenSub}>
+        {allCards.length} question{allCards.length !== 1 ? 's' : ''} linked to skills, topics, and sub-topics.
+      </Text>
+
+      <View style={styles.panel}>
+        <TextInput
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Search questions, answers, skills..."
+          placeholderTextColor={COLORS.textLight}
+          style={styles.input}
+        />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }}>
+          <TouchableOpacity
+            onPress={() => setSelectedSkillId('all')}
+            style={[
+              styles.choiceChip,
+              selectedSkillId === 'all' && { backgroundColor: COLORS.text, borderColor: COLORS.text },
+            ]}
+          >
+            <Text style={[
+              styles.choiceChipText,
+              selectedSkillId === 'all' && { color: 'white' },
+            ]}>All</Text>
+          </TouchableOpacity>
+          {data.skills.map((skill) => {
+            const cat = data.categories.find((c) => c.id === skill.categoryId);
+            const on = selectedSkillId === skill.id;
+            return (
+              <TouchableOpacity
+                key={skill.id}
+                onPress={() => setSelectedSkillId(skill.id)}
+                style={[
+                  styles.choiceChip,
+                  on && { backgroundColor: cat?.color || COLORS.blue, borderColor: cat?.color || COLORS.blue },
+                ]}
+              >
+                <Text style={[
+                  styles.choiceChipText,
+                  on && { color: 'white' },
+                ]}>{cat?.emoji || '📁'} {skill.name}</Text>
+              </TouchableOpacity>
+            );
+          })}
+        </ScrollView>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
+          <PressBtn small onPress={onAdd}>+ Add question</PressBtn>
+          <PressBtn small color={COLORS.blue} onPress={() => navigate('revise')}>Revise shuffled</PressBtn>
+        </View>
+      </View>
+
+      {cards.length === 0 ? (
+        <View style={styles.panel}>
+          <Text style={styles.emptyText}>
+            No questions found. Tap + to add one and tag it to a skill or sub-topic.
+          </Text>
+        </View>
+      ) : (
+        cards.map((card) => (
+          <Pressable
+            key={`${card.skillId}-${card.id}`}
+            onPress={() => onEdit(card)}
+            style={styles.questionCard}
+          >
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 }}>
+              <Chip color={card.categoryColor}>{card.categoryEmoji} {card.categoryName}</Chip>
+              <Chip color={COLORS.blue}>{card.trail.join(' / ')}</Chip>
+            </View>
+            <Text style={styles.flashQ}>❓ {card.q}</Text>
+            {!!card.a && <Text style={styles.questionAnswer}>{card.a}</Text>}
+          </Pressable>
+        ))
+      )}
+    </View>
+  );
+}
+
+// ============================================================
 // PROJECTS
 // ============================================================
 function ProjectsScreen({ data, navigate }) {
@@ -1233,12 +1375,7 @@ function LinkRefCard({ item }) {
 // ============================================================
 function ReviseMode({ data, bumpXP }) {
   const buildDeck = () => {
-    const cards = [];
-    data.skills.forEach((s) => {
-      (s.flashcards || []).forEach((f) => {
-        cards.push({ ...f, skillId: s.id, skillName: s.name, categoryId: s.categoryId });
-      });
-    });
+    const cards = getQuestionCards(data);
     for (let i = cards.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [cards[i], cards[j]] = [cards[j], cards[i]];
@@ -1260,12 +1397,14 @@ function ReviseMode({ data, bumpXP }) {
     setScore({ good: 0, ok: 0, hard: 0 });
   };
 
-  const totalCards = data.skills.reduce((n, s) => n + (s.flashcards?.length || 0), 0);
+  const questionSignature = data.skills
+    .map((s) => `${s.id}:${(s.flashcards || []).map((f) => `${f.id}:${f.q}:${f.a}`).join('|')}`)
+    .join('::');
   const mountedRef = useRef(false);
   useEffect(() => {
     if (!mountedRef.current) { mountedRef.current = true; return; }
     restart();
-  }, [totalCards]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [questionSignature]); // eslint-disable-line react-hooks/exhaustive-deps
 
   if (deck.length === 0) {
     return (
@@ -1321,7 +1460,7 @@ function ReviseMode({ data, bumpXP }) {
         <View style={[styles.progressFill, { width: `${progress}%` }]} />
       </View>
       <Text style={styles.screenSub}>
-        Card {idx + 1} of {deck.length} · {cat?.emoji} {card.skillName}
+        Card {idx + 1} of {deck.length} · {cat?.emoji} {card.trail?.join(' / ') || card.skillName}
       </Text>
 
       <View style={styles.reviseCard}>
@@ -1450,6 +1589,7 @@ function EditModal({ data, editing, update, onClose }) {
   if (type === 'project') return <ProjectEditModal data={data} project={item} update={update} onClose={onClose} />;
   if (type === 'experience') return <ExperienceEditModal experience={item} update={update} onClose={onClose} />;
   if (type === 'category') return <CategoryEditModal category={item} update={update} onClose={onClose} />;
+  if (type === 'question') return <QuestionEditModal data={data} question={item} update={update} onClose={onClose} />;
   return null;
 }
 
@@ -1459,6 +1599,139 @@ function Field({ label, children }) {
       <Text style={styles.fieldLabel}>{label}</Text>
       {children}
     </View>
+  );
+}
+
+function QuestionEditModal({ data, question, update, onClose }) {
+  const isNew = !question.id;
+  const [form, setForm] = useState({
+    id: question.id || uid(),
+    skillId: question.skillId || data.skills[0]?.id || '',
+    q: question.q || '',
+    a: question.a || '',
+  });
+  const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const selectedSkill = data.skills.find((s) => s.id === form.skillId);
+  const selectedCat = selectedSkill
+    ? data.categories.find((c) => c.id === selectedSkill.categoryId)
+    : null;
+
+  const save = () => {
+    if (!form.skillId) {
+      Alert.alert('Missing skill', 'Add a skill first, then link this question to it.');
+      return;
+    }
+    if (!form.q.trim()) {
+      Alert.alert('Missing question', 'Question text is required.');
+      return;
+    }
+    update((d) => {
+      if (!isNew && question.skillId && question.skillId !== form.skillId) {
+        const oldSkill = d.skills.find((s) => s.id === question.skillId);
+        if (oldSkill) oldSkill.flashcards = (oldSkill.flashcards || []).filter((fc) => fc.id !== form.id);
+      }
+      const skill = d.skills.find((s) => s.id === form.skillId);
+      if (!skill) return;
+      if (!Array.isArray(skill.flashcards)) skill.flashcards = [];
+      const cleaned = { id: form.id, q: form.q.trim(), a: form.a.trim() };
+      const i = skill.flashcards.findIndex((fc) => fc.id === form.id);
+      if (i >= 0) skill.flashcards[i] = cleaned;
+      else skill.flashcards.push(cleaned);
+    });
+    onClose();
+  };
+
+  const del = () => {
+    Alert.alert('Delete question?', 'This removes it from revision too.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () => {
+          update((d) => {
+            const skill = d.skills.find((s) => s.id === form.skillId || s.id === question.skillId);
+            if (skill) skill.flashcards = (skill.flashcards || []).filter((fc) => fc.id !== form.id);
+          });
+          onClose();
+        },
+      },
+    ]);
+  };
+
+  return (
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalBackdrop}>
+      <Pressable style={{ flex: 1 }} onPress={onClose} />
+      <View style={styles.modalSheet}>
+        <View style={styles.modalHeader}>
+          <Text style={styles.modalTitle}>{isNew ? 'New question' : 'Edit question'}</Text>
+          <TouchableOpacity onPress={onClose} style={styles.iconBtn}>
+            <Text style={{ fontSize: 16 }}>✕</Text>
+          </TouchableOpacity>
+        </View>
+        <ScrollView style={{ maxHeight: 520 }} keyboardShouldPersistTaps="handled">
+          <Field label="QUESTION *">
+            <TextInput
+              style={[styles.input, styles.textarea]}
+              multiline
+              value={form.q}
+              onChangeText={(v) => setField('q', v)}
+              placeholder="What do you want to revise?"
+              placeholderTextColor={COLORS.textLight}
+            />
+          </Field>
+          <Field label="ANSWER">
+            <TextInput
+              style={[styles.input, styles.textarea, { minHeight: 140 }]}
+              multiline
+              value={form.a}
+              onChangeText={(v) => setField('a', v)}
+              placeholder="Add the answer you want to reveal later."
+              placeholderTextColor={COLORS.textLight}
+            />
+          </Field>
+          <Field label="LINKED SKILL / TOPIC / SUB-TOPIC">
+            {selectedSkill && (
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
+                <Chip color={selectedCat?.color || COLORS.blue}>
+                  {selectedCat?.emoji || '📁'} {selectedCat?.name || 'Category'}
+                </Chip>
+                <Chip color={COLORS.blue}>
+                  {getSkillTrail(data.skills, selectedSkill.id).join(' / ')}
+                </Chip>
+              </View>
+            )}
+            <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled>
+              {data.skills.map((skill) => {
+                const cat = data.categories.find((c) => c.id === skill.categoryId);
+                const on = form.skillId === skill.id;
+                return (
+                  <TouchableOpacity
+                    key={skill.id}
+                    onPress={() => setField('skillId', skill.id)}
+                    style={[
+                      styles.skillPickerRow,
+                      on && { borderColor: cat?.color || COLORS.blue, backgroundColor: (cat?.color || COLORS.blue) + '14' },
+                    ]}
+                  >
+                    <Text style={{ fontSize: 18, marginRight: 8 }}>{cat?.emoji || '📁'}</Text>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.skillRowName}>{skill.name}</Text>
+                      <Text style={styles.skillRowMeta}>{getSkillTrail(data.skills, skill.id).join(' / ')}</Text>
+                    </View>
+                    {on && <Text style={{ color: cat?.color || COLORS.blue, fontWeight: '900' }}>✓</Text>}
+                  </TouchableOpacity>
+                );
+              })}
+            </ScrollView>
+          </Field>
+        </ScrollView>
+        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, paddingTop: 12, borderTopWidth: 2, borderTopColor: COLORS.border }}>
+          <PressBtn onPress={save}>Save</PressBtn>
+          {!isNew && <PressBtn color={COLORS.red} onPress={del}>Delete</PressBtn>}
+          <PressBtn ghost onPress={onClose}>Cancel</PressBtn>
+        </View>
+      </View>
+    </KeyboardAvoidingView>
   );
 }
 
@@ -2261,6 +2534,20 @@ const styles = StyleSheet.create({
   flashQ: { fontWeight: '800', color: COLORS.text, fontSize: 15, marginBottom: 6 },
   flashA: { color: COLORS.text, fontSize: 14, lineHeight: 21, paddingTop: 8, borderTopWidth: 1, borderTopColor: COLORS.border, borderStyle: 'dashed', fontWeight: '600' },
   flashHint: { color: '#BBB', fontSize: 12, fontStyle: 'italic', fontWeight: '600' },
+  questionCard: {
+    backgroundColor: 'white', borderWidth: 2, borderColor: COLORS.border,
+    borderRadius: 16, padding: 14, marginBottom: 10,
+  },
+  questionAnswer: {
+    color: COLORS.text, fontSize: 13, lineHeight: 20,
+    paddingTop: 8, borderTopWidth: 1, borderTopColor: COLORS.border,
+    borderStyle: 'dashed', fontWeight: '600',
+  },
+  skillPickerRow: {
+    flexDirection: 'row', alignItems: 'center',
+    backgroundColor: 'white', borderWidth: 2, borderColor: COLORS.border,
+    borderRadius: 12, padding: 10, marginBottom: 8,
+  },
 
   // Projects
   projectCard: {
