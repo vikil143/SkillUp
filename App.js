@@ -24,6 +24,10 @@ import { WebView } from 'react-native-webview';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { SEED } from './seed';
 import { uid } from './seed/helpers';
+import { getQuestionCards } from './src/domain/questions';
+import QuestionEditModal from './src/features/questions/QuestionEditModal';
+import QuestionsScreen from './src/features/questions/QuestionsScreen';
+import { COLORS } from './src/theme/colors';
 
 // ============================================================
 // CONSTANTS & STORAGE
@@ -32,28 +36,6 @@ const STORAGE_KEY = 'skillup-data-v1';
 const STREAK_KEY = 'skillup-streak-v1';
 // Bump this string whenever seed content changes — forces migration to re-run
 const SEED_VERSION = '2026-05-20-v5';
-
-const COLORS = {
-  primary: '#58CC02',
-  primaryDark: '#58A700',
-  blue: '#1CB0F6',
-  blueDark: '#1899D6',
-  orange: '#FF9600',
-  orangeDark: '#E08600',
-  red: '#FF4B4B',
-  redDark: '#E44141',
-  yellow: '#FFC800',
-  purple: '#CE82FF',
-  pink: '#FF86D0',
-  teal: '#2EC4B6',
-  navy: '#235390',
-  bg: '#FFFFFF',
-  card: '#FFFFFF',
-  text: '#3C3C3C',
-  textLight: '#777',
-  border: '#E5E5E5',
-  panel: '#FAFAFA',
-};
 
 const loadData = async () => {
   try {
@@ -385,74 +367,75 @@ export default function App() {
         onHome={() => { setHistory([]); setView({ screen: 'skills-home' }); }}
       />
 
-      <ScrollView
-        style={styles.scroll}
-        contentContainerStyle={styles.scrollContent}
-        keyboardShouldPersistTaps="handled"
-      >
-        {view.screen === 'skills-home' && (
-          <SkillsHome
-            data={data}
-            navigate={navigate}
-            onEditCategory={(c) => setEditing({ type: 'category', item: c })}
-          />
-        )}
-        {view.screen === 'category-detail' && (
-          <CategoryDetail
-            data={data}
-            categoryId={view.categoryId}
-            navigate={navigate}
-            goBack={goBack}
-            onAdd={() => setEditing({ type: 'skill', item: { categoryId: view.categoryId } })}
-          />
-        )}
-        {view.screen === 'skill-detail' && (
-          <SkillDetail
-            data={data}
-            skillId={view.skillId}
-            navigate={navigate}
-            goBack={goBack}
-            onEdit={(s) => setEditing({ type: 'skill', item: s })}
-            onAddSubtopic={(parentId, categoryId) =>
-              setEditing({ type: 'skill', item: { parentId, categoryId } })
-            }
-          />
-        )}
-        {view.screen === 'projects' && (
-          <ProjectsScreen
-            data={data}
-            navigate={navigate}
-            onAdd={() => setEditing({ type: 'project', item: {} })}
-          />
-        )}
-        {view.screen === 'project-detail' && (
-          <ProjectDetail
-            data={data}
-            projectId={view.projectId}
-            navigate={navigate}
-            goBack={goBack}
-            onEdit={(p) => setEditing({ type: 'project', item: p })}
-          />
-        )}
-        {view.screen === 'experience' && (
-          <ExperienceScreen
-            data={data}
-            onAdd={() => setEditing({ type: 'experience', item: {} })}
-            onEdit={(e) => setEditing({ type: 'experience', item: e })}
-          />
-        )}
-        {view.screen === 'questions' && (
-          <QuestionsScreen
-            data={data}
-            navigate={navigate}
-            onAdd={() => setEditing({ type: 'question', item: {} })}
-            onEdit={(q) => setEditing({ type: 'question', item: q })}
-          />
-        )}
-        {view.screen === 'revise' && (
-          <ReviseMode data={data} bumpXP={bumpXP} />
-        )}
-      </ScrollView>
+      {view.screen === 'questions' ? (
+        <QuestionsScreen
+          data={data}
+          navigate={navigate}
+          onAdd={() => setEditing({ type: 'question', item: {} })}
+          onEdit={(q) => setEditing({ type: 'question', item: q })}
+        />
+      ) : (
+        <ScrollView
+          style={styles.scroll}
+          contentContainerStyle={styles.scrollContent}
+          keyboardShouldPersistTaps="handled"
+        >
+          {view.screen === 'skills-home' && (
+            <SkillsHome
+              data={data}
+              navigate={navigate}
+              onEditCategory={(c) => setEditing({ type: 'category', item: c })}
+            />
+          )}
+          {view.screen === 'category-detail' && (
+            <CategoryDetail
+              data={data}
+              categoryId={view.categoryId}
+              navigate={navigate}
+              goBack={goBack}
+              onAdd={() => setEditing({ type: 'skill', item: { categoryId: view.categoryId } })}
+            />
+          )}
+          {view.screen === 'skill-detail' && (
+            <SkillDetail
+              data={data}
+              skillId={view.skillId}
+              navigate={navigate}
+              goBack={goBack}
+              onEdit={(s) => setEditing({ type: 'skill', item: s })}
+              onAddSubtopic={(parentId, categoryId) =>
+                setEditing({ type: 'skill', item: { parentId, categoryId } })
+              }
+            />
+          )}
+          {view.screen === 'projects' && (
+            <ProjectsScreen
+              data={data}
+              navigate={navigate}
+              onAdd={() => setEditing({ type: 'project', item: {} })}
+            />
+          )}
+          {view.screen === 'project-detail' && (
+            <ProjectDetail
+              data={data}
+              projectId={view.projectId}
+              navigate={navigate}
+              goBack={goBack}
+              onEdit={(p) => setEditing({ type: 'project', item: p })}
+            />
+          )}
+          {view.screen === 'experience' && (
+            <ExperienceScreen
+              data={data}
+              onAdd={() => setEditing({ type: 'experience', item: {} })}
+              onEdit={(e) => setEditing({ type: 'experience', item: e })}
+            />
+          )}
+          {view.screen === 'revise' && (
+            <ReviseMode data={data} bumpXP={bumpXP} />
+          )}
+        </ScrollView>
+      )}
 
       {/* Floating Add Button */}
       {(view.screen === 'category-detail' ||
@@ -663,39 +646,6 @@ function countDescendants(skills, parentId) {
   count += direct.length;
   direct.forEach((d) => { count += countDescendants(skills, d.id); });
   return count;
-}
-
-function getSkillTrail(skills, skillId) {
-  const trail = [];
-  let current = skills.find((s) => s.id === skillId);
-  const seen = new Set();
-  while (current && !seen.has(current.id)) {
-    trail.unshift(current.name);
-    seen.add(current.id);
-    current = current.parentId ? skills.find((s) => s.id === current.parentId) : null;
-  }
-  return trail;
-}
-
-function getQuestionCards(data) {
-  const cards = [];
-  data.skills.forEach((skill) => {
-    const category = data.categories.find((c) => c.id === skill.categoryId);
-    const trail = getSkillTrail(data.skills, skill.id);
-    (skill.flashcards || []).forEach((card) => {
-      cards.push({
-        ...card,
-        skillId: skill.id,
-        skillName: skill.name,
-        categoryId: skill.categoryId,
-        categoryName: category?.name || 'Uncategorized',
-        categoryEmoji: category?.emoji || '📁',
-        categoryColor: category?.color || COLORS.blue,
-        trail,
-      });
-    });
-  });
-  return cards;
 }
 
 // ============================================================
@@ -1024,104 +974,6 @@ function TreeNode({ skill, allSkills, depth, categoryColor, onPress }) {
             onPress={onPress}
           />
         ))}
-    </View>
-  );
-}
-
-// ============================================================
-// QUESTIONS
-// ============================================================
-function QuestionsScreen({ data, navigate, onAdd, onEdit }) {
-  const [query, setQuery] = useState('');
-  const [selectedSkillId, setSelectedSkillId] = useState('all');
-  const allCards = getQuestionCards(data);
-  const q = query.trim().toLowerCase();
-  const cards = allCards.filter((card) => {
-    const matchesText = !q ||
-      card.q.toLowerCase().includes(q) ||
-      (card.a || '').toLowerCase().includes(q) ||
-      card.trail.join(' ').toLowerCase().includes(q) ||
-      card.categoryName.toLowerCase().includes(q);
-    const matchesSkill = selectedSkillId === 'all' || card.skillId === selectedSkillId;
-    return matchesText && matchesSkill;
-  });
-
-  return (
-    <View>
-      <Text style={styles.screenTitle}>❓ Questions</Text>
-      <Text style={styles.screenSub}>
-        {allCards.length} question{allCards.length !== 1 ? 's' : ''} linked to skills, topics, and sub-topics.
-      </Text>
-
-      <View style={styles.panel}>
-        <TextInput
-          value={query}
-          onChangeText={setQuery}
-          placeholder="Search questions, answers, skills..."
-          placeholderTextColor={COLORS.textLight}
-          style={styles.input}
-        />
-        <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginTop: 12 }}>
-          <TouchableOpacity
-            onPress={() => setSelectedSkillId('all')}
-            style={[
-              styles.choiceChip,
-              selectedSkillId === 'all' && { backgroundColor: COLORS.text, borderColor: COLORS.text },
-            ]}
-          >
-            <Text style={[
-              styles.choiceChipText,
-              selectedSkillId === 'all' && { color: 'white' },
-            ]}>All</Text>
-          </TouchableOpacity>
-          {data.skills.map((skill) => {
-            const cat = data.categories.find((c) => c.id === skill.categoryId);
-            const on = selectedSkillId === skill.id;
-            return (
-              <TouchableOpacity
-                key={skill.id}
-                onPress={() => setSelectedSkillId(skill.id)}
-                style={[
-                  styles.choiceChip,
-                  on && { backgroundColor: cat?.color || COLORS.blue, borderColor: cat?.color || COLORS.blue },
-                ]}
-              >
-                <Text style={[
-                  styles.choiceChipText,
-                  on && { color: 'white' },
-                ]}>{cat?.emoji || '📁'} {skill.name}</Text>
-              </TouchableOpacity>
-            );
-          })}
-        </ScrollView>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12 }}>
-          <PressBtn small onPress={onAdd}>+ Add question</PressBtn>
-          <PressBtn small color={COLORS.blue} onPress={() => navigate('revise')}>Revise shuffled</PressBtn>
-        </View>
-      </View>
-
-      {cards.length === 0 ? (
-        <View style={styles.panel}>
-          <Text style={styles.emptyText}>
-            No questions found. Tap + to add one and tag it to a skill or sub-topic.
-          </Text>
-        </View>
-      ) : (
-        cards.map((card) => (
-          <Pressable
-            key={`${card.skillId}-${card.id}`}
-            onPress={() => onEdit(card)}
-            style={styles.questionCard}
-          >
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 8 }}>
-              <Chip color={card.categoryColor}>{card.categoryEmoji} {card.categoryName}</Chip>
-              <Chip color={COLORS.blue}>{card.trail.join(' / ')}</Chip>
-            </View>
-            <Text style={styles.flashQ}>❓ {card.q}</Text>
-            {!!card.a && <Text style={styles.questionAnswer}>{card.a}</Text>}
-          </Pressable>
-        ))
-      )}
     </View>
   );
 }
@@ -1599,139 +1451,6 @@ function Field({ label, children }) {
       <Text style={styles.fieldLabel}>{label}</Text>
       {children}
     </View>
-  );
-}
-
-function QuestionEditModal({ data, question, update, onClose }) {
-  const isNew = !question.id;
-  const [form, setForm] = useState({
-    id: question.id || uid(),
-    skillId: question.skillId || data.skills[0]?.id || '',
-    q: question.q || '',
-    a: question.a || '',
-  });
-  const setField = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-  const selectedSkill = data.skills.find((s) => s.id === form.skillId);
-  const selectedCat = selectedSkill
-    ? data.categories.find((c) => c.id === selectedSkill.categoryId)
-    : null;
-
-  const save = () => {
-    if (!form.skillId) {
-      Alert.alert('Missing skill', 'Add a skill first, then link this question to it.');
-      return;
-    }
-    if (!form.q.trim()) {
-      Alert.alert('Missing question', 'Question text is required.');
-      return;
-    }
-    update((d) => {
-      if (!isNew && question.skillId && question.skillId !== form.skillId) {
-        const oldSkill = d.skills.find((s) => s.id === question.skillId);
-        if (oldSkill) oldSkill.flashcards = (oldSkill.flashcards || []).filter((fc) => fc.id !== form.id);
-      }
-      const skill = d.skills.find((s) => s.id === form.skillId);
-      if (!skill) return;
-      if (!Array.isArray(skill.flashcards)) skill.flashcards = [];
-      const cleaned = { id: form.id, q: form.q.trim(), a: form.a.trim() };
-      const i = skill.flashcards.findIndex((fc) => fc.id === form.id);
-      if (i >= 0) skill.flashcards[i] = cleaned;
-      else skill.flashcards.push(cleaned);
-    });
-    onClose();
-  };
-
-  const del = () => {
-    Alert.alert('Delete question?', 'This removes it from revision too.', [
-      { text: 'Cancel', style: 'cancel' },
-      {
-        text: 'Delete',
-        style: 'destructive',
-        onPress: () => {
-          update((d) => {
-            const skill = d.skills.find((s) => s.id === form.skillId || s.id === question.skillId);
-            if (skill) skill.flashcards = (skill.flashcards || []).filter((fc) => fc.id !== form.id);
-          });
-          onClose();
-        },
-      },
-    ]);
-  };
-
-  return (
-    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.modalBackdrop}>
-      <Pressable style={{ flex: 1 }} onPress={onClose} />
-      <View style={styles.modalSheet}>
-        <View style={styles.modalHeader}>
-          <Text style={styles.modalTitle}>{isNew ? 'New question' : 'Edit question'}</Text>
-          <TouchableOpacity onPress={onClose} style={styles.iconBtn}>
-            <Text style={{ fontSize: 16 }}>✕</Text>
-          </TouchableOpacity>
-        </View>
-        <ScrollView style={{ maxHeight: 520 }} keyboardShouldPersistTaps="handled">
-          <Field label="QUESTION *">
-            <TextInput
-              style={[styles.input, styles.textarea]}
-              multiline
-              value={form.q}
-              onChangeText={(v) => setField('q', v)}
-              placeholder="What do you want to revise?"
-              placeholderTextColor={COLORS.textLight}
-            />
-          </Field>
-          <Field label="ANSWER">
-            <TextInput
-              style={[styles.input, styles.textarea, { minHeight: 140 }]}
-              multiline
-              value={form.a}
-              onChangeText={(v) => setField('a', v)}
-              placeholder="Add the answer you want to reveal later."
-              placeholderTextColor={COLORS.textLight}
-            />
-          </Field>
-          <Field label="LINKED SKILL / TOPIC / SUB-TOPIC">
-            {selectedSkill && (
-              <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginBottom: 10 }}>
-                <Chip color={selectedCat?.color || COLORS.blue}>
-                  {selectedCat?.emoji || '📁'} {selectedCat?.name || 'Category'}
-                </Chip>
-                <Chip color={COLORS.blue}>
-                  {getSkillTrail(data.skills, selectedSkill.id).join(' / ')}
-                </Chip>
-              </View>
-            )}
-            <ScrollView style={{ maxHeight: 220 }} nestedScrollEnabled>
-              {data.skills.map((skill) => {
-                const cat = data.categories.find((c) => c.id === skill.categoryId);
-                const on = form.skillId === skill.id;
-                return (
-                  <TouchableOpacity
-                    key={skill.id}
-                    onPress={() => setField('skillId', skill.id)}
-                    style={[
-                      styles.skillPickerRow,
-                      on && { borderColor: cat?.color || COLORS.blue, backgroundColor: (cat?.color || COLORS.blue) + '14' },
-                    ]}
-                  >
-                    <Text style={{ fontSize: 18, marginRight: 8 }}>{cat?.emoji || '📁'}</Text>
-                    <View style={{ flex: 1 }}>
-                      <Text style={styles.skillRowName}>{skill.name}</Text>
-                      <Text style={styles.skillRowMeta}>{getSkillTrail(data.skills, skill.id).join(' / ')}</Text>
-                    </View>
-                    {on && <Text style={{ color: cat?.color || COLORS.blue, fontWeight: '900' }}>✓</Text>}
-                  </TouchableOpacity>
-                );
-              })}
-            </ScrollView>
-          </Field>
-        </ScrollView>
-        <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginTop: 12, paddingTop: 12, borderTopWidth: 2, borderTopColor: COLORS.border }}>
-          <PressBtn onPress={save}>Save</PressBtn>
-          {!isNew && <PressBtn color={COLORS.red} onPress={del}>Delete</PressBtn>}
-          <PressBtn ghost onPress={onClose}>Cancel</PressBtn>
-        </View>
-      </View>
-    </KeyboardAvoidingView>
   );
 }
 
@@ -2534,21 +2253,6 @@ const styles = StyleSheet.create({
   flashQ: { fontWeight: '800', color: COLORS.text, fontSize: 15, marginBottom: 6 },
   flashA: { color: COLORS.text, fontSize: 14, lineHeight: 21, paddingTop: 8, borderTopWidth: 1, borderTopColor: COLORS.border, borderStyle: 'dashed', fontWeight: '600' },
   flashHint: { color: '#BBB', fontSize: 12, fontStyle: 'italic', fontWeight: '600' },
-  questionCard: {
-    backgroundColor: 'white', borderWidth: 2, borderColor: COLORS.border,
-    borderRadius: 16, padding: 14, marginBottom: 10,
-  },
-  questionAnswer: {
-    color: COLORS.text, fontSize: 13, lineHeight: 20,
-    paddingTop: 8, borderTopWidth: 1, borderTopColor: COLORS.border,
-    borderStyle: 'dashed', fontWeight: '600',
-  },
-  skillPickerRow: {
-    flexDirection: 'row', alignItems: 'center',
-    backgroundColor: 'white', borderWidth: 2, borderColor: COLORS.border,
-    borderRadius: 12, padding: 10, marginBottom: 8,
-  },
-
   // Projects
   projectCard: {
     backgroundColor: 'white', borderWidth: 2, borderColor: COLORS.border,
