@@ -67,52 +67,23 @@ const QuestionRow = memo(function QuestionRow({ item, onEdit }) {
   );
 });
 
-const SkillFilterChip = memo(function SkillFilterChip({ item, categories, selectedSkillId, onSelect }) {
-  const select = useCallback(() => onSelect(item.id), [item.id, onSelect]);
-  if (item.id === 'all') {
-    const on = selectedSkillId === 'all';
-    return (
-      <Pressable
-        onPress={select}
-        unstable_pressDelay={0}
-        style={[
-          styles.choiceChip,
-          on && styles.choiceChipActiveNeutral,
-        ]}
-      >
-        <Text style={[
-          styles.choiceChipText,
-          on && styles.choiceChipTextActive,
-        ]}>All</Text>
-      </Pressable>
-    );
-  }
-
-  const cat = categories.find((c) => c.id === item.categoryId);
-  const on = selectedSkillId === item.id;
-  return (
-    <Pressable
-      onPress={select}
-      unstable_pressDelay={0}
-      style={[
-        styles.choiceChip,
-        on && { backgroundColor: cat?.color || COLORS.blue, borderColor: cat?.color || COLORS.blue },
-      ]}
-    >
-      <Text style={[
-        styles.choiceChipText,
-        on && styles.choiceChipTextActive,
-      ]}>{cat?.emoji || '📁'} {item.name}</Text>
-    </Pressable>
-  );
-});
-
 function QuestionsScreen({ data, navigate, onAdd, onEdit }) {
   const [query, setQuery] = useState('');
-  const [selectedSkillId, setSelectedSkillId] = useState('all');
+  const [selectedCatIds, setSelectedCatIds] = useState(new Set());
   const allCards = useMemo(() => getQuestionCards(data), [data]);
-  const skillFilters = useMemo(() => [{ id: 'all', name: 'All' }, ...data.skills], [data.skills]);
   const q = query.trim().toLowerCase();
+
+  const toggleCat = useCallback((id) => {
+    setSelectedCatIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  }, []);
+
+  const clearAll = useCallback(() => setSelectedCatIds(new Set()), []);
+
   const cards = useMemo(
     () => allCards.filter((card) => {
       const matchesText = !q ||
@@ -120,31 +91,20 @@ function QuestionsScreen({ data, navigate, onAdd, onEdit }) {
         (card.a || '').toLowerCase().includes(q) ||
         card.trail.join(' ').toLowerCase().includes(q) ||
         card.categoryName.toLowerCase().includes(q);
-      const matchesSkill = selectedSkillId === 'all' || card.skillId === selectedSkillId;
-      return matchesText && matchesSkill;
+      const matchesCat = selectedCatIds.size === 0 || selectedCatIds.has(card.categoryId);
+      return matchesText && matchesCat;
     }),
-    [allCards, q, selectedSkillId]
+    [allCards, q, selectedCatIds]
   );
 
   const openRevise = useCallback(() => navigate('revise'), [navigate]);
-  const selectSkill = useCallback((id) => setSelectedSkillId(id), []);
 
   const renderQuestion = useCallback(
     ({ item }) => <QuestionRow item={item} onEdit={onEdit} />,
     [onEdit]
   );
 
-  const renderSkillFilter = useCallback(
-    ({ item }) => (
-      <SkillFilterChip
-        item={item}
-        categories={data.categories}
-        selectedSkillId={selectedSkillId}
-        onSelect={selectSkill}
-      />
-    ),
-    [data.categories, selectedSkillId, selectSkill]
-  );
+  const isAllActive = selectedCatIds.size === 0;
 
   const ListHeader = (
     <View>
@@ -161,15 +121,40 @@ function QuestionsScreen({ data, navigate, onAdd, onEdit }) {
           placeholderTextColor={COLORS.textLight}
           style={styles.input}
         />
-        <FlatList
-          horizontal
-          data={skillFilters}
-          keyExtractor={(item) => item.id}
-          renderItem={renderSkillFilter}
-          showsHorizontalScrollIndicator={false}
-          style={styles.skillFilter}
-          keyboardShouldPersistTaps="handled"
-        />
+
+        <Text style={styles.filterLabel}>FILTER BY CATEGORY</Text>
+        <View style={styles.filterWrap}>
+          <Pressable
+            onPress={clearAll}
+            unstable_pressDelay={0}
+            style={[styles.choiceChip, isAllActive && styles.choiceChipActiveNeutral]}
+          >
+            <Text style={[styles.choiceChipText, isAllActive && styles.choiceChipTextActive]}>All</Text>
+          </Pressable>
+          {data.categories.map((cat) => {
+            const on = selectedCatIds.has(cat.id);
+            return (
+              <Pressable
+                key={cat.id}
+                onPress={() => toggleCat(cat.id)}
+                unstable_pressDelay={0}
+                style={[
+                  styles.choiceChip,
+                  on && { backgroundColor: cat.color, borderColor: cat.color },
+                ]}
+              >
+                <Text style={[styles.choiceChipText, on && styles.choiceChipTextActive]}>
+                  {cat.emoji} {cat.name}
+                </Text>
+              </Pressable>
+            );
+          })}
+        </View>
+
+        <Text style={styles.filterCount}>
+          {cards.length} of {allCards.length} question{allCards.length !== 1 ? 's' : ''}
+        </Text>
+
         <View style={styles.actionRow}>
           <ActionButton onPress={onAdd}>+ Add question</ActionButton>
           <ActionButton color={COLORS.blue} onPress={openRevise}>Revise shuffled</ActionButton>
@@ -228,7 +213,24 @@ const styles = StyleSheet.create({
     color: COLORS.text,
     backgroundColor: 'white',
   },
-  skillFilter: { marginTop: 12 },
+  filterLabel: {
+    fontSize: 11,
+    fontWeight: '800',
+    color: COLORS.textLight,
+    letterSpacing: 1,
+    marginTop: 14,
+    marginBottom: 8,
+  },
+  filterWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  filterCount: {
+    fontSize: 12,
+    color: COLORS.textLight,
+    fontWeight: '700',
+    marginTop: 10,
+  },
   choiceChip: {
     borderWidth: 2,
     borderColor: COLORS.border,
@@ -236,6 +238,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 6,
     marginRight: 6,
+    marginBottom: 6,
   },
   choiceChipText: { fontWeight: '800', fontSize: 12, color: COLORS.text },
   choiceChipActiveNeutral: { backgroundColor: COLORS.text, borderColor: COLORS.text },

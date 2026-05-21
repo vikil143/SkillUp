@@ -1241,8 +1241,13 @@ function LinkRefCard({ item }) {
 // REVISE MODE
 // ============================================================
 function ReviseMode({ data, bumpXP }) {
-  const buildDeck = () => {
-    const cards = getQuestionCards(data);
+  const [selectedCatIds, setSelectedCatIds] = useState(new Set());
+
+  const makeDeck = (catIds) => {
+    let cards = getQuestionCards(data);
+    if (catIds.size > 0) {
+      cards = cards.filter((c) => catIds.has(c.categoryId));
+    }
     for (let i = cards.length - 1; i > 0; i--) {
       const j = Math.floor(Math.random() * (i + 1));
       [cards[i], cards[j]] = [cards[j], cards[i]];
@@ -1250,19 +1255,28 @@ function ReviseMode({ data, bumpXP }) {
     return cards;
   };
 
-  const [deck, setDeck] = useState(buildDeck);
+  const [deck, setDeck] = useState(() => makeDeck(new Set()));
   const [idx, setIdx] = useState(0);
   const [revealed, setRevealed] = useState(false);
   const [done, setDone] = useState(false);
   const [score, setScore] = useState({ good: 0, ok: 0, hard: 0 });
 
-  const restart = () => {
-    setDeck(buildDeck());
+  const resetSession = (newDeck) => {
+    setDeck(newDeck);
     setIdx(0);
     setRevealed(false);
     setDone(false);
     setScore({ good: 0, ok: 0, hard: 0 });
   };
+
+  const restart = () => resetSession(makeDeck(selectedCatIds));
+
+  const catKey = [...selectedCatIds].sort().join(',');
+  const catMountedRef = useRef(false);
+  useEffect(() => {
+    if (!catMountedRef.current) { catMountedRef.current = true; return; }
+    resetSession(makeDeck(selectedCatIds));
+  }, [catKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const questionSignature = data.skills
     .map((s) => `${s.id}:${(s.flashcards || []).map((f) => `${f.id}:${f.q}:${f.a}`).join('|')}`)
@@ -1270,16 +1284,63 @@ function ReviseMode({ data, bumpXP }) {
   const mountedRef = useRef(false);
   useEffect(() => {
     if (!mountedRef.current) { mountedRef.current = true; return; }
-    restart();
+    resetSession(makeDeck(selectedCatIds));
   }, [questionSignature]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  const toggleCat = (id) => {
+    setSelectedCatIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+  };
+  const clearAllCats = () => setSelectedCatIds(new Set());
+
+  const filterSection = (
+    <View style={styles.panel}>
+      <Text style={styles.panelTitle}>FILTER BY CATEGORY</Text>
+      <View style={styles.filterWrap}>
+        <Pressable
+          onPress={clearAllCats}
+          unstable_pressDelay={0}
+          style={[styles.choiceChip, selectedCatIds.size === 0 && styles.choiceChipActiveNeutral]}
+        >
+          <Text style={[styles.choiceChipText, selectedCatIds.size === 0 && styles.choiceChipTextActive]}>All</Text>
+        </Pressable>
+        {data.categories.map((cat) => {
+          const on = selectedCatIds.has(cat.id);
+          return (
+            <Pressable
+              key={cat.id}
+              onPress={() => toggleCat(cat.id)}
+              unstable_pressDelay={0}
+              style={[
+                styles.choiceChip,
+                on && { backgroundColor: cat.color, borderColor: cat.color },
+              ]}
+            >
+              <Text style={[styles.choiceChipText, on && styles.choiceChipTextActive]}>
+                {cat.emoji} {cat.name}
+              </Text>
+            </Pressable>
+          );
+        })}
+      </View>
+      <Text style={styles.deckCountText}>{deck.length} cards in deck</Text>
+    </View>
+  );
 
   if (deck.length === 0) {
     return (
       <View>
         <Text style={styles.screenTitle}>⚡ Revise</Text>
+        {filterSection}
         <View style={styles.panel}>
           <Text style={styles.emptyText}>
-            No flashcards yet! Add Q&A pairs to your skills first.
+            {selectedCatIds.size > 0
+              ? 'No flashcards in the selected categories. Try selecting different ones.'
+              : 'No flashcards yet! Add Q&A pairs to your skills first.'}
           </Text>
         </View>
       </View>
@@ -1291,6 +1352,7 @@ function ReviseMode({ data, bumpXP }) {
     return (
       <View>
         <Text style={styles.screenTitle}>🎉 Session complete!</Text>
+        {filterSection}
         <View style={[styles.hero, { backgroundColor: COLORS.primary }]}>
           <Text style={styles.heroEmoji}>🏆</Text>
           <Text style={styles.heroTitle}>+{totalXP} XP</Text>
@@ -1323,6 +1385,7 @@ function ReviseMode({ data, bumpXP }) {
   return (
     <View>
       <Text style={styles.screenTitle}>⚡ Revise</Text>
+      {filterSection}
       <View style={styles.progressBar}>
         <View style={[styles.progressFill, { width: `${progress}%` }]} />
       </View>
@@ -2366,9 +2429,13 @@ const styles = StyleSheet.create({
   textarea: { minHeight: 80, textAlignVertical: 'top' },
   choiceChip: {
     borderWidth: 2, borderColor: COLORS.border, borderRadius: 999,
-    paddingHorizontal: 12, paddingVertical: 6, marginRight: 6,
+    paddingHorizontal: 12, paddingVertical: 6, marginRight: 6, marginBottom: 6,
   },
   choiceChipText: { fontWeight: '800', fontSize: 12, color: COLORS.text },
+  choiceChipActiveNeutral: { backgroundColor: COLORS.text, borderColor: COLORS.text },
+  choiceChipTextActive: { color: 'white' },
+  filterWrap: { flexDirection: 'row', flexWrap: 'wrap', marginTop: 8 },
+  deckCountText: { fontSize: 12, color: COLORS.textLight, fontWeight: '700', marginTop: 8 },
   toggleBtn: {
     paddingVertical: 10, marginBottom: 8,
     borderTopWidth: 2, borderTopColor: COLORS.border,
