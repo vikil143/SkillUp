@@ -29,6 +29,7 @@ import { getQuestionCards } from './src/domain/questions';
 import QuestionEditModal from './src/features/questions/QuestionEditModal';
 import QuestionsScreen from './src/features/questions/QuestionsScreen';
 import RichAnswerText from './src/features/questions/RichAnswerText';
+import ExplanationEditModal from './src/features/questions/ExplanationEditModal';
 import { COLORS } from './src/theme/colors';
 
 // ============================================================
@@ -36,6 +37,7 @@ import { COLORS } from './src/theme/colors';
 // ============================================================
 const STORAGE_KEY = 'skillup-data-v1';
 const STREAK_KEY = 'skillup-streak-v1';
+const REVISE_STATE_KEY = 'skillup-revise-state-v1';
 // Bump this string whenever seed content changes — forces migration to re-run
 const SEED_VERSION = '2026-05-22-v10';
 const REQUIRED_SEED_SKILLS = [
@@ -68,6 +70,29 @@ const loadStreak = async () => {
 };
 const saveStreak = (s) =>
   AsyncStorage.setItem(STREAK_KEY, JSON.stringify(s)).catch(() => {});
+
+const loadReviseState = async () => {
+  try {
+    const v = await AsyncStorage.getItem(REVISE_STATE_KEY);
+    return v ? JSON.parse(v) : null;
+  } catch {
+    return null;
+  }
+};
+const saveReviseState = async (state) => {
+  try {
+    await AsyncStorage.setItem(REVISE_STATE_KEY, JSON.stringify(state));
+  } catch (e) {
+    console.warn('Revise state save failed', e);
+  }
+};
+const clearReviseState = async () => {
+  try {
+    await AsyncStorage.removeItem(REVISE_STATE_KEY);
+  } catch (e) {
+    console.warn('Revise state clear failed', e);
+  }
+};
 
 // ============================================================
 // LINK / YOUTUBE UTILITIES
@@ -234,6 +259,8 @@ export default function App() {
   const [streak, setStreak] = useState({ count: 0, lastDate: null, xp: 0 });
   const [editing, setEditing] = useState(null);
   const [loaded, setLoaded] = useState(false);
+  const [reviseState, setReviseState] = useState(null);
+  const [reviseExplaining, setReviseExplaining] = useState(null);
 
   useEffect(() => {
     (async () => {
@@ -336,6 +363,8 @@ export default function App() {
       }
       const s = await loadStreak();
       setStreak(s);
+      const rs = await loadReviseState();
+      setReviseState(rs);
       setLoaded(true);
     })();
   }, []);
@@ -379,6 +408,11 @@ export default function App() {
       saveStreak(next);
       return next;
     });
+  }, []);
+
+  const handleReviseStateChange = useCallback((newState) => {
+    saveReviseState(newState);
+    setReviseState(newState);
   }, []);
 
   if (!loaded || !data) {
@@ -463,7 +497,12 @@ export default function App() {
             />
           )}
           {view.screen === 'revise' && (
-            <ReviseMode data={data} bumpXP={bumpXP} />
+            <ReviseMode 
+              data={data} 
+              bumpXP={bumpXP}
+              reviseState={reviseState}
+              onReviseStateChange={handleReviseStateChange}
+            />
           )}
         </ScrollView>
       )}
@@ -700,6 +739,7 @@ function SkillDetail({ data, skillId, navigate, goBack, onEdit, onAddSubtopic })
   const [revealed, setRevealed] = useState({});
   const [apiExpanded, setApiExpanded] = useState({});
   const [ytPlay, setYtPlay] = useState(null); // { videoId, startTime }
+  const [editingExplanation, setEditingExplanation] = useState(null);
   const skill = data.skills.find((s) => s.id === skillId);
   const cat = skill ? data.categories.find((c) => c.id === skill.categoryId) : null;
   if (!skill || !cat) return <Text style={styles.emptyText}>Skill not found.</Text>;
@@ -877,18 +917,39 @@ function SkillDetail({ data, skillId, navigate, goBack, onEdit, onAddSubtopic })
             </View>
           )}
           {(skill.flashcards || []).map((f) => (
-            <Pressable
+            <View
               key={f.id}
-              onPress={() => setRevealed((r) => ({ ...r, [f.id]: !r[f.id] }))}
               style={styles.flashcard}
             >
-              <Text style={styles.flashQ}>❓ {f.q}</Text>
-              {revealed[f.id] ? (
-                <Text style={styles.flashA}>💡 {f.a}</Text>
-              ) : (
-                <Text style={styles.flashHint}>Tap to reveal</Text>
+              <Pressable
+                onPress={() => setRevealed((r) => ({ ...r, [f.id]: !r[f.id] }))}
+              >
+                <Text style={styles.flashQ}>❓ {f.q}</Text>
+                {revealed[f.id] ? (
+                  <View>
+                    <View style={styles.reviseAnswer}>
+                      <Text style={styles.reviseHint}>💡 Answer</Text>
+                      <RichAnswerText value={f.a} textStyle={styles.reviseAText} />
+                    </View>
+                    {f.userExplanation && (
+                      <View style={styles.reviseExplanation}>
+                        <Text style={styles.reviseHint}>💭 My explanation</Text>
+                        <RichAnswerText value={f.userExplanation} textStyle={styles.reviseAText} />
+                      </View>
+                    )}
+                  </View>
+                ) : (
+                  <Text style={styles.flashHint}>Tap to reveal</Text>
+                )}
+              </Pressable>
+              {revealed[f.id] && (
+                <View style={{ marginTop: 12 }}>
+                  <PressBtn small color={COLORS.teal} onPress={() => setEditingExplanation(f)} ghost>
+                    ✏️ {f.userExplanation ? 'Edit' : 'Add'} my explanation
+                  </PressBtn>
+                </View>
               )}
-            </Pressable>
+            </View>
           ))}
         </View>
       )}
@@ -934,6 +995,22 @@ function SkillDetail({ data, skillId, navigate, goBack, onEdit, onAddSubtopic })
       )}
 
       {ytPlay && <YouTubePlayerModal videoId={ytPlay.videoId} startTime={ytPlay.startTime} onClose={() => setYtPlay(null)} />}
+
+      <Modal visible={!!editingExplanation} animationType="slide" transparent>
+        {editingExplanation && (
+          <ExplanationEditModal
+            explanation={editingExplanation.userExplanation || ''}
+            question={editingExplanation.q}
+            onSave={(explanation) => {
+              if (editingExplanation.id) {
+                editingExplanation.userExplanation = explanation;
+                setEditingExplanation(null);
+              }
+            }}
+            onClose={() => setEditingExplanation(null)}
+          />
+        )}
+      </Modal>
     </View>
   );
 }
@@ -1353,8 +1430,8 @@ function shareSkill(skill, data) {
 // ============================================================
 // REVISE MODE
 // ============================================================
-function ReviseMode({ data, bumpXP }) {
-  const [selectedCatIds, setSelectedCatIds] = useState(new Set());
+function ReviseMode({ data, bumpXP, reviseState, onReviseStateChange }) {
+  const [selectedCatIds, setSelectedCatIds] = useState(new Set(reviseState?.selectedCatIds || []));
 
   const makeDeck = (catIds) => {
     let cards = getQuestionCards(data);
@@ -1368,11 +1445,31 @@ function ReviseMode({ data, bumpXP }) {
     return cards;
   };
 
-  const [deck, setDeck] = useState(() => makeDeck(new Set()));
-  const [idx, setIdx] = useState(0);
-  const [revealed, setRevealed] = useState(false);
-  const [done, setDone] = useState(false);
-  const [score, setScore] = useState({ good: 0, ok: 0, hard: 0 });
+  const [deck, setDeck] = useState(() => 
+    reviseState?.deck || makeDeck(new Set(reviseState?.selectedCatIds || []))
+  );
+  const [idx, setIdx] = useState(reviseState?.idx || 0);
+  const [revealed, setRevealed] = useState(reviseState?.revealed || false);
+  const [done, setDone] = useState(reviseState?.done || false);
+  const [score, setScore] = useState(reviseState?.score || { good: 0, ok: 0, hard: 0 });
+  const [editingExplanation, setEditingExplanation] = useState(null);
+
+  // Save revise state whenever it changes
+  const updateReviseState = useCallback(() => {
+    const newState = {
+      selectedCatIds: Array.from(selectedCatIds),
+      deck,
+      idx,
+      revealed,
+      done,
+      score,
+    };
+    onReviseStateChange(newState);
+  }, [selectedCatIds, deck, idx, revealed, done, score, onReviseStateChange]);
+
+  useEffect(() => {
+    updateReviseState();
+  }, [idx, revealed, done, score, updateReviseState]);
 
   const resetSession = (newDeck) => {
     setDeck(newDeck);
@@ -1392,7 +1489,7 @@ function ReviseMode({ data, bumpXP }) {
   }, [catKey]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const questionSignature = data.skills
-    .map((s) => `${s.id}:${(s.flashcards || []).map((f) => `${f.id}:${f.q}:${f.a}`).join('|')}`)
+    .map((s) => `${s.id}:${(s.flashcards || []).map((f) => `${f.id}:${f.q}:${f.a}:${f.userExplanation || ''}`).join('|')}`)
     .join('::');
   const mountedRef = useRef(false);
   useEffect(() => {
@@ -1495,6 +1592,23 @@ function ReviseMode({ data, bumpXP }) {
     else { setIdx(idx + 1); setRevealed(false); }
   };
 
+  const saveExplanation = (explanation) => {
+    // Find and update the flashcard with the explanation
+    const skill = data.skills.find(s => s.id === card.skillId);
+    if (skill) {
+      const flashcard = (skill.flashcards || []).find(f => f.id === card.id);
+      if (flashcard) {
+        flashcard.userExplanation = explanation;
+        // Update the card in the deck
+        const deckCard = deck.find(c => c.id === card.id && c.skillId === card.skillId);
+        if (deckCard) {
+          deckCard.userExplanation = explanation;
+        }
+        setEditingExplanation(null);
+      }
+    }
+  };
+
   return (
     <View>
       <Text style={styles.screenTitle}>⚡ Revise</Text>
@@ -1515,18 +1629,43 @@ function ReviseMode({ data, bumpXP }) {
           </View>
         )}
 
+        {revealed && card.userExplanation && (
+          <View style={styles.reviseExplanation}>
+            <Text style={styles.reviseHint}>💭 My explanation</Text>
+            <RichAnswerText value={card.userExplanation} textStyle={styles.reviseAText} />
+          </View>
+        )}
+
         {!revealed ? (
           <PressBtn color={COLORS.blue} onPress={() => setRevealed(true)} style={{ marginTop: 16 }}>
             Reveal answer
           </PressBtn>
         ) : (
-          <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
-            <View style={{ flex: 1 }}><PressBtn small color={COLORS.red} onPress={() => rate('hard', 2)}>😅 Hard</PressBtn></View>
-            <View style={{ flex: 1 }}><PressBtn small color={COLORS.orange} onPress={() => rate('ok', 5)}>🤔 Good</PressBtn></View>
-            <View style={{ flex: 1 }}><PressBtn small color={COLORS.primary} onPress={() => rate('good', 10)}>😎 Easy</PressBtn></View>
+          <View>
+            <View style={{ flexDirection: 'row', gap: 8, marginTop: 16 }}>
+              <View style={{ flex: 1 }}><PressBtn small color={COLORS.red} onPress={() => rate('hard', 2)}>😅 Hard</PressBtn></View>
+              <View style={{ flex: 1 }}><PressBtn small color={COLORS.orange} onPress={() => rate('ok', 5)}>🤔 Good</PressBtn></View>
+              <View style={{ flex: 1 }}><PressBtn small color={COLORS.primary} onPress={() => rate('good', 10)}>😎 Easy</PressBtn></View>
+            </View>
+            <View style={{ marginTop: 12 }}>
+              <PressBtn small color={COLORS.teal} onPress={() => setEditingExplanation(card)} ghost>
+                ✏️ {card.userExplanation ? 'Edit' : 'Add'} my explanation
+              </PressBtn>
+            </View>
           </View>
         )}
       </View>
+
+      <Modal visible={!!editingExplanation} animationType="slide" transparent>
+        {editingExplanation && (
+          <ExplanationEditModal
+            explanation={editingExplanation.userExplanation || ''}
+            question={editingExplanation.q}
+            onSave={saveExplanation}
+            onClose={() => setEditingExplanation(null)}
+          />
+        )}
+      </Modal>
     </View>
   );
 }
@@ -2486,6 +2625,10 @@ const styles = StyleSheet.create({
     textTransform: 'uppercase',
   },
   reviseAText: { fontSize: 14, color: COLORS.text, lineHeight: 21, fontWeight: '600' },
+  reviseExplanation: {
+    backgroundColor: '#F5E6FF', borderWidth: 2, borderColor: '#D4A5FF',
+    borderStyle: 'dashed', borderRadius: 14, padding: 14, marginTop: 14,
+  },
   progressBar: {
     height: 14, backgroundColor: COLORS.border, borderRadius: 999,
     overflow: 'hidden', marginBottom: 12,
