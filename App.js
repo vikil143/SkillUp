@@ -16,6 +16,7 @@ import {
   StatusBar,
   Platform,
   Alert,
+  Share,
   Linking,
   Dimensions,
   KeyboardAvoidingView,
@@ -710,6 +711,11 @@ function SkillDetail({ data, skillId, navigate, goBack, onEdit, onAddSubtopic })
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
         <PressBtn small color={COLORS.blue} onPress={() => onEdit(skill)}>✏️ Edit</PressBtn>
         <PressBtn small color={COLORS.primary} onPress={() => onAddSubtopic(skill.id, skill.categoryId)}>+ Sub-topic</PressBtn>
+        <PressBtn small color={COLORS.teal} onPress={() => {
+          const markdown = buildSkillMarkdown(skill, cat, parent, data.skills);
+          Share.share({ title: `${skill.name} — SkillUp`, message: markdown })
+            .catch((e) => Alert.alert('Export failed', e.message));
+        }}>📤 Export</PressBtn>
       </View>
 
       {/* Tabs */}
@@ -1235,6 +1241,76 @@ function LinkRefCard({ item }) {
       <Text style={{ fontSize: 20, color: COLORS.textLight, alignSelf: 'center' }}>›</Text>
     </TouchableOpacity>
   );
+}
+
+// ============================================================
+// SKILL EXPORT (Markdown)
+// ============================================================
+function buildSkillMarkdown(skill, cat, parent, allSkills) {
+  const lines = [];
+
+  lines.push(`# ${skill.name}`);
+  lines.push(`**Category:** ${cat.emoji} ${cat.name}`);
+  if (parent) lines.push(`**Parent:** ${parent.name}`);
+  lines.push('');
+  lines.push('---');
+  lines.push('');
+
+  if (skill.notes) {
+    lines.push('## 📝 Notes', '');
+    lines.push(skill.notes, '');
+  }
+
+  const { definition, codeExample, whenUsed, gotchas } = skill.structured || {};
+  if (definition || codeExample || whenUsed || gotchas) {
+    lines.push('## 🔬 Deep Dive', '');
+    if (definition) { lines.push('### Definition', '', definition, ''); }
+    if (codeExample) { lines.push('### Code Example', '', '```', codeExample, '```', ''); }
+    if (whenUsed) { lines.push('### When Used', '', whenUsed, ''); }
+    if (gotchas) { lines.push('### Gotchas', '', gotchas, ''); }
+  }
+
+  const flashcards = skill.flashcards || [];
+  if (flashcards.length > 0) {
+    lines.push(`## 🎴 Flashcards (${flashcards.length})`, '');
+    flashcards.forEach((f, i) => {
+      lines.push(`**Q${i + 1}:** ${f.q}`);
+      lines.push(`**A:** ${f.a}`, '');
+    });
+  }
+
+  const apis = skill.apis || [];
+  if (apis.length > 0) {
+    lines.push(`## 🔧 APIs (${apis.length})`, '');
+    apis.forEach((api) => {
+      lines.push(`### ${api.name}`);
+      if (api.signature) lines.push(`\`${api.signature}\``);
+      lines.push('');
+      if (api.description) lines.push(api.description, '');
+      if (api.params) lines.push(`**Params:** ${api.params}`, '');
+      if (api.returns) lines.push(`**Returns:** ${api.returns}`, '');
+      if (api.example) lines.push('**Example:**', '```', api.example, '```', '');
+      if (api.gotchas) lines.push(`**Gotchas:** ${api.gotchas}`, '');
+    });
+  }
+
+  const refs = skill.refs || [];
+  if (refs.length > 0) {
+    lines.push(`## 🔗 References (${refs.length})`, '');
+    refs.forEach((r) => lines.push(`- [${r.title || r.url}](${r.url})`));
+    lines.push('');
+  }
+
+  const children = allSkills.filter((s) => s.parentId === skill.id);
+  if (children.length > 0) {
+    lines.push(`## 🌳 Sub-topics (${children.length})`, '');
+    children.forEach((c) => lines.push(`- ${c.name}`));
+    lines.push('');
+  }
+
+  lines.push('---');
+  lines.push('*Exported from SkillUp*');
+  return lines.join('\n');
 }
 
 // ============================================================
