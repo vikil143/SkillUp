@@ -906,6 +906,88 @@ Benefits include faster initial load and reduced initial bundle size.`),
     })
   );
 
+  // What is JavaScript
+  skills.push(
+    mk('What is JavaScript', 'frontend', js.id, {
+      definition:
+        'JavaScript is a high-level, single-threaded, interpreted/JIT-compiled, garbage-collected, prototype-based programming language. Created in 1995 by Brendan Eich, it was built to add interactivity and dynamic behavior to web pages alongside HTML and CSS.',
+      codeExample:
+        "// JS is single-threaded — one call stack\nconsole.log('Start');\n\nsetTimeout(() => console.log('Macro (callback queue)'), 0);\n\nPromise.resolve().then(() => console.log('Micro (microtask queue)'));\n\nconsole.log('End');\n// Output: Start → End → Micro → Macro",
+      whenUsed:
+        'Foundation for every JavaScript topic — understanding what JS is helps explain why async works the way it does, why single-threaded code can still be non-blocking, and why engines like V8 exist.',
+      gotchas:
+        'JS is single-threaded but not blocking — async is handled by the runtime (Browser APIs + event loop), not the language itself.\nJIT compilation means JS is neither purely interpreted nor purely compiled.\nGarbage collection is automatic but not instant — memory leaks still happen.',
+      flashcards: [
+        card('Is JavaScript single-threaded?', 'Yes. JavaScript executes one operation at a time using a single call stack. Only one piece of code runs at any given moment.'),
+        card('If JavaScript is single-threaded, how does async work?', `Async behavior is handled by the runtime environment, not by JavaScript alone. The runtime provides:
+
+1. Browser APIs (fetch, setTimeout, DOM events) — handled outside the JS thread
+2. Callback Queue — macrotask callbacks waiting to enter the call stack
+3. Microtask Queue — Promise callbacks, higher priority than callback queue
+4. Event Loop — continuously checks if the call stack is empty, then pushes callbacks in
+
+JavaScript delegates the waiting to the browser/Node.js and resumes when results arrive.`),
+        card('Is JavaScript interpreted or compiled?', `Modern JavaScript engines use JIT (Just-In-Time) compilation, so JavaScript is both.
+
+The engine first interprets code for fast startup, then identifies hot code paths and compiles them to optimized machine code at runtime.
+
+So JavaScript is:
+- Interpreted initially (fast startup)
+- JIT compiled for hot paths (fast execution)`),
+        card('What is JavaScript, summarized?', `JavaScript is:
+- High-level (abstracts memory, hardware)
+- Single-threaded (one call stack)
+- Interpreted / JIT compiled (both, via engine)
+- Garbage collected (automatic memory management)
+- Prototype-based (inheritance via prototype chain)
+
+Used to build: web apps, mobile apps, backend systems, desktop apps, and embedded systems.`),
+        card('Why was JavaScript created?', `Before JavaScript: HTML gave structure, CSS gave styling, but websites had no interactivity.
+
+In 1995, Brendan Eich created JavaScript to add:
+- Interactivity (click handlers, animations)
+- Dynamic updates (show/hide content)
+- User actions (form validation, events)
+- API calls (fetch data without page reload)
+
+JavaScript was designed to run in the browser alongside HTML and CSS.`),
+        card('What is a JS Engine?', `JavaScript cannot run directly on a machine. It needs a JavaScript engine.
+
+A JS engine:
+1. Reads the source code
+2. Parses it into an AST
+3. Compiles it (JIT)
+4. Executes it
+5. Optimizes hot code paths
+
+Examples:
+- Chrome → V8
+- Firefox → SpiderMonkey
+- Safari → JavaScriptCore`),
+        card('What is a Compiler?', `A compiler converts the entire source code into machine code before execution.
+
+Process: Source code → [compiler] → machine code → execute
+
+Characteristics:
+- Conversion happens once before running
+- Faster execution because no runtime translation
+- Errors caught at compile time
+
+Examples: C, Java (to bytecode), Rust`),
+        card('What is an Interpreter?', `An interpreter executes source code line by line during runtime, without a separate compilation step.
+
+Process: Source code → read one line → execute → read next line → execute
+
+Characteristics:
+- No separate compile step
+- Slower than compiled code
+- Errors found at runtime during execution
+
+Examples: Old JavaScript engines, Python`),
+      ],
+    })
+  );
+
   // HTML5
   const html = mk('HTML5', 'frontend', null, {
     definition:
