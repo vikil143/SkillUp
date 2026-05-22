@@ -669,6 +669,13 @@ function CategoryDetail({ data, categoryId, navigate, goBack, onAdd }) {
                 {flashCount} flashcard{flashCount !== 1 ? 's' : ''}
               </Text>
             </View>
+            <TouchableOpacity
+              onPress={() => shareSkill(s, data)}
+              hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+              style={{ padding: 6 }}
+            >
+              <Text style={{ fontSize: 16 }}>📤</Text>
+            </TouchableOpacity>
             <Text style={styles.chevron}>›</Text>
           </Pressable>
         );
@@ -732,11 +739,7 @@ function SkillDetail({ data, skillId, navigate, goBack, onEdit, onAddSubtopic })
       <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 12 }}>
         <PressBtn small color={COLORS.blue} onPress={() => onEdit(skill)}>✏️ Edit</PressBtn>
         <PressBtn small color={COLORS.primary} onPress={() => onAddSubtopic(skill.id, skill.categoryId)}>+ Sub-topic</PressBtn>
-        <PressBtn small color={COLORS.teal} onPress={() => {
-          const markdown = buildSkillMarkdown(skill, cat, parent, data.skills);
-          Share.share({ title: `${skill.name} — SkillUp`, message: markdown })
-            .catch((e) => Alert.alert('Export failed', e.message));
-        }}>📤 Export</PressBtn>
+        <PressBtn small color={COLORS.teal} onPress={() => shareSkill(skill, data)}>📤 Export</PressBtn>
       </View>
 
       {/* Tabs */}
@@ -771,6 +774,7 @@ function SkillDetail({ data, skillId, navigate, goBack, onEdit, onAddSubtopic })
                   depth={0}
                   categoryColor={cat.color}
                   onPress={(id) => navigate('skill-detail', { skillId: id })}
+                  onExport={(id) => shareSkill(data.skills.find((s) => s.id === id), data)}
                 />
               ))}
             </View>
@@ -956,7 +960,7 @@ function DepthPanel({ title, body, placeholder, code }) {
 // ============================================================
 // TREE NODE (recursive)
 // ============================================================
-function TreeNode({ skill, allSkills, depth, categoryColor, onPress }) {
+function TreeNode({ skill, allSkills, depth, categoryColor, onPress, onExport }) {
   const children = allSkills.filter((s) => s.parentId === skill.id);
   const [expanded, setExpanded] = useState(depth < 1); // expand first level by default
   const hasChildren = children.length > 0;
@@ -987,6 +991,8 @@ function TreeNode({ skill, allSkills, depth, categoryColor, onPress }) {
         {/* Node */}
         <Pressable
           onPress={() => onPress(skill.id)}
+          onLongPress={() => onExport && onExport(skill.id)}
+          delayLongPress={400}
           style={({ pressed }) => [
             styles.treeNode,
             {
@@ -1015,6 +1021,7 @@ function TreeNode({ skill, allSkills, depth, categoryColor, onPress }) {
             depth={depth + 1}
             categoryColor={categoryColor}
             onPress={onPress}
+            onExport={onExport}
           />
         ))}
     </View>
@@ -1333,6 +1340,14 @@ function buildSkillMarkdown(skill, cat, parent, allSkills) {
   lines.push('---');
   lines.push('*Exported from SkillUp*');
   return lines.join('\n');
+}
+
+function shareSkill(skill, data) {
+  const cat = data.categories.find((c) => c.id === skill.categoryId);
+  const parent = skill.parentId ? data.skills.find((s) => s.id === skill.parentId) : null;
+  const markdown = buildSkillMarkdown(skill, cat, parent, data.skills);
+  Share.share({ title: `${skill.name} — SkillUp`, message: markdown })
+    .catch((e) => Alert.alert('Export failed', e.message));
 }
 
 // ============================================================
