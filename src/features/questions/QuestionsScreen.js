@@ -1,6 +1,7 @@
 import React, { memo, useCallback, useMemo, useState } from 'react';
 import {
   FlatList,
+  Modal,
   Pressable,
   StyleSheet,
   Text,
@@ -10,6 +11,7 @@ import {
 import { getQuestionCards } from '../../domain/questions';
 import { COLORS } from '../../theme/colors';
 import RichAnswerText from './RichAnswerText';
+import ExplanationEditModal from './ExplanationEditModal';
 
 function darken(hex) {
   const c = hex.replace('#', '');
@@ -42,34 +44,76 @@ const ActionButton = memo(function ActionButton({ children, color = COLORS.prima
   );
 });
 
-const QuestionRow = memo(function QuestionRow({ item, onEdit }) {
+const QuestionRow = memo(function QuestionRow({ item, onEdit, onExplanationEdit, explanationRevealed, setRevealedExplanations }) {
   const openQuestion = useCallback(() => onEdit(item), [item, onEdit]);
+  const toggleExplanation = useCallback(() => {
+    setRevealedExplanations((r) => ({ ...r, [item.id]: !r[item.id] }));
+  }, [item.id, setRevealedExplanations]);
+
   return (
-    <Pressable
-      onPress={openQuestion}
-      unstable_pressDelay={0}
-      style={({ pressed }) => [
-        styles.questionCard,
-        pressed && styles.pressedCard,
-      ]}
-    >
-      <View style={styles.tagRow}>
-        <Chip color={item.categoryColor}>{item.categoryEmoji} {item.categoryName}</Chip>
-        <Chip color={COLORS.blue}>{item.trail.join(' / ')}</Chip>
-      </View>
-      <Text style={styles.flashQ}>❓ {item.q}</Text>
-      {!!item.a && (
-        <View style={styles.questionAnswer}>
-          <RichAnswerText value={item.a} />
+    <View style={styles.questionCard}>
+      <Pressable
+        onPress={openQuestion}
+        unstable_pressDelay={0}
+        style={({ pressed }) => [
+          { opacity: pressed ? 0.75 : 1 },
+        ]}
+      >
+        <View style={styles.tagRow}>
+          <Chip color={item.categoryColor}>{item.categoryEmoji} {item.categoryName}</Chip>
+          <Chip color={COLORS.blue}>{item.trail.join(' / ')}</Chip>
+        </View>
+        <Text style={styles.flashQ}>❓ {item.q}</Text>
+        {!!item.a && (
+          <View style={styles.questionAnswer}>
+            <RichAnswerText value={item.a} />
+          </View>
+        )}
+      </Pressable>
+
+      <Pressable
+        onPress={toggleExplanation}
+        style={({ pressed }) => [
+          styles.explanationToggle,
+          { opacity: pressed ? 0.75 : 1 },
+        ]}
+      >
+        <Text style={styles.explanationToggleText}>
+          {explanationRevealed ? '💭 Hide my explanation' : '💭 Show my explanation'}
+        </Text>
+      </Pressable>
+
+      {explanationRevealed && (
+        <View style={styles.explanationSection}>
+          {item.userExplanation ? (
+            <View>
+              <RichAnswerText value={item.userExplanation} textStyle={styles.explanationText} />
+              <Pressable
+                onPress={() => onExplanationEdit(item)}
+                style={({ pressed }) => [styles.editExplanationBtn, { opacity: pressed ? 0.75 : 1 }]}
+              >
+                <Text style={styles.editExplanationBtnText}>✏️ Edit explanation</Text>
+              </Pressable>
+            </View>
+          ) : (
+            <Pressable
+              onPress={() => onExplanationEdit(item)}
+              style={({ pressed }) => [styles.editExplanationBtn, { opacity: pressed ? 0.75 : 1 }]}
+            >
+              <Text style={styles.editExplanationBtnText}>+ Add my explanation</Text>
+            </Pressable>
+          )}
         </View>
       )}
-    </Pressable>
+    </View>
   );
 });
 
 function QuestionsScreen({ data, navigate, onAdd, onEdit }) {
   const [query, setQuery] = useState('');
   const [selectedCatIds, setSelectedCatIds] = useState(new Set());
+  const [revealedExplanations, setRevealedExplanations] = useState({});
+  const [editingExplanation, setEditingExplanation] = useState(null);
   const allCards = useMemo(() => getQuestionCards(data), [data]);
   const q = query.trim().toLowerCase();
 
@@ -100,8 +144,16 @@ function QuestionsScreen({ data, navigate, onAdd, onEdit }) {
   const openRevise = useCallback(() => navigate('revise'), [navigate]);
 
   const renderQuestion = useCallback(
-    ({ item }) => <QuestionRow item={item} onEdit={onEdit} />,
-    [onEdit]
+    ({ item }) => (
+      <QuestionRow 
+        item={item} 
+        onEdit={onEdit}
+        onExplanationEdit={setEditingExplanation}
+        explanationRevealed={revealedExplanations[item.id]}
+        setRevealedExplanations={setRevealedExplanations}
+      />
+    ),
+    [onEdit, revealedExplanations]
   );
 
   const isAllActive = selectedCatIds.size === 0;
@@ -164,26 +216,43 @@ function QuestionsScreen({ data, navigate, onAdd, onEdit }) {
   );
 
   return (
-    <FlatList
-      style={styles.list}
-      data={cards}
-      keyExtractor={(item) => `${item.skillId}-${item.id}`}
-      renderItem={renderQuestion}
-      contentContainerStyle={styles.listContent}
-      keyboardShouldPersistTaps="handled"
-      ListHeaderComponent={ListHeader}
-      initialNumToRender={12}
-      maxToRenderPerBatch={12}
-      windowSize={7}
-      removeClippedSubviews
-      ListEmptyComponent={
-        <View style={styles.panel}>
-          <Text style={styles.emptyText}>
-            No questions found. Tap + to add one and tag it to a skill or sub-topic.
-          </Text>
-        </View>
-      }
-    />
+    <>
+      <FlatList
+        style={styles.list}
+        data={cards}
+        keyExtractor={(item) => `${item.skillId}-${item.id}`}
+        renderItem={renderQuestion}
+        contentContainerStyle={styles.listContent}
+        keyboardShouldPersistTaps="handled"
+        ListHeaderComponent={ListHeader}
+        initialNumToRender={12}
+        maxToRenderPerBatch={12}
+        windowSize={7}
+        removeClippedSubviews
+        ListEmptyComponent={
+          <View style={styles.panel}>
+            <Text style={styles.emptyText}>
+              No questions found. Tap + to add one and tag it to a skill or sub-topic.
+            </Text>
+          </View>
+        }
+      />
+      <Modal visible={!!editingExplanation} animationType="slide" transparent>
+        {editingExplanation && (
+          <ExplanationEditModal
+            explanation={editingExplanation.userExplanation || ''}
+            question={editingExplanation.q}
+            onSave={(explanation) => {
+              if (editingExplanation && editingExplanation.skillId) {
+                editingExplanation.userExplanation = explanation;
+              }
+              setEditingExplanation(null);
+            }}
+            onClose={() => setEditingExplanation(null)}
+          />
+        )}
+      </Modal>
+    </>
   );
 }
 
@@ -271,6 +340,44 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: COLORS.border,
     borderStyle: 'dashed',
+  },
+  explanationToggle: {
+    marginTop: 12,
+    paddingVertical: 8,
+  },
+  explanationToggleText: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: COLORS.primary,
+  },
+  explanationSection: {
+    backgroundColor: '#F5E6FF',
+    borderWidth: 2,
+    borderColor: '#D4A5FF',
+    borderStyle: 'dashed',
+    borderRadius: 12,
+    padding: 12,
+    marginTop: 12,
+  },
+  explanationText: {
+    fontSize: 13,
+    color: COLORS.text,
+    lineHeight: 20,
+    fontWeight: '600',
+  },
+  editExplanationBtn: {
+    marginTop: 12,
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    backgroundColor: COLORS.primary,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  editExplanationBtnText: {
+    fontSize: 12,
+    fontWeight: '800',
+    color: 'white',
+    textTransform: 'uppercase',
   },
   emptyText: { color: '#BBB', fontStyle: 'italic', fontSize: 14, fontWeight: '600' },
 });
