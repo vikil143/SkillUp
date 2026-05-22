@@ -37,7 +37,7 @@ import { COLORS } from './src/theme/colors';
 const STORAGE_KEY = 'skillup-data-v1';
 const STREAK_KEY = 'skillup-streak-v1';
 // Bump this string whenever seed content changes — forces migration to re-run
-const SEED_VERSION = '2026-05-20-v9';
+const SEED_VERSION = '2026-05-22-v10';
 const REQUIRED_SEED_SKILLS = [
   'frontend||JavaScript + React Senior Interview',
   'frontend||Microfrontends Interview',

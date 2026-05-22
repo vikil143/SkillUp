@@ -861,6 +861,51 @@ Benefits include faster initial load and reduced initial bundle size.`),
     );
   });
 
+  // JS Engine & Runtime Internals
+  const jsEngine = mk('JS Engine & Runtime Internals', 'frontend', js.id, {
+    definition:
+      'The JS engine parses source code into an AST, runs it through an interpreter for fast startup, then JIT-compiles hot code paths into optimized machine code. V8 uses hidden classes and inline caching to make dynamic object access fast.',
+    codeExample:
+      'const user1 = { name: "A", age: 20 };\nconst user2 = { name: "B", age: 30 };\n// Both share the same hidden class — engine reuses optimization\n\n// Bad pattern: dynamic additions create new hidden classes each time\nconst obj = {};\nobj.name = "A";\nobj.age = 20;\nobj.city = "Mumbai";',
+    flashcards: [
+      card('What is AST?', 'Abstract syntax tree representation of source code used by the parser and tools'),
+      card('Why does the V8 engine use an interpreter first?', 'Fast startup and immediate execution'),
+      card('What is JIT?', 'Runtime compilation of hot code into optimized machine code'),
+      card('What is deoptimization?', 'Discarding optimized code when engine assumptions fail'),
+      card('What are hidden classes and why do they exist?', 'Hidden classes optimize dynamic JS objects for faster property access. The CPU likes fixed structures, but JS objects are dynamic. The engine secretly creates hidden classes so objects with the same shape share the same optimized structure. Dynamic property additions create new hidden classes and hurt optimization.'),
+    ],
+  });
+  skills.push(jsEngine);
+
+  skills.push(
+    mk('Full internal flow', 'frontend', jsEngine.id, {
+      definition: 'Source code → tokenizer → AST → interpreter (Ignition) → profiler identifies hot code → JIT compiler (TurboFan) → optimized machine code. Deoptimization occurs when type assumptions break.',
+      codeExample:
+        'function add(a, b) { return a + b; }\n\nadd(1, 2);     // interpreter runs\nadd(3, 4);     // still interpreter\nadd(5, 6);     // profiler marks as "hot"\nadd(7, 8);     // TurboFan compiles optimized version\nadd("x", "y"); // type assumption broken → deoptimize',
+      flashcards: [
+        card('What is inline caching?', 'After repeated property access on the same hidden class, the engine caches the memory offset so future lookups skip the lookup entirely and become extremely fast.'),
+        card('How do hidden classes, inline caching, and JIT work together?', 'They combine to give JS near-native speed: hidden classes enable inline caching, inline caching feeds the JIT compiler with type information for optimal machine code generation.'),
+      ],
+    })
+  );
+
+  // Execution Context
+  skills.push(
+    mk('Execution Context', 'frontend', js.id, {
+      definition:
+        'Execution context is the environment in which JS code executes. It contains variables, functions, scope information, the this binding, and memory references. Think of it as a box containing everything needed to run a piece of code.',
+      codeExample:
+        'function add(a, b) {\n  return a + b;\n}\nadd(10, 20);\n// Calling add() creates a Function Execution Context containing:\n// - a, b parameters\n// - local variables\n// - scope chain reference',
+      flashcards: [
+        card('What is the execution context?', 'The environment in which JS code executes — contains variables, functions, scope information, this, and memory references.'),
+        card('What are the types of execution context?', '1. Global Execution Context (GEC): created when JS program starts, only one exists. 2. Function Execution Context (FEC): created whenever a function is called, containing its parameters, local variables, and scope chain.'),
+        card('How does the execution context work internally?', 'Every execution context has 2 phases: 1. Memory creation phase 2. Execution phase'),
+        card('What happens in the memory creation phase?', 'JS scans code before execution. var variables are allocated and initialized with undefined. Function declarations are fully stored in memory.'),
+        card('What happens in the execution phase?', 'Code is executed line by line, assigning actual values to variables and running function bodies.'),
+      ],
+    })
+  );
+
   // HTML5
   const html = mk('HTML5', 'frontend', null, {
     definition:
