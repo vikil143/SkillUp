@@ -440,5 +440,318 @@ export default function buildStateSkills() {
     }));
   });
 
+  // ─── FRONTEND ARCHITECTURE (zero to hero) ──────────────────────────────────
+  const archSkill = mk('Frontend Architecture', 'state', null, {
+    definition:
+      'System-level design of how a frontend codebase is organized — modules, state flow, data layer, rendering strategy, deployment. Aims for scalability, maintainability, and team velocity at scale. Becomes critical past ~20 screens or 5+ engineers.',
+    codeExample:
+      "// Layered architecture — separation of concerns\n//\n// UI (components, screens)\n//   ↓\n// Hooks (orchestration, state binding)\n//   ↓\n// Services (API clients, business logic)\n//   ↓\n// Infrastructure (HTTP, storage, WebSocket)\n\nsrc/\n  features/        // feature-isolated modules\n    checkout/\n    auth/\n  shared/          // cross-feature primitives\n  services/        // API + business logic\n  hooks/           // reusable orchestration\n  store/           // global state\n  design-system/   // tokens + base components\n  utils/",
+    whenUsed:
+      'Architectural decisions on Stock Trading Platform (real-time + virtualization), Documentation Platform (collaborative + Next.js rendering), Dynamic Content Editor (microfrontend isolation).',
+    gotchas:
+      "Premature architecture — over-engineering small apps with patterns made for 100-dev teams.\nTreating client state and server state as the same thing — different lifecycle, different tools.\nAdopting microfrontends with one team — paying isolation cost with no isolation benefit.\nRBAC enforced only on frontend — bypassable via direct API calls.\nMassive component files that hide business logic — kills testability and reuse.",
+    flashcards: [
+      card('What is frontend architecture?', 'System-level design of how a frontend codebase is organized — modules, state, data flow, rendering strategy, deployment. Aims for scalability, maintainability, team velocity.'),
+      card('Why does architecture matter as the app grows?', 'Small apps tolerate sloppy structure. At scale, lack of architecture causes coupling, slow onboarding, regression risk, blocked teams. Architecture is the cost of avoiding rewrites.'),
+      card('Difference between small app structure vs enterprise architecture?', 'Small: flat folders, single state store, manual choices. Enterprise: feature/domain isolation, layered concerns (UI/services/state), tooling for cross-team boundaries (codeowners, lint rules), explicit contracts.'),
+      card('Common architecture anti-patterns at senior level?', 'Massive components, prop drilling everywhere, business logic in UI, over-globalized state, duplicate API calls, tight coupling between unrelated features.'),
+      card('What does "scalability" mean for a frontend codebase?', "Three axes — team scalability (many devs without conflict), codebase scalability (adding features doesn't slow CI/build), deployment scalability (independent feature releases)."),
+      card('What is dependency inversion in frontend?', "High-level modules don't depend on low-level details. Components depend on hook interfaces, not concrete API clients. Inject implementations at top level. Makes testing trivial and swapping backends easy."),
+      card('How to choose technologies for a new frontend?', 'Decision factors: team size, SEO needs, real-time needs, offline support, perf targets, ecosystem maturity, hiring market. Bias to boring tech for unknowns.'),
+      card('How do you measure architecture quality?', 'Cycle time (commit → prod), p95 build time, bundle size budget breaches, % of features behind flags, MTBF for prod incidents, Lighthouse scores, time-to-onboard new dev.'),
+      card('How to handle technical debt at architecture level?', 'Tracked in the same backlog as features, not "later" docs. Budget % of each sprint for debt. Block new features on related debt thresholds. Maintain a debt dashboard for product visibility.'),
+      card('When is component composition preferred over inheritance?', "Almost always in React. Composition (children as components, slot patterns) is flexible and reusable. Inheritance creates rigid hierarchies that don't map well to UI variation."),
+    ],
+    apis: [],
+    refs: [
+      ref('Patterns.dev — Modern web app patterns', 'https://www.patterns.dev/'),
+      ref('Clean Architecture (Robert C. Martin)', 'https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html'),
+      ref('Bulletproof React — feature-based scalable structure', 'https://github.com/alan2207/bulletproof-react'),
+      ref('web.dev — Application performance', 'https://web.dev/explore/performance'),
+      ref('Frontend at Scale', 'https://frontendatscale.com/'),
+    ],
+    relatedProjectIds: ['p-stock', 'p-docs', 'p-editor'],
+  });
+
+  const subStructure = mk('Project Structure & Foundations', 'state', archSkill.id, {
+    definition:
+      "Feature-based folder organization groups a feature's components, hooks, services, and types together rather than by technical type — making each feature independently deletable and findable. Past ~20 screens, type-based structures (components/, services/) create massive folders of unrelated code. Other features import only through a defined barrel index, preventing accidental coupling across team boundaries.",
+    codeExample:
+      "// Feature-based structure (recommended for scale)\nsrc/\n  features/\n    auth/\n      components/   // LoginForm, OAuthButton\n      hooks/        // useAuth, useSession\n      services/     // authService.ts\n      types.ts\n      index.ts      // public API — only import from here\n    checkout/\n      components/\n      hooks/\n      services/\n      index.ts\n  shared/\n    components/     // Button, Input, Modal\n    hooks/          // useDebounce, useLocalStorage\n    utils/\n  services/         // HTTP client, third-party SDKs\n  store/            // global state slices\n  design-system/    // tokens, base styles\n  app/              // routing, providers, app shell",
+    gotchas:
+      'Missing barrel index.ts in feature folders — consumers import from internal paths, creating invisible coupling.\nType-based folders at scale — components/ with 200 files mixes unrelated concerns side by side.\nNo CODEOWNERS file — ownership unclear under change pressure; cross-team refactors stall.',
+    flashcards: [
+      card('Feature-based vs type-based folder structure — which scales?', 'Feature-based wins past ~20 screens. Type-based (components/, services/) co-locates unrelated code; feature-based (features/checkout/, features/auth/) keeps related code together — easier to delete, easier to find.'),
+      card('When does domain-driven frontend make sense?', 'When backend is already DDD-aligned and product thinks in bounded contexts. Maps frontend feature folders to domains, makes cross-team ownership clear.'),
+      card('Monorepo vs polyrepo for frontend?', 'Monorepo (Nx, Turborepo): shared code, atomic refactors, single PR for breaking changes. Polyrepo: independent versioning, smaller CI scope. Pick monorepo if teams collaborate frequently.'),
+      card('What is feature isolation?', 'A feature folder owns its components, hooks, services, types. Other features import only through a defined public API (index.ts barrel). Prevents accidental coupling across teams.'),
+    ],
+    refs: [
+      ref('Bulletproof React — feature-based structure', 'https://github.com/alan2207/bulletproof-react'),
+      ref('monorepo.tools', 'https://monorepo.tools/'),
+      ref('Nx — Smart Monorepos', 'https://nx.dev/'),
+      ref('Turborepo Docs', 'https://turbo.build/repo/docs'),
+    ],
+  });
+
+  const subBusiness = mk('Business Logic Separation', 'state', archSkill.id, {
+    definition:
+      'Business logic separation keeps UI components purely declarative — they receive data and callbacks, never implement rules. Custom hooks own orchestration (data fetching, state transitions, side effects) and service modules own pure business logic and API calls. The layered pattern UI → Hook → Service → API makes each layer independently testable and reusable across screens.',
+    codeExample:
+      "// Service layer — no React, no hooks\nexport async function submitOrder(items, userId) {\n  const validated = validateStock(items);\n  return api.post('/orders', { items: validated, userId });\n}\n\n// Hook — orchestration + state\nexport function useCheckout(userId) {\n  const [status, setStatus] = useState('idle');\n  async function checkout(items) {\n    setStatus('loading');\n    try {\n      await submitOrder(items, userId);\n      setStatus('success');\n    } catch {\n      setStatus('error');\n    }\n  }\n  return { status, checkout };\n}\n\n// Component — pure UI, no logic\nfunction CheckoutButton({ items, userId }) {\n  const { status, checkout } = useCheckout(userId);\n  return (\n    <button onClick={() => checkout(items)} disabled={status === 'loading'}>\n      {status === 'loading' ? 'Placing order…' : 'Buy now'}\n    </button>\n  );\n}",
+    gotchas:
+      'Business logic in onClick handlers — untestable without rendering, impossible to reuse across screens.\nFat hooks that both fetch data AND implement validation rules — split into hook (orchestration) + service (logic).\nService functions that import React hooks — breaks non-React consumers and makes unit testing impossible.',
+    flashcards: [
+      card('How do you separate business logic from UI in React?', 'Push logic into custom hooks and service modules. Components stay declarative — receive data and callbacks via props. Pattern: UI → Hook → Service → API.'),
+      card('Container/presentational pattern — still relevant?', "Less rigid post-hooks. Hooks let you mix concerns cleanly. But the idea — keep render code dumb, push side effects to a layer — still holds. Now it's \"hook + view\" not \"container + view\"."),
+      card('What goes into a service layer?', "API calls, request transformations, response mapping to domain types, retry/auth logic. Components and hooks call services; services don't know about React."),
+      card('Why avoid business logic inside UI components?', 'Untestable without rendering, hard to reuse, mixes concerns. Move it to hooks/services so you can test it as pure functions and reuse across screens.'),
+    ],
+    refs: [
+      ref('React — Reusing Logic with Custom Hooks', 'https://react.dev/learn/reusing-logic-with-custom-hooks'),
+      ref('Patterns.dev — Presentational/Container', 'https://www.patterns.dev/react/presentational-container-pattern/'),
+      ref('Bulletproof React — project structure', 'https://github.com/alan2207/bulletproof-react'),
+      ref('Clean Architecture (Robert C. Martin)', 'https://blog.cleancoder.com/uncle-bob/2012/08/13/the-clean-architecture.html'),
+    ],
+  });
+
+  const subState = mk('State Architecture', 'state', archSkill.id, {
+    definition:
+      'Client state (UI toggles, modals, draft values) and server state (fetched data) have fundamentally different lifecycles — server state requires cache invalidation, staleness detection, and background refetching. TanStack Query or SWR manage server state; Zustand or Redux manage client state. Conflating both into a single Redux store causes stale data, manual invalidation bugs, and excessive re-fetching.',
+    codeExample:
+      "// Server state — TanStack Query owns caching + refetch\nimport { useQuery } from '@tanstack/react-query';\n\nfunction useStockPrices(symbols) {\n  return useQuery({\n    queryKey: ['stocks', symbols],\n    queryFn: () => fetchStocks(symbols),\n    staleTime: 5_000,         // consider fresh for 5s\n    refetchInterval: 10_000,  // poll every 10s\n  });\n}\n\n// Client state — Zustand owns UI-only state\nimport { create } from 'zustand';\n\nconst useUIStore = create((set) => ({\n  sidebarOpen: false,\n  selectedSymbol: null,\n  toggleSidebar: () => set((s) => ({ sidebarOpen: !s.sidebarOpen })),\n  selectSymbol: (sym) => set({ selectedSymbol: sym }),\n}));",
+    gotchas:
+      'Storing server data in Redux without TanStack Query — manual loading/error/stale state on every slice, no cache sharing.\nContext API for high-churn server state — every update re-renders all consumers regardless of relevance.\nNo normalization for entity collections — duplicate data across slices diverges silently on partial updates.',
+    flashcards: [
+      card('Client state vs server state?', 'Client state = UI-only data (toggles, drafts, modals). Server state = backend-owned data fetched and cached locally. Treating them the same is a common mistake — server state needs cache invalidation, staleness handling, refetching.'),
+      card('Why does TanStack Query exist when Redux is here?', 'Redux for client state. TanStack Query for server state — automatic caching, deduplication, stale-while-revalidate, refetch-on-focus. Different problems, different tools.'),
+      card('When is Context API the wrong choice?', 'When the context value changes frequently and many consumers read it — every consumer re-renders. For high-churn state use Redux/Zustand. Context is good for low-churn (theme, locale, current user).'),
+      card('What is state normalization?', 'Storing entities by ID in a flat structure (`{ users: { [id]: User } }`) instead of nested arrays. Enables O(1) lookups, prevents duplication, simplifies updates.'),
+      card('What is derived state?', 'State computed from other state at read time, not stored separately. Prevents synchronization bugs. Selectors (Redux reselect, useMemo) compute and cache derived values.'),
+      card('Optimistic update pattern?', 'Update UI immediately on user action, then call API. On error, rollback. Trades correctness for perceived speed — fine for low-stakes ops (likes, edits), wrong for payments.'),
+      card('When to choose Zustand over Redux?', 'Smaller boilerplate, no provider tree needed, simpler mental model. Pick Zustand for small-to-medium apps. Redux still wins for time-travel debugging, devtools depth, large team conventions.'),
+    ],
+    refs: [
+      ref('TanStack Query Docs', 'https://tanstack.com/query/latest'),
+      ref('Redux Docs', 'https://redux.js.org/'),
+      ref('Zustand — GitHub', 'https://github.com/pmndrs/zustand'),
+      ref('TkDodo — Practical React Query', 'https://tkdodo.eu/blog/practical-react-query'),
+    ],
+  });
+
+  const subApi = mk('API & Service Layer', 'state', archSkill.id, {
+    definition:
+      'A centralized HTTP client (Axios instance or fetch wrapper) provides a single place to configure base URLs, auth headers, interceptors, and error normalization. Service functions wrap endpoints and return typed domain objects — components and hooks never call fetch/axios directly. Interceptors handle token refresh, retry on transient failures, and request cancellation without per-component boilerplate.',
+    codeExample:
+      "// Centralized Axios instance with token refresh\nimport axios from 'axios';\n\nconst http = axios.create({ baseURL: '/api', timeout: 10_000 });\n\nlet isRefreshing = false;\nlet queue = [];\n\nhttp.interceptors.response.use(null, async (error) => {\n  if (error.response?.status !== 401) return Promise.reject(error);\n  if (isRefreshing) {\n    return new Promise((res, rej) => queue.push({ res, rej }))\n      .then((token) => {\n        error.config.headers.Authorization = `Bearer ${token}`;\n        return http(error.config);\n      });\n  }\n  isRefreshing = true;\n  try {\n    const { token } = await refreshTokens();\n    queue.forEach(({ res }) => res(token));\n    error.config.headers.Authorization = `Bearer ${token}`;\n    return http(error.config);\n  } finally {\n    isRefreshing = false;\n    queue = [];\n  }\n});\n\n// Service function\nexport const stocksService = {\n  getQuote: (symbol) => http.get(`/stocks/${symbol}`).then((r) => r.data),\n};",
+    gotchas:
+      'N+1 parallel 401s — token refresh must be serialized with a queue, not fired once per failing request.\nHTTP errors not thrown by default in fetch — check response.ok and throw explicitly (axios throws on non-2xx automatically).\nNo request cancellation on unmount — stale responses update the wrong screen; use AbortController or TanStack Query.',
+    flashcards: [
+      card('Why a service layer in frontend?', 'Centralize API calls so UI components stay declarative. Easier to mock for tests. Single place to add interceptors, retries, auth headers, logging.'),
+      card('Where should retry logic live?', 'In the HTTP client layer (axios interceptor, fetch wrapper) — not per-component. Centralize retry policy (which errors retry, max attempts, backoff).'),
+      card('Token refresh flow architecture?', "Interceptor catches 401, queues failed requests, calls refresh endpoint, retries originals with new token. Single in-flight refresh — don't fire N parallel refreshes for N parallel 401s."),
+      card('Why does request cancellation matter?', 'User navigates away mid-fetch → response arrives → updates stale screen, or leaks data into wrong screen. AbortController cancels in-flight requests on unmount or new query.'),
+      card('How to standardize API errors?', 'Define error envelope: { code, message, details, traceId }. Client maps code to user message + action. Never show raw server error to user — always translate.'),
+      card('Where should request deduplication happen?', 'In the data-fetching layer (TanStack Query, SWR). Multiple components asking for the same key share a single network request. Without it, 5 components = 5 identical GETs.'),
+    ],
+    refs: [
+      ref('TanStack Query Docs', 'https://tanstack.com/query/latest'),
+      ref('Axios Docs', 'https://axios-http.com/docs/intro'),
+      ref('MDN Fetch API', 'https://developer.mozilla.org/en-US/docs/Web/API/Fetch_API'),
+      ref('MDN AbortController', 'https://developer.mozilla.org/en-US/docs/Web/API/AbortController'),
+    ],
+  });
+
+  const subSecurity = mk('Auth & Security Architecture', 'state', archSkill.id, {
+    definition:
+      'JWT stored in httpOnly cookies prevents XSS from stealing tokens; localStorage is XSS-vulnerable. RBAC must be enforced at the API level — frontend guards are UX only and bypassable via direct API calls. React auto-escapes JSX interpolations, but dangerouslySetInnerHTML, unsanitized href values (javascript: scheme), and CMS HTML require explicit sanitization. CSP headers add a second defense layer against injected scripts.',
+    codeExample:
+      "// Route-level RBAC guard\nfunction RequireRole({ role, children }) {\n  const { user } = useAuth();\n  if (!user) return <Navigate to='/login' replace />;\n  if (!user.roles.includes(role)) return <Navigate to='/403' replace />;\n  return children;\n}\n\n<Route path='/admin' element={\n  <RequireRole role='admin'><AdminDashboard /></RequireRole>\n} />\n\n// Sanitize untrusted HTML (e.g. CMS content)\nimport DOMPurify from 'dompurify';\n<div dangerouslySetInnerHTML={{ __html: DOMPurify.sanitize(cmsHtml) }} />\n\n// Validate user-supplied URLs to block javascript: scheme\nfunction safeHref(url) {\n  try {\n    const { protocol } = new URL(url);\n    return protocol === 'https:' || protocol === 'http:' ? url : '#';\n  } catch { return '#'; }\n}",
+    gotchas:
+      'RBAC only on frontend — any user can call API endpoints directly with a REST client; always enforce on backend.\nJWT in localStorage — readable by any script on the page; XSS = account takeover. Use httpOnly cookies.\ndangerouslySetInnerHTML with unsanitized CMS content — always pass through DOMPurify before rendering.',
+    flashcards: [
+      card('Where should RBAC be enforced?', 'Both. Frontend hides UI for UX. Backend enforces for security. Frontend-only RBAC is bypassable via direct API calls.'),
+      card('How to store JWT safely in browser?', "httpOnly cookie — JS can't read it, immune to XSS token theft. localStorage is XSS-vulnerable. Trade-off: cookies need CSRF protection."),
+      card('XSS prevention in React?', 'React auto-escapes interpolated strings. Danger zones: dangerouslySetInnerHTML with untrusted input, unsanitized HTML from CMS, user-controlled URLs in href (javascript: scheme), inline event handlers via innerHTML.'),
+      card('What is Content Security Policy?', "HTTP header that whitelists allowed sources for scripts/styles/images. Blocks injected <script> from running. script-src 'self' blocks inline scripts and third-party CDNs unless explicitly allowed."),
+      card('CSRF — still relevant with JWT-in-cookie?', 'Yes. If session is in cookie, attacker site can trigger requests with credentials. Mitigate with SameSite=Strict/Lax cookies and CSRF tokens for state-changing operations.'),
+      card('RBAC vs ABAC — when each?', 'RBAC (role-based): "admin can edit" — coarse, simple. ABAC (attribute-based): "user can edit if user.id === post.authorId AND post.status === draft" — fine, complex. Start RBAC, escalate when role explosion happens.'),
+      card('Where do feature flags live in architecture?', 'Provider (LaunchDarkly, Unleash, Statsig) → SDK in client → Context exposes to components. SSR needs flag eval at request time, not after hydration.'),
+    ],
+    refs: [
+      ref('OWASP Top 10', 'https://owasp.org/www-project-top-ten/'),
+      ref('JWT.io — Introduction', 'https://jwt.io/introduction'),
+      ref('web.dev — Content Security Policy', 'https://web.dev/articles/csp'),
+      ref('MDN — SameSite cookies', 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Set-Cookie#samesitesamesite-value'),
+    ],
+  });
+
+  const subRendering = mk('Rendering Architecture', 'state', archSkill.id, {
+    definition:
+      'Rendering strategy determines when and where HTML is generated: CSR delivers a JS shell (slow first paint, fast navigation), SSR generates HTML per request (good SEO, server cost), SSG pre-builds at deploy time (fast, no per-user content), ISR extends SSG with on-demand revalidation. Hydration attaches React event handlers to server HTML; slow hydration blocks interactivity even with fast first paint. React Server Components render on the server and ship zero JS for that tree segment.',
+    codeExample:
+      "// Next.js — four rendering modes at a glance\n\n// 1. SSG — built at deploy time\nexport async function generateStaticParams() {\n  return fetchAllSlugs();\n}\nasync function BlogPost({ params }) {\n  const post = await fetchPost(params.slug); // build time only\n  return <Article post={post} />;\n}\n\n// 2. ISR — static + background revalidation\nexport const revalidate = 60; // rebuild every 60s\nasync function PricingPage() {\n  const plans = await fetchPlans();\n  return <Pricing plans={plans} />;\n}\n\n// 3. SSR — per request\nexport const dynamic = 'force-dynamic';\nasync function Dashboard() {\n  const data = await fetchUserDashboard();\n  return <DashboardView data={data} />;\n}\n\n// 4. CSR — client component, hydrated\n'use client';\nfunction LiveChart({ symbol }) {\n  const [price, setPrice] = useState(null);\n  useEffect(() => { /* subscribe WS */ }, [symbol]);\n  return <Chart value={price} />;\n}",
+    gotchas:
+      "Hydration mismatch — server and client render different HTML (e.g. Date.now(), localStorage read) → React throws. Defer client-only code to useEffect.\nOver-using SSR for auth-gated pages — no SEO benefit, adds server cost; CSR or edge middleware is cheaper.\nFull-page hydration with large JS bundles — fast TTFB, slow TTI; use streaming + Suspense boundaries.",
+    flashcards: [
+      card('CSR vs SSR vs SSG vs ISR — quick rules?', 'CSR = SPA, slow first paint, fast nav. SSR = HTML per request, slow at scale. SSG = pre-built HTML, fast, no per-user content. ISR = SSG + revalidation, best of both for content sites.'),
+      card('What is hydration?', 'Process where server-rendered HTML "becomes interactive" — React attaches event listeners and reconciles. Slow hydration = slow time-to-interactive even with fast first paint.'),
+      card('Streaming SSR — what changes?', 'Server flushes HTML in chunks as components resolve, instead of waiting for full page. Fast TTFB, progressive paint. React Server Components + Suspense enable this in React 19.'),
+      card('When is SSR the wrong choice?', 'Behind-login dashboards (no SEO benefit, server cost adds up), highly personalized UIs, anything where client-side data hydration is the bottleneck anyway.'),
+      card('Partial hydration / Islands architecture?', 'Most of the page is static HTML; only interactive components hydrate. Astro popularized it. Less JS shipped, faster TTI.'),
+      card('React Server Components — what problem do they solve?', 'Server-only components render on the server, ship zero JS for that portion. Can directly access DB, secrets, server-only deps. Cuts bundle size and removes a network hop for data.'),
+    ],
+    refs: [
+      ref('Next.js — Rendering Docs', 'https://nextjs.org/docs/app/building-your-application/rendering'),
+      ref('React Server Components', 'https://react.dev/blog/2023/03/22/react-labs-what-we-have-been-working-on-march-2023'),
+      ref('web.dev — Rendering on the Web', 'https://web.dev/articles/rendering-on-the-web'),
+      ref('Astro — Islands Architecture', 'https://docs.astro.build/en/concepts/islands/'),
+    ],
+  });
+
+  const subPerf = mk('Performance Architecture', 'state', archSkill.id, {
+    definition:
+      'Performance architecture embeds perf decisions at design time: code splitting at route and heavy-component boundaries, memoization of expensive computations and stable callbacks, virtualization of long lists, and enforced bundle-size budgets in CI. Without explicit budgets, performance erodes silently with each feature shipped.',
+    codeExample:
+      "// Route-level code splitting\nimport { lazy, Suspense } from 'react';\nconst StockChart = lazy(() => import('./StockChart'));\nconst EditorView = lazy(() => import('./EditorView'));\n\nfunction App() {\n  return (\n    <Suspense fallback={<PageSkeleton />}>\n      <Routes>\n        <Route path='/chart/:sym' element={<StockChart />} />\n        <Route path='/editor/:id' element={<EditorView />} />\n      </Routes>\n    </Suspense>\n  );\n}\n\n// Virtualized list — renders only visible rows\nimport { FixedSizeList } from 'react-window';\nfunction TradeHistory({ trades }) {\n  return (\n    <FixedSizeList height={600} itemCount={trades.length} itemSize={48} width='100%'>\n      {({ index, style }) => (\n        <TradeRow key={trades[index].id} style={style} trade={trades[index]} />\n      )}\n    </FixedSizeList>\n  );\n}",
+    gotchas:
+      "React.memo with inline object/function props — parent recreates them every render, memo never matches; memoize the parent's values first.\nSplitting every component — too many small chunks creates a waterfall of requests; split at route boundaries first.\nVirtualizing without measuring — react-window requires known item heights; variable heights need react-virtual or @tanstack/virtual.",
+    flashcards: [
+      card('Code splitting strategy in a SPA?', "Split at route boundaries first (biggest wins). Then heavy components (charts, editors). Then below-fold sections. Don't split everything — too many chunks = waterfall network requests."),
+      card('React.memo — when is it pointless?', "When parent passes inline objects/functions every render — props change every time, memo doesn't help. Either memoize the parent's values or skip memo entirely."),
+      card('Bundle size — first thing to check?', 'Source-map-explorer or webpack-bundle-analyzer. Look for: full moment.js (use date-fns), full lodash (cherry-pick imports), unused polyfills, duplicate library versions across micro-bundles.'),
+      card('When is virtualization required?', 'Lists with 100+ rows visible in a scroll area. Renders only viewport items, recycles. react-window, react-virtual, FlatList (RN). Without it, large lists kill scroll FPS and memory.'),
+      card("What's a performance budget?", 'A pre-agreed cap — bundle size <= X KB, LCP <= Y ms, JS execution <= Z ms. CI fails on breach. Without a budget, perf erodes silently as features ship.'),
+    ],
+    refs: [
+      ref('web.dev — Core Web Vitals', 'https://web.dev/explore/learn-core-web-vitals'),
+      ref('web.dev — Performance', 'https://web.dev/explore/performance'),
+      ref('React — Code Splitting with lazy', 'https://react.dev/reference/react/lazy'),
+      ref('react-window', 'https://react-window.vercel.app/'),
+    ],
+  });
+
+  const subRealtime = mk('Real-Time Architecture', 'state', archSkill.id, {
+    definition:
+      'Real-time UIs require a transport layer (WebSocket for bidirectional, SSE for server-push, polling for low-frequency) and a state reconciliation strategy on reconnect. A singleton WebSocketManager handles connection lifecycle and reconnection with exponential backoff; events flow into a store so UI subscribes declaratively rather than to the socket directly. Batching incoming events into requestAnimationFrame intervals prevents UI thrash from high-frequency updates.',
+    codeExample:
+      "// Singleton WebSocket manager with exponential backoff + jitter\nclass WebSocketManager {\n  #ws = null;\n  #retries = 0;\n  #handlers = new Map();\n\n  connect(url) {\n    this.#ws = new WebSocket(url);\n    this.#ws.onmessage = (e) => {\n      const { type, payload } = JSON.parse(e.data);\n      this.#handlers.get(type)?.forEach((h) => h(payload));\n    };\n    this.#ws.onclose = () => {\n      const delay = Math.min(30_000, 500 * 2 ** this.#retries++);\n      setTimeout(() => this.connect(url), delay + Math.random() * 500);\n    };\n    this.#ws.onopen = () => { this.#retries = 0; };\n  }\n\n  on(type, handler) {\n    if (!this.#handlers.has(type)) this.#handlers.set(type, new Set());\n    this.#handlers.get(type).add(handler);\n    return () => this.#handlers.get(type).delete(handler); // returns unsubscribe fn\n  }\n}\n\nexport const wsManager = new WebSocketManager();",
+    gotchas:
+      'Multiple WebSocket connections — one per component leads to N subscriptions and N connections; use a singleton.\nNo reconnect backoff — hammering server on network blip; add exponential backoff with jitter.\nState reconciliation on reconnect — missed events leave UI stale; request a server snapshot after reconnect and merge.',
+    flashcards: [
+      card('WebSocket vs SSE vs polling — when each?', 'Polling: simplest, OK for low-frequency. SSE: server→client only, simpler than WS, auto-reconnect, HTTP-friendly. WebSocket: bidirectional, low latency, requires reconnection logic.'),
+      card('WebSocket reconnection strategy?', 'Exponential backoff with jitter. Replay missed events via sequence numbers or last-event-id. On reconnect, reconcile local state with server snapshot.'),
+      card('How to architect a WebSocket layer?', 'Singleton WebSocketManager handles connection lifecycle. Pushes events to a store (Redux, Zustand). UI subscribes to store, not WS directly. Decouples lifecycle from rendering.'),
+      card('How to handle 100s of WS updates per second without UI thrash?', 'Batch updates into requestAnimationFrame. Throttle store writes. Virtualize affected views. Diff at store level — only notify subscribers whose data actually changed.'),
+    ],
+    refs: [
+      ref('MDN — WebSockets API', 'https://developer.mozilla.org/en-US/docs/Web/API/WebSockets_API'),
+      ref('MDN — Server-Sent Events', 'https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events/Using_server-sent_events'),
+      ref('web.dev — WebSockets Basics', 'https://web.dev/articles/websockets-basics'),
+    ],
+  });
+
+  const subOffline = mk('Offline-First Architecture', 'state', archSkill.id, {
+    definition:
+      'Offline-first apps read from a local cache immediately and sync mutations to the server when connectivity returns. Service Workers (web) or SQLite/MMKV (mobile) persist data across sessions. A mutation queue with idempotency keys replays operations on reconnect without double-applying. Conflict resolution strategy — last-write-wins, CRDTs, or manual conflict UI — is chosen based on data semantics.',
+    codeExample:
+      "// Mutation queue with idempotency keys\nconst queue = []; // persisted to AsyncStorage / localStorage\n\nasync function queueMutation(type, payload) {\n  const entry = { id: uid(), type, payload, createdAt: Date.now() };\n  queue.push(entry);\n  await persistQueue(queue); // survive app kill\n  if (navigator.onLine) await flushQueue();\n}\n\nasync function flushQueue() {\n  while (queue.length > 0) {\n    const entry = queue[0];\n    try {\n      await api.post('/mutations', entry); // server deduplicates by entry.id\n      queue.shift();\n    } catch (e) {\n      if (e.status === 409) queue.shift(); // already applied — discard\n      else break; // network error — retry later\n    }\n  }\n  await persistQueue(queue);\n}\n\nwindow.addEventListener('online', flushQueue);",
+    gotchas:
+      'No idempotency keys — replay on reconnect applies mutations twice; every queued mutation needs a unique ID the server deduplicates on.\nLast-write-wins for collaborative data — silently discards concurrent edits; use CRDTs or show conflict resolution UI.\nUnencrypted local storage for sensitive data — use encrypted SQLite or MMKV with hardware-backed keys on mobile.',
+    flashcards: [
+      card('Cache-first vs network-first strategy?', 'Cache-first: serve from cache immediately, refresh in background. Network-first: try network, fall back to cache on failure. Cache-first for static/slow-changing; network-first for fresh data.'),
+      card('Conflict resolution when offline edits merge?', 'Three strategies: last-write-wins (simple, lossy), CRDTs (auto-merge for collaborative data), manual conflict UI (user picks). Pick based on data semantics.'),
+      card('Queue-based request retry pattern?', 'Mutations queue locally when offline. On reconnect, replay queue in order. Persist queue to disk to survive app kill. Use idempotency keys to avoid double-applies.'),
+      card('SQLite vs AsyncStorage vs MMKV for mobile?', 'AsyncStorage: simple K/V, slow for large data. MMKV: fast K/V (mmap-based), atomic, encrypted. SQLite: relational queries, joins, large datasets. Pick MMKV for prefs, SQLite for entity data.'),
+    ],
+    refs: [
+      ref('web.dev — Offline Cookbook', 'https://web.dev/articles/offline-cookbook'),
+      ref('MDN — Service Worker API', 'https://developer.mozilla.org/en-US/docs/Web/API/Service_Worker_API'),
+      ref('WatermelonDB — offline-first RN', 'https://nozbe.github.io/WatermelonDB/'),
+      ref('react-native-mmkv', 'https://github.com/mrousavy/react-native-mmkv'),
+    ],
+  });
+
+  const subMfe = mk('Microfrontend Architecture (Deep Dive)', 'state', archSkill.id, {
+    definition:
+      'Microfrontends decompose a frontend into independently deployable units owned by separate teams with separate release cycles. Module Federation enables runtime composition via remote entry files with shared singleton dependencies. Teams communicate via custom DOM events or a shared event bus — direct imports between remotes create build-time coupling that defeats the independence goal.',
+    codeExample:
+      "// webpack.config.js — Remote (editor team)\nconst { ModuleFederationPlugin } = require('webpack').container;\nmodule.exports = {\n  plugins: [\n    new ModuleFederationPlugin({\n      name: 'editor',\n      filename: 'remoteEntry.js',\n      exposes: { './TemplateEditor': './src/TemplateEditor' },\n      shared: {\n        react: { singleton: true, requiredVersion: '^18.0.0' },\n        'react-dom': { singleton: true, requiredVersion: '^18.0.0' },\n      },\n    }),\n  ],\n};\n\n// Shell (host) — resilient remote load\nconst TemplateEditor = React.lazy(() =>\n  import('editor/TemplateEditor').catch(() => import('./FallbackEditor'))\n);\n\n<ErrorBoundary fallback={<p>Editor unavailable</p>}>\n  <Suspense fallback={<Spinner />}>\n    <TemplateEditor />\n  </Suspense>\n</ErrorBoundary>",
+    gotchas:
+      'Missing singleton: true for React — two React instances at runtime → hooks throw "invalid hook call"; always set singleton.\nMFE with a single team — isolation cost without isolation benefit; monolith with feature folders is simpler.\nNo error boundary around remote loads — network failure rendering a remote crashes the entire shell page.',
+    flashcards: [
+      card('When is microfrontend the wrong call?', 'Small team, single product, one deploy cadence. Overhead (shared deps, runtime composition, communication) costs more than monolith friction. MFE wins at 5+ teams with independent release schedules.'),
+      card('Module Federation shared dependency conflict?', 'Each MFE may ship its own React version → multiple Reacts at runtime → broken hooks. Solution: shared singleton with version range, or strict version match — fail fast if mismatched.'),
+      card('Communication between microfrontends?', 'Custom DOM events (loose coupling), shared event bus, URL state, shared store (defeats isolation). Avoid direct imports between MFEs.'),
+      card('Build-time vs runtime MFE integration — pick?', 'Build-time (npm packages): simple, but one MFE updates = all apps redeploy. Runtime (Module Federation): true independent deploy, but version-skew risk and runtime resolution complexity.'),
+    ],
+    refs: [
+      ref('Module Federation Docs', 'https://module-federation.io/'),
+      ref('single-spa Docs', 'https://single-spa.js.org/docs/getting-started-overview'),
+      ref('Micro Frontends (martinfowler.com)', 'https://martinfowler.com/articles/micro-frontends.html'),
+    ],
+  });
+
+  const subErrors = mk('Error & Observability', 'state', archSkill.id, {
+    definition:
+      'Error Boundaries catch synchronous render exceptions and prevent full-page crashes, but miss async errors, event handler errors, and promise rejections — those require window.onerror and unhandledrejection listeners. Sentry (or equivalent) centralizes crash reports with stack traces, release tags, and user session breadcrumbs. Standardized error envelopes ({ code, message, traceId }) decouple server internals from user messages and enable cross-system log correlation.',
+    codeExample:
+      "// Root ErrorBoundary + Sentry\nimport * as Sentry from '@sentry/react';\n\nSentry.init({\n  dsn: process.env.SENTRY_DSN,\n  release: process.env.APP_VERSION,\n  tracesSampleRate: 0.2,\n});\n\nclass AppErrorBoundary extends React.Component {\n  state = { hasError: false };\n  static getDerivedStateFromError() { return { hasError: true }; }\n  componentDidCatch(error, info) {\n    Sentry.captureException(error, { extra: info });\n  }\n  render() {\n    if (this.state.hasError)\n      return <ErrorScreen onRetry={() => this.setState({ hasError: false })} />;\n    return this.props.children;\n  }\n}\n\n// Catch async and event-handler errors that ErrorBoundary misses\nwindow.addEventListener('unhandledrejection', (e) => {\n  Sentry.captureException(e.reason);\n});\nwindow.addEventListener('error', (e) => {\n  Sentry.captureException(e.error);\n});",
+    gotchas:
+      "Error boundaries don't catch async errors — event handlers and async callbacks need window.onerror / unhandledrejection.\nNo traceId in error envelope — impossible to correlate frontend crash with backend log; always propagate traceId from API.\nSentry without release tagging — can't determine which deploy introduced a regression.",
+    flashcards: [
+      card("Error boundaries in React — what they don't catch?", 'Async errors, event handler errors, errors in the boundary itself. Catch render errors only. Pair with global listeners (window.onerror, unhandledrejection).'),
+      card('How to design an error envelope?', '{ code, message, details, traceId }. Client maps code to user message + action. Server-internal details (stack traces) never reach UI. traceId enables correlating frontend + backend logs.'),
+      card('Sentry vs custom logging — when each?', "Sentry: production crashes, perf tracking, release tagging. Custom logging: business events that aren't errors. Both feed the observability story."),
+      card("What's a degraded-mode UI?", "When a subsystem fails (WebSocket, secondary API), UI gracefully degrades instead of breaking. Show a banner, fall back to polling, disable affected features. Better than a blank crash screen."),
+    ],
+    refs: [
+      ref('Sentry React Docs', 'https://docs.sentry.io/platforms/javascript/guides/react/'),
+      ref('React — Error Boundaries', 'https://react.dev/reference/react/Component#catching-rendering-errors-with-an-error-boundary'),
+      ref('MDN — unhandledrejection event', 'https://developer.mozilla.org/en-US/docs/Web/API/Window/unhandledrejection_event'),
+    ],
+  });
+
+  const subSystem = mk('System Design Patterns (Senior)', 'state', archSkill.id, {
+    definition:
+      'Senior frontend engineers apply architecture patterns to real product constraints — real-time data feeds, multi-tenant isolation, offline persistence, collaborative editing, and progressive deployments. Each system design connects state strategy, rendering mode, transport layer, and deployment pattern to specific non-functional requirements (latency, consistency, availability, team autonomy).',
+    codeExample:
+      "// Chat app — architecture sketch\n//\n// Transport:      WebSocket singleton → event bus → Zustand store\n// Messages:       normalized by conversationId: { [convId]: Message[] }\n// Optimistic send: message marked 'pending' in store before API ack\n// Rendering:      react-window virtualized list (10k+ messages)\n// Offline drafts: persisted to localStorage / AsyncStorage\n// Typing events:  debounced 500ms, expire after 3s\n//\n// Real-time trading UI additions:\n// - Batch WS ticks into requestAnimationFrame (throttle 100s/sec)\n// - Order entry: idempotency key on submit, disable until server ack\n// - WS drop: show degraded banner, fall back to 5s REST polling\n// - Order book: virtualized table, memoized rows (only changed re-render)",
+    gotchas:
+      "Over-engineering the first version — sketch the design, validate real constraints, then build incrementally.\nIgnoring failure modes — every real-time, offline, or multi-tenant design needs explicit degraded-mode behavior.\nA/B test variants never cleaned up — feature flag sprawl creates dead code paths and hidden test interactions.",
+    flashcards: [
+      card('Design a chat app frontend — key decisions?', 'WebSocket layer (single connection, reconnect). Normalized message store by conversationId. Optimistic send with pending state. Virtualized list (10k+ messages). Offline draft persistence. Typing indicators via debounced events.'),
+      card("Design a real-time trading UI — what's hard?", "100s of updates/sec without UI thrash — batch into RAF, throttle re-renders, virtualize tables. WS reconnect with state reconciliation. Order entry double-submit prevention. Degraded UI when WS drops."),
+      card('Design a multi-tenant frontend — concerns?', 'Tenant theming via CSS vars or runtime tokens. Per-tenant feature flags. Tenant context in every API call. Build-time vs runtime tenant resolution. Auth scoped to tenant.'),
+      card('Design an offline-first mobile fintech app?', 'SQLite/MMKV persistence. Mutation queue with idempotency keys. Background sync. Conflict resolution (last-write-wins for prefs, manual for transactions). Encrypted storage. Biometric re-auth on resume.'),
+      card('Server-driven UI — when does it make sense?', 'Apps where rules/screens change frequently without releases (banking, e-commerce promos). Backend ships UI schema; client renders. Trade: less native feel, more server complexity. Used by Airbnb, Lyft.'),
+      card('A/B testing architecture?', 'Variant assignment server-side (sticky per user). Render placeholder until variant resolved to avoid layout shift. Track exposure events. Variant cleanup discipline — kill or graduate within a fixed window.'),
+      card('Canary release at the frontend layer?', 'Percentage-based rollout via feature flag. Bake-time monitoring (errors, latency, conversion). Auto-rollback on threshold breach. Server-side for non-cached pages; CDN-level for cached.'),
+      card("i18n architecture — what's hard at scale?", "Pluralization varies by locale (Russian 3+ forms). RTL mirrors layouts, not just text. String externalization without breaking translator context. Lazy-load locale bundles. Use Intl APIs for dates/numbers, not custom code."),
+    ],
+    refs: [
+      ref('High Scalability', 'http://highscalability.com/'),
+      ref('System Design Primer (GitHub)', 'https://github.com/donnemartin/system-design-primer'),
+      ref('Patterns.dev', 'https://www.patterns.dev/'),
+      ref('web.dev — Progressive Web Apps', 'https://web.dev/explore/progressive-web-apps'),
+    ],
+  });
+
+  skills.push(
+    archSkill,
+    subStructure,
+    subBusiness,
+    subState,
+    subApi,
+    subSecurity,
+    subRendering,
+    subPerf,
+    subRealtime,
+    subOffline,
+    subMfe,
+    subErrors,
+    subSystem,
+  );
+
   return skills;
 }
