@@ -207,6 +207,21 @@ function Chip({ children, color = COLORS.primary, onPress }) {
   );
 }
 
+function NewTag() {
+  return (
+    <View style={{
+      backgroundColor: '#FF4B4B',
+      borderRadius: 6,
+      paddingHorizontal: 6,
+      paddingVertical: 2,
+      marginLeft: 6,
+      alignSelf: 'center',
+    }}>
+      <Text style={{ color: 'white', fontSize: 9, fontWeight: '900', letterSpacing: 0.5 }}>NEW</Text>
+    </View>
+  );
+}
+
 // ============================================================
 // MAIN APP
 // ============================================================
@@ -597,7 +612,10 @@ function SkillsHome({ data, navigate, onEditCategory }) {
               ]}
             >
               <Text style={styles.catEmoji}>{c.emoji}</Text>
-              <Text style={styles.catName}>{c.name}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={styles.catName}>{c.name}</Text>
+                {c.isUserAdded && <NewTag />}
+              </View>
               <View style={[styles.catCount, { backgroundColor: c.color }]}>
                 <Text style={styles.catCountText}>{count}</Text>
               </View>
@@ -642,7 +660,10 @@ function CategoryDetail({ data, categoryId, navigate, goBack, onAdd }) {
               <Text style={styles.skillBubbleText}>{s.name.charAt(0)}</Text>
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.skillRowName}>{s.name}</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                <Text style={styles.skillRowName}>{s.name}</Text>
+                {s.isUserAdded && <NewTag />}
+              </View>
               <Text style={styles.skillRowMeta}>
                 {subCount > 0 ? `🌳 ${subCount} sub-topic${subCount !== 1 ? 's' : ''} · ` : ''}
                 {flashCount} flashcard{flashCount !== 1 ? 's' : ''}
@@ -975,6 +996,7 @@ function TreeNode({ skill, allSkills, depth, categoryColor, onPress }) {
           ]}
         >
           <Text style={styles.treeNodeName}>{skill.name}</Text>
+          {skill.isUserAdded && <NewTag />}
           {hasChildren && (
             <View style={[styles.treeChildBadge, { backgroundColor: categoryColor + '22' }]}>
               <Text style={{ color: darken(categoryColor), fontSize: 10, fontWeight: '800' }}>
@@ -1676,6 +1698,7 @@ function SkillEditModal({ data, skill, update, onClose }) {
       apis: form.apis.filter((a) => a.name.trim()),
       refs: form.refs.filter((r) => r.url.trim()),
     };
+    if (isNew) cleaned.isUserAdded = true;
     update((d) => {
       if (isNew) d.skills.push(cleaned);
       else {
@@ -2185,11 +2208,12 @@ function CategoryEditModal({ category, update, onClose }) {
 
   const save = () => {
     if (!form.name.trim()) { Alert.alert('Missing', 'Category name required.'); return; }
+    const toSave = isNew ? { ...form, isUserAdded: true } : form;
     update((d) => {
-      if (isNew) d.categories.push(form);
+      if (isNew) d.categories.push(toSave);
       else {
         const i = d.categories.findIndex((c) => c.id === form.id);
-        if (i >= 0) d.categories[i] = form;
+        if (i >= 0) d.categories[i] = toSave;
       }
     });
     onClose();
