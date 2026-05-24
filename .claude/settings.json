@@ -1,0 +1,7 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(node -e \"import\\('./seed/skills/backend.js'\\).catch\\(e => { if\\(e.code === 'ERR_MODULE_NOT_FOUND' && e.message.includes\\('helpers'\\)\\) { console.log\\('OK: import chain starts correctly, only missing helpers stub'\\); } else { console.error\\(e.message\\); } }\\)\")"
+    ]
+  }
+}

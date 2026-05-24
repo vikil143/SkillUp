@@ -562,5 +562,822 @@ export default function buildBackendSkills() {
     if (cards) s.flashcards.push(...cards);
   });
 
+  // ─── Backend Engineering (top-level + 12 sub-topics) ───────────────────────
+
+  const beSkill = mk('Backend Engineering', 'backend', null, {
+    definition:
+      'Server-side engineering — designing services that expose APIs, manage state in databases, handle authentication, scale under load, and recover from failure. Senior backend work is mostly about failure modes, observability, and trade-offs between consistency, availability, and latency.',
+    codeExample: `// Layered backend service shape
+//
+// HTTP/WS Entry  →  Middleware  →  Controllers
+//                                       ↓
+//                                  Services (business logic)
+//                                       ↓
+//                                  Repositories / DB
+//                                       ↓
+//                                  Caches, Queues, External APIs
+
+import express from 'express';
+import { authMiddleware } from './middleware/auth';
+import { userRouter } from './routes/users';
+
+const app = express();
+app.use(express.json());
+app.use(authMiddleware);
+app.use('/users', userRouter);
+
+app.use((err, req, res, next) => {
+  res.status(err.status || 500).json({ code: err.code, message: err.message, traceId: req.id });
+});
+
+app.listen(3000);`,
+    whenUsed:
+      'Stock Trading Platform (Node + Express APIs, MongoDB + MySQL, WebSocket real-time, Keycloak 2FA). Maak and Packarma mobile backends. Documentation Platform collaborative editing.',
+    gotchas: `Treating distributed systems like single-node systems — every network call can fail, timeout, or duplicate.
+Storing JWT in localStorage instead of httpOnly cookie when XSS risk is real.
+No idempotency keys on payment/mutation APIs → retries cause double charges.
+Skipping connection pooling → DB connection exhaustion under load.
+Logging without correlation IDs → can't trace a request across services.`,
+    flashcards: [
+      card('What is backend development at senior level?', 'Server-side engineering — APIs, business logic, persistence, authentication, scaling, failure recovery. Senior work emphasizes failure modes, observability, capacity planning, and trade-offs (consistency vs availability vs latency).'),
+      card('What is client-server architecture?', 'Client (browser, mobile, another service) sends requests over a network — usually HTTP. Server processes, queries storage, returns response. Decouples presentation from data and business logic.'),
+      card('Request lifecycle from URL to rendered page?', 'DNS lookup → TCP connect → TLS handshake → HTTP request → load balancer → reverse proxy → backend service → DB query → response back up the chain → browser renders.'),
+      card('What separates senior backend from mid?', 'Designs for failure modes (timeouts, retries, idempotency), thinks in distributed trade-offs (CAP, eventual consistency), instruments observability, owns capacity and cost.'),
+      card('Most important things to instrument in a new service?', 'Healthchecks (liveness + readiness), structured logs with correlation IDs, request latency histogram (p50/p95/p99), error rate, upstream/downstream call metrics, queue depth where applicable.'),
+      card('What is an idempotent operation?', "Same request produces the same result no matter how many times it runs. PUT, DELETE are idempotent by spec. POST usually isn't — make it idempotent via idempotency keys for payments and other critical mutations."),
+      card('Why is "exactly once" delivery a hard problem?', "Network partitions and crashes make it impossible to guarantee a message was both delivered and acknowledged exactly once. Practical approach: at-least-once delivery + idempotent handlers = exactly-once effect."),
+      card('Stateless vs stateful services — pick which?', 'Stateless scales horizontally trivially (any instance handles any request). Stateful needs sticky sessions or external state store. Default to stateless; push state to DB, cache, or queue.'),
+    ],
+    apis: [],
+    refs: [
+      ref('Node.js docs', 'https://nodejs.org/en/docs'),
+      ref('Designing Data-Intensive Applications', 'https://dataintensive.net/'),
+      ref('High Scalability — real-world case studies', 'http://highscalability.com/'),
+      ref('System Design Primer', 'https://github.com/donnemartin/system-design-primer'),
+      ref('Microservices.io — pattern reference', 'https://microservices.io/patterns/index.html'),
+    ],
+    relatedProjectIds: ['p-stock', 'p-docs', 'p-maak', 'p-packarma'],
+  });
+  skills.push(beSkill);
+
+  // 1. HTTP & API Design
+  const subHttp = mk('HTTP & API Design', 'backend', beSkill.id, {
+    definition:
+      "HTTP is the application-layer protocol defining request methods, status codes, and headers for client-server communication. REST maps these primitives to resource-oriented APIs with consistent URI design and verb semantics. GraphQL (single endpoint, client-chosen fields) and gRPC (binary protocol, streaming) are alternatives that trade REST's simplicity for flexibility or performance.",
+    codeExample: `import express from 'express';
+const app = express();
+app.use(express.json());
+
+// POST → 201 + Location on creation
+app.post('/v1/orders', async (req, res, next) => {
+  try {
+    const { productId, qty } = req.body;
+    if (!productId || qty == null)
+      return res.status(400).json({ code: 'missing_fields' });
+    const order = await orderService.create({ productId, qty });
+    res.status(201).set('Location', \`/v1/orders/\${order.id}\`).json(order);
+  } catch (err) { next(err); }
+});
+
+// GET → 200 or 404
+app.get('/v1/orders/:id', async (req, res, next) => {
+  try {
+    const order = await orderService.findById(req.params.id);
+    if (!order) return res.status(404).json({ code: 'not_found' });
+    res.json(order);
+  } catch (err) { next(err); }
+});
+
+// DELETE → 204 No Content
+app.delete('/v1/orders/:id', async (req, res, next) => {
+  try {
+    await orderService.remove(req.params.id);
+    res.sendStatus(204);
+  } catch (err) { next(err); }
+});`,
+    gotchas: `Using 200 for every response including errors — hides failures from monitoring and clients.
+Ignoring idempotency on POST — retries from clients or proxies create duplicate resources.
+URI path versioning (/v1/) forgotten until a breaking change is needed — add it from day one.
+Mixing RPC-style verbs in URIs (/getUser, /deleteOrder) instead of resource + method semantics.
+Returning 400 for semantic validation failures instead of 422 — they mean different things to clients.`,
+    flashcards: [
+      card('What is an API?', 'Application Programming Interface — a contract for how one program talks to another. In backend context, usually HTTP endpoints (REST/GraphQL) or RPC interfaces (gRPC).'),
+      card('REST vs GraphQL — when each?', "REST: multiple endpoints, fixed shapes, HTTP-native caching, simpler. GraphQL: single endpoint, client chooses fields, no overfetching, but caching is harder and complexity is higher. Pick REST for CRUD; GraphQL when many clients with varying data needs."),
+      card('HTTP methods → which are idempotent?', "GET, PUT, DELETE, HEAD, OPTIONS are idempotent. POST and PATCH typically are not. Idempotency matters for retries — POSTing twice creates two resources unless you add an idempotency key."),
+      card('HTTP vs HTTPS — what changes on the wire?', 'HTTPS wraps HTTP in TLS — encryption, integrity, and server authentication via certificates. Port 443 vs 80. Modern web is HTTPS-everywhere; HTTP only for internal trusted networks.'),
+      card('When should you use 201 vs 200 vs 204?', '201 Created — POST creating a resource (return Location header). 200 OK — success with body. 204 No Content — success with no body (typical for DELETE).'),
+      card("422 vs 400 — what's the difference?", '400 Bad Request — malformed syntax (invalid JSON, missing required field at parse level). 422 Unprocessable Entity — well-formed but semantically invalid (e.g., email format wrong, business rule violated).'),
+      card('API versioning strategies?', 'URL path (`/v1/users`) — most visible, easy. Accept header (`Accept: application/vnd.app.v2+json`) — clean URLs but harder to debug. Query param (`?version=2`) — rare, discouraged. Pick URL path for public APIs.'),
+      card('gRPC vs REST — when does gRPC win?', 'Service-to-service, high throughput, polyglot stacks. Binary protobuf is smaller and faster than JSON. Streaming built-in. Loses: browser support without gRPC-Web shim, debuggability.'),
+      card('What are webhooks and what are the gotchas?', 'Server-to-server callbacks on events. Gotchas: must be idempotent (provider retries), require signature verification (HMAC), need replay protection, and the receiver must be reachable + fast.'),
+      card('HATEOAS — relevant in practice?', 'Concept where API responses include links to next actions. Rare in practice — clients usually hardcode routes. Most "REST" APIs are actually Level 2 Richardson maturity (resources + verbs), not Level 3 (hypermedia).'),
+    ],
+    apis: [
+      api('HTTP GET', 'GET /v1/:resource/:id', 'Fetches a resource without side effects. Safe and idempotent.', 'path params, optional query filters', '200 + body or 404', "app.get('/v1/users/:id', handler);", 'Set Cache-Control for public resources to enable CDN caching.'),
+      api('HTTP POST', 'POST /v1/:resource', 'Creates a resource or submits a command. Not idempotent by default.', 'request body', '201 + Location header', "app.post('/v1/orders', handler);", 'Add idempotency key support for critical mutations.'),
+      api('HTTP PUT', 'PUT /v1/:resource/:id', 'Replaces the full resource representation. Idempotent.', 'resource id + full body', '200 + updated resource', "app.put('/v1/users/:id', handler);", 'Partial PUT can accidentally null out omitted fields — prefer PATCH for partial updates.'),
+      api('HTTP PATCH', 'PATCH /v1/:resource/:id', 'Applies a partial update to a resource.', 'resource id + partial body', '200 + updated resource', "app.patch('/v1/users/:id', handler);", 'Define patch semantics explicitly (JSON Merge Patch RFC 7396 or JSON Patch RFC 6902).'),
+      api('HTTP DELETE', 'DELETE /v1/:resource/:id', 'Removes a resource. Idempotent.', 'resource id', '204 No Content', "app.delete('/v1/users/:id', handler);", 'Distinguish hard delete from soft delete — they behave differently on repeat calls.'),
+    ],
+    refs: [
+      ref('MDN HTTP Overview', 'https://developer.mozilla.org/en-US/docs/Web/HTTP/Overview'),
+      ref('RESTful API Design', 'https://restfulapi.net/'),
+      ref('GraphQL Official Docs', 'https://graphql.org/learn/'),
+      ref('gRPC Documentation', 'https://grpc.io/docs/'),
+      ref('RFC 9110 HTTP Semantics', 'https://www.rfc-editor.org/rfc/rfc9110'),
+    ],
+  });
+  skills.push(subHttp);
+
+  // 2. Middleware & Request Pipeline
+  const subMiddleware = mk('Middleware & Request Pipeline', 'backend', beSkill.id, {
+    definition:
+      "Middleware are functions in the request-response pipeline, each performing a focused cross-cutting concern — logging, auth, validation, rate limiting — before passing control via `next()`. They compose in registration order: each can read/modify `req`/`res` or short-circuit by sending a response. Error-handling middleware (4-arg signature) catches forwarded errors and centralizes response shaping.",
+    codeExample: `import express from 'express';
+import { v4 as uuid } from 'uuid';
+const app = express();
+
+// 1. Assign correlation ID to every request
+app.use((req, _res, next) => { req.id = uuid(); next(); });
+
+// 2. Structured request logger
+app.use((req, res, next) => {
+  const start = Date.now();
+  res.on('finish', () =>
+    console.log(JSON.stringify({ reqId: req.id, method: req.method,
+      path: req.path, status: res.statusCode, ms: Date.now() - start }))
+  );
+  next();
+});
+
+app.use(express.json());
+
+// 3. Auth — short-circuits with 401 on missing token
+app.use((req, res, next) => {
+  const token = req.headers.authorization?.split(' ')[1];
+  if (!token) return res.status(401).json({ code: 'unauthenticated' });
+  req.user = verifyToken(token);
+  next();
+});
+
+app.get('/v1/me', (req, res) => res.json(req.user));
+
+// 4. Centralized error handler — must be last, 4-arg signature
+app.use((err, req, res, _next) => {
+  res.status(err.status || 500).json({ code: err.code || 'internal_error', traceId: req.id });
+});`,
+    gotchas: `Registering the error handler before routes — it won't catch errors from routes registered after it.
+Not calling next(err) in async handlers — the error silently swallows and the request hangs.
+Placing body-parser after route handlers — req.body is undefined in those routes.
+Mutating req/res in middleware without documenting it — creates invisible coupling between layers.
+Leaking stack traces in error responses — reveals internals to clients in production.`,
+    flashcards: [
+      card('What is middleware in a backend framework?', "A function that sits in the request-response pipeline, can read/modify request and response, then either call `next()` to continue the chain or short-circuit (e.g., send 401)."),
+      card('Common middleware concerns?', 'Logging, request ID assignment, authentication, authorization, input validation, rate limiting, body parsing, CORS, compression, error handling.'),
+      card('Why does middleware order matter?', "It's a chain — early middleware runs first. Body parser must run before handlers that read `req.body`. Auth must run before authorization. Error handler is registered last but catches errors from all earlier middleware."),
+      card('How does Express identify error-handling middleware?', 'Function signature with 4 args: `(err, req, res, next)`. Express routes thrown errors / `next(err)` calls to these. Must be registered after regular routes.'),
+      card('How to centralize error responses?', 'Throw typed errors (e.g., `ValidationError`, `NotFoundError`) in handlers. Single error-handling middleware maps them to status codes and a consistent envelope `{ code, message, traceId }`. Never leak stack traces to clients.'),
+    ],
+    apis: [
+      api('app.use()', 'app.use([path], fn)', 'Registers middleware globally or scoped to a path prefix.', 'optional path + middleware fn', 'void', "app.use('/api', authMiddleware);", 'Without a path, applies to every request regardless of method or route.'),
+      api('next()', 'next(err?)', 'Passes control to next middleware. Pass an error to skip to error handler.', 'optional error object', 'void', "if (!user) return next(Object.assign(new Error('unauth'), { status: 401 }));", 'Calling next() after res.send() causes double-response errors.'),
+      api('Error middleware', '(err, req, res, next) => void', '4-arg signature that Express routes errors to.', 'error, req, res, next', 'void', "app.use((err, req, res, _next) => res.status(err.status || 500).json({ code: err.code }));", 'Must be registered after all routes and regular middleware.'),
+    ],
+    refs: [
+      ref('Express Middleware Guide', 'https://expressjs.com/en/guide/using-middleware.html'),
+      ref('Express Error Handling', 'https://expressjs.com/en/guide/error-handling.html'),
+      ref('express-async-errors', 'https://github.com/davidbanham/express-async-errors'),
+    ],
+  });
+  skills.push(subMiddleware);
+
+  // 3. Auth & Authorization
+  const subAuth = mk('Auth & Authorization', 'backend', beSkill.id, {
+    definition:
+      "Authentication (authn) verifies identity — who are you; authorization (authz) enforces permissions — what you can do. JWTs provide stateless authn via signed tokens; sessions provide easy revocation at the cost of shared server state. OAuth 2.0 handles delegated user-granted access. RBAC (role-based) and ABAC (attribute-based) are the two dominant authz models.",
+    codeExample: `import jwt from 'jsonwebtoken';
+const SECRET = process.env.JWT_SECRET;
+
+// Sign a short-lived access token
+export function signAccessToken(userId) {
+  return jwt.sign({ sub: userId }, SECRET, { expiresIn: '15m', algorithm: 'HS256' });
+}
+
+// Middleware: verify JWT on every protected route
+export function authMiddleware(req, res, next) {
+  const header = req.headers.authorization;
+  if (!header?.startsWith('Bearer '))
+    return res.status(401).json({ code: 'missing_token' });
+  try {
+    const payload = jwt.verify(header.slice(7), SECRET);
+    req.user = { id: payload.sub, role: payload.role };
+    next();
+  } catch (err) {
+    const code = err.name === 'TokenExpiredError' ? 'token_expired' : 'invalid_token';
+    res.status(401).json({ code });
+  }
+}
+
+// RBAC guard factory
+export function requireRole(...roles) {
+  return (req, res, next) => {
+    if (!roles.includes(req.user?.role))
+      return res.status(403).json({ code: 'forbidden' });
+    next();
+  };
+}
+
+// Usage: only admins can delete
+app.delete('/v1/users/:id', authMiddleware, requireRole('admin'), handler);`,
+    gotchas: `Storing JWT in localStorage — readable by any XSS payload; use httpOnly cookies.
+Long-lived access tokens (hours/days) — breach window is huge; use 15-min tokens + refresh rotation.
+Checking auth only at the route level, not per-resource — user A can read user B's record.
+Symmetric JWT secret shared across all services — any service can forge tokens for any other.
+Not verifying the algorithm in JWT header — algorithm confusion attacks can bypass signature checks.`,
+    flashcards: [
+      card('Authentication vs authorization?', 'Authentication = "who are you?" (login). Authorization = "what can you do?" (permission check). Authn happens first, then authz. Different layers, different failure modes.'),
+      card('What is JWT?', "JSON Web Token — `header.payload.signature` base64url-encoded. Server signs, anyone can read, only server can verify. Stateless auth — server doesn't need to look up sessions."),
+      card('Where to store JWT in browser?', "httpOnly cookie — immune to XSS token theft. localStorage is XSS-vulnerable. Trade-off: cookies need CSRF protection (SameSite=Strict/Lax mitigates)."),
+      card('How to revoke a JWT before it expires?', "Pure JWT is stateless — you can't. Options: short access token TTL (15 min) + refresh token rotation, maintain a server-side blocklist of revoked jti claims, or fall back to session-based auth where revocation is trivial."),
+      card('Session-based vs JWT — pick which?', 'Sessions: server holds session state, easy revocation, requires sticky sessions or shared store (Redis). JWT: stateless, scales horizontally trivially, harder to revoke. Pick sessions for internal apps; JWT for distributed systems and mobile.'),
+      card('OAuth 2.0 authorization code flow steps?', 'Client redirects user to authz server → user logs in + consents → authz server redirects back with `code` → client exchanges code for `access_token` + `refresh_token` on backend → client calls resource API with access token.'),
+      card('Why use a refresh token?', 'Access tokens are short-lived (15 min) to limit blast radius if leaked. Refresh tokens are long-lived (days/weeks) and stored more securely. Exchanging refresh → new access lets users stay logged in without re-auth.'),
+      card('RBAC vs ABAC?', 'RBAC (role-based): "admin can edit" — coarse, simple. ABAC (attribute-based): "user can edit if user.id === post.authorId AND post.status === draft" — fine-grained, expressive, complex. Start RBAC, escalate when role explosion happens.'),
+      card('API keys vs OAuth — when each?', "API keys: server-to-server, simple, long-lived, hard to revoke per user. OAuth: user-delegated access, scoped permissions, revocable per consent. Don't use API keys for end-user authorization."),
+      card('Where to enforce authorization?', "On every server endpoint, every time. Never trust the client. Frontend hides UI for UX. Backend enforces for security. Per-resource checks (does this user own this record?) live at the service or repository layer."),
+    ],
+    apis: [
+      api('jwt.sign()', "jwt.sign(payload, secret, options)", 'Creates a signed JWT string.', 'payload object, secret, options (expiresIn, algorithm)', 'string token', "const token = jwt.sign({ sub: userId }, SECRET, { expiresIn: '15m' });", "Always set expiresIn. Default algorithm is HS256 — use RS256 for multi-service architectures."),
+      api('jwt.verify()', 'jwt.verify(token, secret, options?)', 'Verifies signature and expiry; throws on failure.', 'token string, secret, optional options', 'decoded payload', 'const payload = jwt.verify(token, SECRET);', 'Handle TokenExpiredError and JsonWebTokenError separately for distinct error codes.'),
+      api('bcrypt.hash()', 'bcrypt.hash(password, rounds)', 'Hashes a password with bcrypt. rounds = work factor (cost).', 'plaintext password, salt rounds (10–12)', 'Promise<string> hash', 'const hash = await bcrypt.hash(password, 12);', 'Increase rounds as hardware improves. Never use fewer than 10.'),
+      api('bcrypt.compare()', 'bcrypt.compare(plain, hash)', 'Timing-safe comparison of plaintext against stored hash.', 'plaintext password and stored hash', 'Promise<boolean>', 'const ok = await bcrypt.compare(req.body.password, user.passwordHash);', 'Always use compare() — never compare hashes manually (timing attack risk).'),
+    ],
+    refs: [
+      ref('JWT.io introduction', 'https://jwt.io/introduction'),
+      ref('OAuth 2.0 RFC 6749', 'https://www.rfc-editor.org/rfc/rfc6749'),
+      ref('OWASP Authentication Cheatsheet', 'https://cheatsheetseries.owasp.org/cheatsheets/Authentication_Cheat_Sheet.html'),
+      ref('OWASP Authorization Cheatsheet', 'https://cheatsheetseries.owasp.org/cheatsheets/Authorization_Cheat_Sheet.html'),
+      ref('Passport.js strategies', 'https://www.passportjs.org/concepts/authentication/'),
+    ],
+  });
+  skills.push(subAuth);
+
+  // 4. Backend Security
+  const subSecurity = mk('Backend Security', 'backend', beSkill.id, {
+    definition:
+      'Backend security is defense-in-depth across the request lifecycle: validate all input at boundaries, parameterize queries to block injection, set security headers to constrain browsers, manage secrets outside of code, and encrypt data at rest and in transit. The OWASP Top 10 is the canonical checklist for web application threat classes.',
+    codeExample: `import express from 'express';
+import helmet from 'helmet';
+import rateLimit from 'express-rate-limit';
+import { Pool } from 'pg';
+
+const app = express();
+const db = new Pool();
+
+// Security headers (CSP, HSTS, X-Frame-Options, etc.)
+app.use(helmet());
+app.use(express.json({ limit: '100kb' })); // prevent large payload attacks
+
+// Tighter rate limit on login — brute-force protection
+app.use('/auth/login', rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 10,
+  message: { code: 'too_many_attempts' },
+}));
+
+// Parameterized query — NEVER interpolate user input into SQL
+app.get('/users', async (req, res, next) => {
+  try {
+    const result = await db.query(
+      'SELECT id, email FROM users WHERE email = $1',
+      [req.query.email]  // passed as parameter, not concatenated
+    );
+    res.json(result.rows);
+  } catch (err) { next(err); }
+});`,
+    gotchas: `Concatenating user input into SQL strings — classic injection; always use parameterized queries.
+Hardcoding secrets in source code or committed .env files — use a secrets manager.
+Trusting Content-Type header alone — also validate the parsed payload schema with Zod/Joi.
+Missing NoSQL injection protection — MongoDB operators in user input can bypass auth queries.
+Using SHA-256 for password hashing — too fast; use bcrypt or Argon2id with a proper work factor.`,
+    flashcards: [
+      card('What is CORS and where is it enforced?', 'Cross-Origin Resource Sharing — browser policy controlled by response headers (`Access-Control-Allow-Origin`, etc.). Enforced by the browser, not the server. Server-to-server calls ignore CORS.'),
+      card('CSRF — what is it and how to prevent?', "Cross-site request forgery — attacker's site triggers requests to your site using the user's cookies. Prevent with SameSite=Strict/Lax cookies, CSRF tokens on state-changing requests, or by requiring custom headers (which CORS blocks cross-origin)."),
+      card('SQL injection prevention?', "Always use parameterized queries / prepared statements. Never concatenate user input into SQL strings. ORMs do this by default but raw queries are the danger zone."),
+      card('NoSQL injection — does it exist?', 'Yes. MongoDB takes operator objects — `{ username: req.body.username }` becomes `{ username: { $ne: null } }` if the client sends `{$ne:null}`. Validate types or use libraries that strip operators from user input.'),
+      card('How to handle secrets in production?', 'Never in code or env files committed to git. Use a secrets manager (Vault, AWS Secrets Manager, Doppler, GCP Secret Manager). Inject at runtime. Rotate regularly. Audit access.'),
+      card('Encryption at rest vs in transit?', 'In transit = TLS protects data on the network (HTTPS, encrypted DB connections). At rest = data encrypted on disk (database TDE, encrypted volumes, encrypted backups). Both required for sensitive data.'),
+      card('Why hash passwords with bcrypt/Argon2 not SHA-256?', 'SHA-256 is fast — attackers can hash billions per second. bcrypt/Argon2 are slow by design (work factor) and include per-password salt. Use Argon2id for new systems; bcrypt is still acceptable.'),
+      card('Input validation — where should it live?', 'At the API boundary, every endpoint, every request. Use schema validators (Zod, Joi, ajv). Never trust client input. Validation in business logic is too late — by then bad data has spread.'),
+      card('Common security headers to set?', 'Strict-Transport-Security (HSTS), Content-Security-Policy, X-Content-Type-Options: nosniff, X-Frame-Options: DENY, Referrer-Policy. Use `helmet` middleware in Express.'),
+      card('Rate limiting as security — what attacks does it block?', 'Brute-force credential attacks, scraping, application-layer DDoS, abuse. Per-IP and per-user limits. For login endpoints, use stricter limits and consider CAPTCHA after N failures.'),
+    ],
+    apis: [
+      api('helmet()', 'helmet(options?)', 'Sets ~15 security HTTP response headers with safe defaults.', 'optional per-header config object', 'Express middleware', 'app.use(helmet());', 'Configure contentSecurityPolicy carefully — an overly strict CSP breaks legitimate scripts and images.'),
+      api('express-rate-limit', 'rateLimit({ windowMs, max, message })', 'Per-IP rate limiter. Use a Redis store for multi-instance deployments.', 'window duration, max requests, response on exceeded', 'Express middleware', "app.use('/auth', rateLimit({ windowMs: 15*60000, max: 10 }));", 'In-memory store resets on restart — use rate-limit-redis in production.'),
+      api('Parameterized query (pg)', 'pool.query(sql, [params])', 'Sends SQL with placeholder slots and separately-bound values — prevents injection.', 'SQL string with $1 placeholders + values array', 'Promise<QueryResult>', "await db.query('SELECT * FROM users WHERE id = $1', [userId]);", 'Never use template literals or string concatenation for user-supplied values.'),
+      api('Argon2id hash', 'argon2.hash(password, { type: argon2.argon2id })', 'Memory-hard password hashing using the Argon2id variant.', 'plaintext password + options', 'Promise<string> hash', "import argon2 from 'argon2';\nconst hash = await argon2.hash(password, { type: argon2.argon2id });", 'Tune memoryCost and timeCost so hashing takes ~100ms on your hardware.'),
+    ],
+    refs: [
+      ref('OWASP Top 10', 'https://owasp.org/www-project-top-ten/'),
+      ref('OWASP API Security Top 10', 'https://owasp.org/www-project-api-security/'),
+      ref('Helmet.js', 'https://helmetjs.github.io/'),
+      ref('OWASP SQL Injection Prevention', 'https://cheatsheetseries.owasp.org/cheatsheets/SQL_Injection_Prevention_Cheat_Sheet.html'),
+      ref('OWASP Secrets Management', 'https://cheatsheetseries.owasp.org/cheatsheets/Secrets_Management_Cheat_Sheet.html'),
+    ],
+  });
+  skills.push(subSecurity);
+
+  // 5. Databases — Fundamentals
+  const subDbFund = mk('Databases — Fundamentals', 'backend', beSkill.id, {
+    definition:
+      'Relational databases (PostgreSQL, MySQL) organize data in normalized tables with enforced schema, joins, and ACID transactions — optimal for structured relational data. NoSQL document stores (MongoDB) offer flexible schema and horizontal scale for denormalized reads. Indexes, connection pooling, and careful ORM usage are the practical levers that determine query performance in production.',
+    codeExample: `-- Schema with foreign key + composite index
+CREATE TABLE orders (
+  id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  status      TEXT NOT NULL CHECK (status IN ('pending','paid','cancelled')),
+  total_cents INT  NOT NULL,
+  created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+-- Composite index: queries filter user_id + status, sort by created_at
+CREATE INDEX idx_orders_user_status_created
+  ON orders (user_id, status, created_at DESC);
+
+-- Covering index: answers query from index alone (no table heap access)
+CREATE INDEX idx_orders_user_status_cover
+  ON orders (user_id, status) INCLUDE (total_cents, created_at);
+
+-- Parameterized query via Node pg pool
+const { rows } = await db.query(
+  \`SELECT id, status, total_cents, created_at
+     FROM orders
+    WHERE user_id = $1 AND status = $2
+    ORDER BY created_at DESC
+    LIMIT $3\`,
+  [userId, 'paid', 20]
+);`,
+    gotchas: `Missing indexes on foreign keys — joins and WHERE lookups do full table scans silently until data grows.
+N+1 queries via ORM lazy-loading — each row in a result triggers a separate SQL call in a loop.
+No connection pool — each request opens a new TCP + auth handshake, exhausting DB connection limits.
+Over-normalizing hot read paths — expensive multi-table joins on every request; denormalize where justified.
+Running migrations inside app startup — causes deployment races; run migrations as a separate pre-deploy step.`,
+    flashcards: [
+      card('SQL vs NoSQL — pick which when?', 'SQL (Postgres, MySQL): relational data, joins, strong schema, transactions. NoSQL document (MongoDB): flexible schema, denormalized reads, easy horizontal scale. Key-value (Redis): cache, rate limit. Pick by data model and query pattern, not hype.'),
+      card('Primary key vs unique constraint?', 'Primary key — uniquely identifies each row, usually one per table, typically clustered (storage order). Unique constraint — any column(s) that must be unique; you can have multiple per table.'),
+      card('What is a foreign key?', 'A column whose values must exist as primary keys in another table. Enforces referential integrity. DB rejects orphan rows unless you allow null or cascade.'),
+      card('How does a B-tree index help?', 'Stores keys in sorted tree → O(log n) lookup vs O(n) full scan. Range queries (`WHERE created > X`) and ORDER BY use it. Cost: writes update the index (write amplification).'),
+      card("Composite index — what's the leftmost prefix rule?", 'Index on `(a, b, c)` supports queries filtering `a`, or `a + b`, or `a + b + c`. Does NOT support queries filtering only `b` or only `c`. Column order matters — put highest-selectivity columns first.'),
+      card("What's a covering index?", "Index that includes all columns the query needs, so the engine never touches the table — answers from index alone. Huge perf win for read-heavy queries. Trade-off: bigger index, slower writes."),
+      card('When does a partial index make sense?', 'Index only rows matching a WHERE condition (e.g., `WHERE status = active`). Smaller index, faster maintenance, used when queries always filter on that condition.'),
+      card('What is database normalization?', 'Organizing schema to eliminate redundancy and update anomalies. 1NF (atomic values), 2NF (depend on full PK), 3NF (no transitive deps). Denormalize for read perf when justified.'),
+      card('When does an ORM hurt you?', 'N+1 queries (loop calling lazy relations), inability to express complex queries, hidden expensive operations (`.save()` triggering cascades), schema drift between code and DB. Use raw SQL for hot paths.'),
+      card('Why is connection pooling required?', 'Each new DB connection is expensive (TCP + auth handshake). Pool reuses N pre-opened connections. Without it, high traffic exhausts DB connection limits and adds latency per request.'),
+      card('How to size a DB connection pool?', 'Start with `pool_size = (cores * 2 + effective_spindle_count)` for the DB. Per-app instance, account for total instances. Too many = DB overload; too few = app waits for connections. Measure under load.'),
+    ],
+    apis: [
+      api('CREATE INDEX', 'CREATE [UNIQUE] INDEX name ON table (col1, col2)', 'Adds a B-tree index. UNIQUE enforces uniqueness constraint.', 'table and ordered column list', 'DDL — no rows returned', 'CREATE INDEX idx_users_email ON users (email);', 'Index every foreign key; also index columns appearing together in WHERE + ORDER BY.'),
+      api('EXPLAIN ANALYZE', 'EXPLAIN ANALYZE SELECT ...', 'Shows the query execution plan with actual row counts and timing.', 'any SELECT statement', 'plan text output', "EXPLAIN ANALYZE SELECT * FROM orders WHERE user_id = 'u1';", "Run on a copy of production data — row estimates differ on small dev datasets."),
+      api('pool.query() (pg)', 'pool.query(sql, values?)', 'Executes SQL via a pool-managed connection; releases connection automatically.', 'SQL string + optional params array', 'Promise<{ rows, rowCount }>', "const { rows } = await pool.query('SELECT * FROM users WHERE id=$1', [id]);", 'pool.connect() requires manual release — pool.query() handles it automatically.'),
+      api('prisma.model.findMany', 'prisma.model.findMany({ where, select, orderBy, take })', 'Type-safe query builder that generates parameterized SQL.', 'query filter object', 'Promise<Model[]>', "const users = await prisma.user.findMany({ where: { active: true }, take: 20 });", 'Always use select to fetch only needed columns — avoids N+1 on eagerly-included relations.'),
+    ],
+    refs: [
+      ref('PostgreSQL Documentation', 'https://www.postgresql.org/docs/current/'),
+      ref('MongoDB Manual', 'https://www.mongodb.com/docs/manual/'),
+      ref('Prisma ORM Docs', 'https://www.prisma.io/docs'),
+      ref('Use the Index, Luke — SQL indexing guide', 'https://use-the-index-luke.com/'),
+      ref('PostgreSQL EXPLAIN docs', 'https://www.postgresql.org/docs/current/using-explain.html'),
+    ],
+  });
+  skills.push(subDbFund);
+
+  // 6. Databases — Advanced
+  const subDbAdv = mk('Databases — Advanced', 'backend', beSkill.id, {
+    definition:
+      'Transactions bundle multiple writes into atomic units with ACID guarantees; isolation levels control what concurrent transactions can observe, with higher levels trading anomaly protection for lower concurrency. Sharding distributes data horizontally for write scale; replication copies data for read scale and HA. CQRS separates read and write models when their shapes and scaling needs diverge sharply.',
+    codeExample: `-- Pessimistic lock: reserve exactly one seat atomically
+BEGIN;
+
+SELECT id, seats_remaining
+  FROM events
+ WHERE id = $1
+   FOR UPDATE;  -- row lock held until COMMIT
+
+UPDATE events
+   SET seats_remaining = seats_remaining - 1
+ WHERE id = $1 AND seats_remaining > 0;
+
+INSERT INTO bookings (event_id, user_id) VALUES ($1, $2);
+
+COMMIT;
+
+-- Optimistic lock: update only if version still matches
+UPDATE products
+   SET stock   = stock - $1,
+       version = version + 1
+ WHERE id = $2 AND version = $3;
+-- rowCount === 0 means another transaction won → retry`,
+    gotchas: `Using READ COMMITTED isolation for inventory or balance updates — two transactions can both read the same value and both decrement, causing oversell.
+Long-running transactions holding row locks — blocks all writers on that row; keep transactions as short as possible.
+Ignoring replication lag in read-after-write flows — user writes to master, reads from replica, doesn't see their own write.
+Running schema migrations inside a transaction on large tables — ALTER TABLE holds ACCESS EXCLUSIVE lock for minutes.
+CQRS without ordering guarantees on the event bus — the read model processes events out of order and shows stale state.`,
+    flashcards: [
+      card('What is a database transaction?', 'A sequence of operations executed as a single unit — either all commit or all roll back. Provides ACID guarantees. Use for any multi-step write that must be atomic (bank transfer, order + line items).'),
+      card('Explain ACID.', "Atomicity (all or nothing), Consistency (constraints hold before and after), Isolation (concurrent txns don't see each other's incomplete state), Durability (committed data survives crashes)."),
+      card('SQL isolation levels and their anomalies?', 'Read Uncommitted (dirty reads possible) → Read Committed (no dirty reads, but non-repeatable) → Repeatable Read (no non-repeatable, but phantom reads in some engines) → Serializable (no anomalies, lowest concurrency).'),
+      card('What is a race condition in DB?', 'Two transactions read same value, both decide to modify based on it, both write — one update is lost or invariant violated. Classic example: two users buying the last item in stock.'),
+      card('Optimistic vs pessimistic locking?', 'Pessimistic: lock the row (`SELECT FOR UPDATE`) until txn commits — blocks others. Optimistic: read with version, write with `WHERE version = X` — retry on conflict. Optimistic wins under low contention; pessimistic under high contention.'),
+      card('What is database sharding?', 'Horizontal partitioning — split data across multiple DBs by a shard key (user_id, geo, hash). Each shard holds a subset. Scales writes beyond a single machine. Cost: cross-shard queries are expensive or impossible.'),
+      card("Master-slave replication — what breaks?", "Writes go to master, reads to slaves. Slaves lag → read-after-write inconsistency (user posts, refreshes, doesn't see post). Solutions: read from master for write+immediate-read flows, or causal-read tokens."),
+      card('What is CQRS?', 'Command Query Responsibility Segregation — separate write model (commands) from read model (queries). Each optimized independently. Often paired with event sourcing. Adds complexity; use when read and write needs diverge sharply.'),
+      card('Safe database migration patterns?', "Backwards-compatible deploys: add column nullable → backfill → make NOT NULL → remove old code path. Never deploy code that requires schema not yet applied. Use migration tools (Flyway, Liquibase, Prisma Migrate)."),
+      card('How to handle a slow query in production?', '1. EXPLAIN ANALYZE to see plan. 2. Check missing/wrong indexes. 3. Check stats freshness (ANALYZE table). 4. Look for N+1, large IN lists. 5. Last resort: query rewrite or denormalize.'),
+    ],
+    apis: [
+      api('SELECT FOR UPDATE', 'SELECT ... FOR UPDATE [SKIP LOCKED]', 'Locks selected rows until current transaction commits. SKIP LOCKED skips already-locked rows.', 'SQL SELECT statement', 'locked result rows', "SELECT id FROM jobs WHERE status='pending' LIMIT 1 FOR UPDATE SKIP LOCKED;", 'Keep transactions short to minimize lock contention window.'),
+      api('BEGIN / COMMIT / ROLLBACK', 'BEGIN; ...; COMMIT; | ROLLBACK;', 'Explicit transaction control — use in application code for multi-step writes.', 'SQL statements between BEGIN and end', 'void', "BEGIN;\nUPDATE accounts SET balance = balance - 100 WHERE id = $1;\nUPDATE accounts SET balance = balance + 100 WHERE id = $2;\nCOMMIT;", 'Wrap in try/catch — ROLLBACK on error.'),
+      api('SET TRANSACTION ISOLATION LEVEL', 'SET TRANSACTION ISOLATION LEVEL REPEATABLE READ | SERIALIZABLE', 'Overrides default isolation level for the current transaction.', 'isolation level name', 'void', "BEGIN;\nSET TRANSACTION ISOLATION LEVEL REPEATABLE READ;", 'Higher isolation = fewer anomalies + lower concurrency. Benchmark before using Serializable in production.'),
+    ],
+    refs: [
+      ref('PostgreSQL Transaction Isolation', 'https://www.postgresql.org/docs/current/transaction-iso.html'),
+      ref('Martin Fowler — CQRS', 'https://martinfowler.com/bliki/CQRS.html'),
+      ref('Designing Data-Intensive Applications', 'https://dataintensive.net/'),
+      ref('PostgreSQL Explicit Locking', 'https://www.postgresql.org/docs/current/explicit-locking.html'),
+      ref('MongoDB Transactions', 'https://www.mongodb.com/docs/manual/core/transactions/'),
+    ],
+  });
+  skills.push(subDbAdv);
+
+  // 7. Caching & Rate Limiting
+  const subCache = mk('Caching & Rate Limiting', 'backend', beSkill.id, {
+    definition:
+      'Caching stores expensive computation or fetch results close to the consumer to reduce latency and backend load. Redis is the dominant store for both caching and rate limit counters, offering atomic operations and TTL-based expiry. Rate limiting protects services from abuse using algorithms like token bucket or sliding window, with shared distributed counters so limits hold across all app instances.',
+    codeExample: `import Redis from 'ioredis';
+const redis = new Redis(process.env.REDIS_URL);
+
+// Cache-aside pattern
+async function getUser(userId) {
+  const key = \`user:\${userId}\`;
+  const cached = await redis.get(key);
+  if (cached) return JSON.parse(cached);
+
+  const user = await db.findUser(userId);
+  if (user) await redis.setex(key, 300, JSON.stringify(user)); // TTL 5 min
+  return user;
+}
+
+// Invalidate on write
+async function updateUser(userId, data) {
+  await db.updateUser(userId, data);
+  await redis.del(\`user:\${userId}\`);
+}
+
+// Sliding-window rate limit via Redis INCR
+async function checkRateLimit(userId, limit = 60, windowSec = 60) {
+  const windowId = Math.floor(Date.now() / (windowSec * 1000));
+  const key = \`rl:\${userId}:\${windowId}\`;
+  const count = await redis.incr(key);
+  if (count === 1) await redis.expire(key, windowSec);
+  return count <= limit;
+}`,
+    gotchas: `Cache stampede — key expires, N requests all miss and hit DB simultaneously; use probabilistic early expiration or a mutex.
+Stale cache after write — not invalidating or TTL too long; users see outdated data.
+Caching per-user data at a shared key — leaks user A's data to user B; always include userId in the key.
+In-memory rate limit store in a multi-instance deployment — each instance tracks independently, effective limit is limit × instances.
+Not handling Redis connection failure gracefully — if cache is unavailable, fall through to DB rather than returning 500.`,
+    flashcards: [
+      card('What is the cache-aside pattern?', "App checks cache first → if miss, reads from DB → writes result back to cache. Cache and DB are independent. Most common pattern. Risks: stale cache, thundering herd on miss."),
+      card('Write-through vs write-behind cache?', 'Write-through: write to cache and DB synchronously — consistent, slower writes. Write-behind: write to cache first, async to DB — fast writes, risk of data loss on crash.'),
+      card('Cache invalidation strategies?', 'TTL (simple, eventually stale), explicit invalidation on write (consistent, easy to miss spots), versioned keys (`user:42:v3`), tag-based bulk invalidation. Hardest problem in computer science for a reason.'),
+      card('Redis use cases beyond caching?', 'Session store, rate limiting (atomic INCR + TTL), pub/sub, distributed locks (with caveats), sorted sets for leaderboards, streams for queues, geo indexes.'),
+      card('Rate limiting algorithms — pick one?', 'Token bucket: smooth, allows bursts up to bucket size — best general-purpose. Fixed window: simple, edge effects at boundaries. Sliding window: precise but pricier in memory. Leaky bucket: hard rate cap.'),
+      card('Where should rate limits live?', 'API gateway / edge for coarse global limits. Application-level for per-user, per-endpoint limits. Distributed counter (Redis) so all app instances see the same counts.'),
+      card('What is a "thundering herd" and how to mitigate?', "Cache key expires, hundreds of requests hit the DB simultaneously to refill it. Mitigate with: locked cache refresh (one request rebuilds, others wait), staggered TTLs, probabilistic early expiration."),
+      card('Hot vs cold data tiering?', 'Hot data (recent, frequently accessed) lives in fast tier (memory, SSD). Cold data (old, rare) in cheap tier (S3 Glacier, archived tables). Saves cost; queries on cold data are slower.'),
+    ],
+    apis: [
+      api('redis.get / redis.setex', 'redis.get(key) / redis.setex(key, ttlSec, value)', 'Get and set a cache entry with TTL expiry.', 'key string / key + seconds + value', 'Promise<string|null> / Promise<"OK">', "const v = await redis.get('user:1');\nawait redis.setex('user:1', 300, JSON.stringify(user));", 'setex is atomic — avoids a separate SET + EXPIRE race condition.'),
+      api('redis.incr / redis.expire', 'redis.incr(key) / redis.expire(key, ttlSec)', 'Atomic increment for rate counters + TTL to bound the window.', 'key string / key + seconds', 'Promise<number>', "const n = await redis.incr(rateKey);\nif (n === 1) await redis.expire(rateKey, 60);", 'incr + expire are two commands — use SET NX EX or Lua script for true atomicity.'),
+      api('redis.del', 'redis.del(...keys)', 'Deletes one or more cache keys for explicit invalidation on write.', 'one or more key strings', 'Promise<number> deleted count', "await redis.del(`user:${userId}`, `user:${userId}:profile`);", 'Use key namespacing (prefix:id) to support pattern-based bulk deletes with SCAN.'),
+      api('redis pub/sub', 'pub.publish(channel, msg) / sub.subscribe(channel)', 'Redis pub/sub for fan-out messaging across server instances.', 'channel name + message string', 'void / message event', "pub.publish('orders', JSON.stringify(event));\nsub.on('message', (ch, msg) => handle(msg));", 'Fire-and-forget — messages are lost if no subscriber is connected at publish time.'),
+    ],
+    refs: [
+      ref('Redis Documentation', 'https://redis.io/docs/latest/'),
+      ref('Redis Rate Limiting patterns', 'https://redis.io/glossary/rate-limiting/'),
+      ref('ioredis GitHub', 'https://github.com/redis/ioredis'),
+      ref('AWS Caching Best Practices', 'https://aws.amazon.com/caching/best-practices/'),
+    ],
+  });
+  skills.push(subCache);
+
+  // 8. Node.js Internals
+  const subNode = mk('Node.js Internals', 'backend', beSkill.id, {
+    definition:
+      "Node.js runs JavaScript single-threaded on an event loop backed by libuv, which offloads I/O to the OS and a thread pool — enabling high concurrency without per-request threads. Understanding event loop phases (timers → poll → check), microtask/macrotask ordering, and backpressure prevents latency spikes and memory leaks. CPU-bound work requires worker_threads or child processes to avoid blocking the loop.",
+    codeExample: `// Event loop phase ordering
+console.log('1. sync');
+
+process.nextTick(() => console.log('2. nextTick (before I/O, before Promises)'));
+Promise.resolve().then(() => console.log('3. Promise microtask'));
+
+setTimeout(() => console.log('4. setTimeout (timers phase)'), 0);
+setImmediate(() => console.log('5. setImmediate (check phase)'));
+
+// Output: 1 → 2 → 3 → 4 → 5
+// nextTick drains before Promise microtasks each turn
+// setTimeout vs setImmediate order is non-deterministic outside an I/O callback
+
+// Worker thread for CPU-bound work (doesn't block the event loop)
+import { Worker, isMainThread, parentPort } from 'node:worker_threads';
+
+if (isMainThread) {
+  const worker = new Worker(new URL(import.meta.url));
+  worker.on('message', (result) => console.log('result:', result));
+  worker.on('error', (err) => console.error(err));
+} else {
+  const result = computeExpensiveHash();   // runs in its own thread
+  parentPort.postMessage(result);
+}`,
+    gotchas: `Synchronous file/crypto/JSON operations in request handlers block the event loop for every concurrent request.
+process.nextTick() in a recursive pattern starves I/O — the poll phase never runs.
+Worker threads don't share heap; ArrayBuffers are transferred (moved), not copied — forgetting this causes unexpected zeroing.
+Unbounded event listener registration inside request handlers — MaxListenersExceededWarning and memory leak.
+Using Date.now() for tight-loop benchmarks — prefer process.hrtime.bigint() for nanosecond precision.`,
+    flashcards: [
+      card('How does Node.js handle concurrency on a single thread?', 'Event loop + non-blocking I/O via libuv. I/O is offloaded to OS or thread pool; JS runs single-threaded but never blocks waiting. Result: high concurrency without per-request threads.'),
+      card('Event loop phases in order?', 'Timers → Pending callbacks → Idle/prepare → Poll (I/O) → Check (setImmediate) → Close callbacks. Microtasks (Promise, process.nextTick) drain between each phase.'),
+      card('process.nextTick vs setImmediate vs Promise — order?', "process.nextTick: runs immediately after current op, before any I/O — highest priority. Promise.then: runs in microtask queue, after nextTick. setImmediate: next loop iteration's check phase. nextTick can starve I/O if overused."),
+      card('Blocking vs non-blocking — example?', 'Blocking: `fs.readFileSync` halts the thread. Non-blocking: `fs.readFile(..., cb)` returns immediately, callback runs later. Sync APIs are fine at startup; never in request handlers.'),
+      card('When to use worker threads?', "CPU-bound work — image processing, hashing, parsing big payloads — that would block the event loop. I/O work doesn't need workers; the event loop handles it."),
+      card('Cluster mode — what does it do?', "Forks N worker processes (typically one per CPU core), each with its own event loop. Master distributes incoming connections. Scales CPU-bound work across cores. PM2 or `node:cluster` module."),
+      card('Common Node memory leak sources?', 'Unbounded caches, unremoved event listeners, lingering timers/intervals, closures holding large references, global arrays/maps that only grow.'),
+      card('How to diagnose a memory leak in production?', "Heap snapshots via Chrome DevTools (`--inspect`), `clinic heapdump`, or v8 profilers. Look for objects that grow over time and aren't released. Compare snapshots before and after suspected leak path."),
+      card('What is backpressure in Node streams?', "When a writable stream can't keep up with the readable source, memory fills up. Streams signal via `write()` returning false → pause source until `drain` event. `pipe()` handles this automatically."),
+    ],
+    apis: [
+      api('process.nextTick()', 'process.nextTick(callback)', 'Queues callback to run before any I/O events — before even Promise microtasks.', 'callback function', 'void', "process.nextTick(() => emitter.emit('ready'));", 'Recursive nextTick calls can starve I/O — prefer setImmediate or queueMicrotask when you need to yield.'),
+      api('Worker (worker_threads)', 'new Worker(filename | URL, options?)', 'Spawns a worker thread for CPU-bound work without blocking the event loop.', 'script path/URL, optional workerData', 'Worker instance', "const w = new Worker('./hash-worker.js', { workerData: { input } });", "Worker has its own V8 heap — communicate via postMessage, SharedArrayBuffer, or transferList."),
+      api('cluster.fork()', 'cluster.fork()', 'Forks a worker process that shares the server port with the primary.', 'none', 'Worker process handle', "if (cluster.isPrimary) { for (let i = 0; i < os.cpus().length; i++) cluster.fork(); }", 'IPC channel between primary and workers enables coordination and graceful restarts.'),
+      api('process.hrtime.bigint()', 'process.hrtime.bigint()', 'Returns a monotonic nanosecond-precision timestamp unaffected by clock changes.', 'none', 'BigInt nanoseconds', "const t0 = process.hrtime.bigint();\n// ...\nconst ns = process.hrtime.bigint() - t0;", 'Use for benchmarking — not affected by system clock adjustments (unlike Date.now()).'),
+      api('v8.getHeapStatistics()', 'v8.getHeapStatistics()', 'Returns current V8 heap usage stats.', 'none', '{ used_heap_size, heap_size_limit, ... }', "import v8 from 'node:v8';\nconsole.log(v8.getHeapStatistics().used_heap_size);", 'Expose on a /metrics endpoint to monitor heap usage over time.'),
+    ],
+    refs: [
+      ref('Node.js Event Loop Guide', 'https://nodejs.org/en/learn/asynchronous-work/event-loop-timers-and-nexttick'),
+      ref('Node.js Worker Threads', 'https://nodejs.org/api/worker_threads.html'),
+      ref('libuv Architecture', 'https://docs.libuv.org/en/v1.x/design.html'),
+      ref('Clinic.js — Node profiling', 'https://clinicjs.org/'),
+      ref('Node.js Streams API', 'https://nodejs.org/api/stream.html'),
+    ],
+  });
+  skills.push(subNode);
+
+  // 9. Real-Time & WebSocket Scaling
+  const subRealtime = mk('Real-Time & WebSocket Scaling', 'backend', beSkill.id, {
+    definition:
+      "WebSockets provide persistent bidirectional TCP connections for low-latency real-time messaging, unlike HTTP's request-response cycle. Scaling them horizontally requires externalizing per-connection routing and fan-out via a shared pub/sub broker (Redis, NATS) so messages from any server reach clients on any other server. SSE is a simpler HTTP-native alternative for server-to-client one-way streams.",
+    codeExample: `import { Server } from 'socket.io';
+import { createAdapter } from '@socket.io/redis-adapter';
+import { createClient } from 'redis';
+
+// Redis adapter: fan-out across all Socket.IO server instances
+const pubClient = createClient({ url: process.env.REDIS_URL });
+const subClient = pubClient.duplicate();
+await Promise.all([pubClient.connect(), subClient.connect()]);
+
+const io = new Server(httpServer, { cors: { origin: process.env.ALLOWED_ORIGIN } });
+io.adapter(createAdapter(pubClient, subClient));
+
+// Auth at connection time
+io.use((socket, next) => {
+  try {
+    socket.data.user = verifyToken(socket.handshake.auth.token);
+    next();
+  } catch { next(new Error('unauthorized')); }
+});
+
+io.on('connection', (socket) => {
+  const { userId } = socket.data.user;
+  socket.join(\`user:\${userId}\`);         // per-user room
+
+  socket.on('subscribe_stock', (ticker) => socket.join(\`stock:\${ticker}\`));
+
+  // Heartbeat — detect zombie connections
+  const hb = setInterval(() => socket.emit('ping'), 30_000);
+  socket.on('disconnect', () => clearInterval(hb));
+});
+
+// Fan-out works across all server instances via Redis adapter
+function broadcastPrice(ticker, price) {
+  io.to(\`stock:\${ticker}\`).emit('price', { ticker, price, ts: Date.now() });
+}`,
+    gotchas: `No heartbeat — load balancer idle timeout kills connections silently; server accumulates zombie sockets eating memory.
+Skipping sticky sessions or Redis adapter — messages from server A never reach clients connected to server B.
+Auth not refreshed on long-lived connections — tokens expire mid-session but the socket stays open.
+Broadcasting to all sockets (io.emit) instead of rooms — O(n) with no filtering wastes bandwidth and CPU.
+Not handling the reconnection flood — after a server restart all clients reconnect simultaneously; add jitter.`,
+    flashcards: [
+      card('WebSocket vs HTTP — fundamental difference?', 'HTTP: request/response, stateless, short-lived. WebSocket: persistent bidirectional TCP connection upgraded from HTTP, low latency for real-time push.'),
+      card('WebSocket vs SSE — when each?', 'WebSocket: bidirectional, low latency, custom protocol. SSE: server→client only, plain HTTP, auto-reconnect, simpler. Choose SSE for one-way feeds (notifications, log streams).'),
+      card('Why does scaling WebSockets get hard?', "Persistent connections consume memory per client. Routing — which server holds which user's socket? State sync across servers. Load balancers must support sticky sessions or rely on backend coordination."),
+      card('How to fan out a message to clients across multiple servers?', 'Publish to a shared bus (Redis pub/sub, NATS, Kafka). Each server subscribes and forwards to its local connected clients. Decouples message origin from delivery.'),
+      card('Sticky session — when needed?', "When client state lives on a specific server (in-memory). Load balancer pins client to same backend (by IP, cookie). Avoid sticky sessions if possible — they break horizontal scaling and recovery."),
+      card('How to auth a WebSocket connection?', 'Pass JWT on connection (query param or first message), verify before accepting. Reject on expiry — client must reconnect with new token. Long-lived connections need refresh logic.'),
+      card('Heartbeat / ping-pong — why?', "TCP can't detect dead connections fast. Server pings clients periodically (e.g., 30s); missing pongs mean kill the connection. Prevents zombie connections eating memory."),
+    ],
+    apis: [
+      api('socket.io Server', 'new Server(httpServer, options)', 'Creates a Socket.IO server with rooms, namespaces, and middleware support.', 'http.Server + options (cors, etc.)', 'Server instance', "const io = new Server(httpServer, { cors: { origin: '*' } });", "Socket.IO protocol is not raw WebSocket — plain ws clients can't connect without a compatibility shim."),
+      api('socket.join / io.to', 'socket.join(room) / io.to(room).emit(event, data)', 'Room abstraction for targeted fan-out to a subset of connected clients.', 'room name string', 'void', "socket.join('stock:AAPL');\nio.to('stock:AAPL').emit('price', { p: 192.5 });", 'Rooms are in-process — use Redis adapter to synchronize rooms across multiple instances.'),
+      api('@socket.io/redis-adapter', 'createAdapter(pubClient, subClient)', 'Synchronizes Socket.IO rooms and broadcasts across instances via Redis pub/sub.', 'two Redis clients (pub and sub)', 'adapter factory', 'io.adapter(createAdapter(pubClient, subClient));', 'Requires two separate Redis connections — one for publish, one for subscribe.'),
+    ],
+    refs: [
+      ref('Socket.IO Documentation', 'https://socket.io/docs/v4/'),
+      ref('Socket.IO Redis Adapter', 'https://socket.io/docs/v4/redis-adapter/'),
+      ref('MDN WebSocket API', 'https://developer.mozilla.org/en-US/docs/Web/API/WebSocket'),
+      ref('RFC 6455 WebSocket Protocol', 'https://www.rfc-editor.org/rfc/rfc6455'),
+      ref('MDN Server-Sent Events', 'https://developer.mozilla.org/en-US/docs/Web/API/Server-sent_events'),
+    ],
+  });
+  skills.push(subRealtime);
+
+  // 10. Architecture Patterns
+  const subPatterns = mk('Architecture Patterns', 'backend', beSkill.id, {
+    definition:
+      'Backend architecture patterns describe how to decompose, connect, and coordinate services and data flows. The monolith-to-microservices spectrum involves trade-offs in operational complexity, team autonomy, and distributed-system concerns. Event-driven patterns (pub/sub, saga) decouple services asynchronously; BFF, CQRS, and the modular monolith capture specific benefits without full microservice overhead.',
+    codeExample: `// Saga choreography — no central coordinator
+// Each service owns its step and its compensation event
+
+// order-service: starts the saga
+async function createOrder(data) {
+  const order = await db.createOrder({ ...data, status: 'pending' });
+  await eventBus.publish('order.created', { orderId: order.id, ...data });
+  return order;
+}
+
+// inventory-service: reacts and either reserves or compensates
+eventBus.on('order.created', async ({ orderId, productId, qty }) => {
+  const reserved = await inventory.reserve(productId, qty);
+  if (reserved) {
+    await eventBus.publish('inventory.reserved', { orderId });
+  } else {
+    await eventBus.publish('inventory.reserve_failed', { orderId });
+  }
+});
+
+// order-service: handles compensation
+eventBus.on('inventory.reserve_failed', async ({ orderId }) => {
+  await db.updateOrder(orderId, { status: 'cancelled' });
+  await eventBus.publish('order.cancelled', { orderId });
+});`,
+    gotchas: `Jumping to microservices before team or scale justifies it — distributed system complexity with none of the scale benefits.
+Sharing a database between microservices — creates tight coupling and defeats independent deployability.
+Saga without compensation steps — a failed middle step leaves data partially updated with no rollback path.
+Choreography without distributed tracing — impossible to follow a saga flow across services without trace IDs.
+BFF becoming a fat aggregation layer — it should shape data, not own business logic.`,
+    flashcards: [
+      card('Monolith vs microservices — when each?', 'Monolith: one team, one deploy, simpler ops, atomic transactions. Microservices: many teams, independent deploy, scale services independently. Start monolith; split when team / scale pressure demands.'),
+      card('What is a modular monolith?', 'A monolith with strict internal module boundaries (separate packages, no shared state, defined APIs between modules). Captures most microservice benefits without distributed-system pain. Often the right middle ground.'),
+      card('What is BFF (Backend for Frontend)?', "A backend tailored per frontend (web BFF, mobile BFF, smart-TV BFF). Shapes data and orchestrates downstream services for that client's needs. Avoids one-size-fits-all APIs that overfetch or underfetch."),
+      card('Event-driven architecture vs request-response?', 'Event-driven: services emit events; others react asynchronously. Loose coupling, async, scalable. Trade: harder debugging, eventual consistency. Request-response: tight coupling, sync, simpler.'),
+      card('Pub/Sub pattern — when does it shine?', 'Fan-out scenarios (one event → many consumers). New consumers added without publisher changes. Decouples producers from consumers. Common in notifications, analytics pipelines.'),
+      card('What is the Saga pattern?', 'Manages distributed transactions across services via local txns + compensation steps. If step 3 fails, run undo for steps 1–2. Two variants: orchestration (central coordinator) and choreography (event-driven).'),
+      card('Saga orchestration vs choreography?', 'Orchestration: a coordinator service tells each service what to do — easy to reason about, single point of complexity. Choreography: services listen to events and self-coordinate — loose, scalable, harder to trace.'),
+      card('When is CQRS overkill?', "When your reads and writes share the same model and don't have wildly different scaling needs. CQRS adds two models, sync overhead, eventual consistency. Use only when justified by load asymmetry or read/write divergence."),
+    ],
+    apis: [],
+    refs: [
+      ref('Microservices.io Patterns', 'https://microservices.io/patterns/index.html'),
+      ref('Martin Fowler — Microservices', 'https://martinfowler.com/articles/microservices.html'),
+      ref('Sam Newman — BFF Pattern', 'https://samnewman.io/patterns/architectural/bff/'),
+      ref('Martin Fowler — Saga Pattern', 'https://martinfowler.com/articles/patterns-of-distributed-systems/saga.html'),
+      ref('Martin Fowler — CQRS', 'https://martinfowler.com/bliki/CQRS.html'),
+    ],
+  });
+  skills.push(subPatterns);
+
+  // 11. Distributed Systems
+  const subDist = mk('Distributed Systems', 'backend', beSkill.id, {
+    definition:
+      'Distributed systems trade single-node simplicity for scale and fault tolerance, introducing fundamental constraints: the CAP theorem limits guarantees during network partitions. Practical design accepts eventual consistency and at-least-once delivery, then makes each operation idempotent so retries are safe. Fencing tokens, logical clocks, and sagas address coordination without shared memory.',
+    codeExample: `// Idempotency key pattern — safe POST under retries (Stripe-style)
+app.post('/v1/payments', async (req, res, next) => {
+  const idemKey = req.headers['idempotency-key'];
+  if (!idemKey) return res.status(400).json({ code: 'missing_idempotency_key' });
+
+  // Return stored result if we already processed this key
+  const existing = await redis.get(\`idem:\${idemKey}\`);
+  if (existing) return res.status(200).json(JSON.parse(existing));
+
+  try {
+    const result = await paymentService.charge(req.body);
+    // Store result (TTL 24h) before responding — atomic enough for most cases
+    await redis.setex(\`idem:\${idemKey}\`, 86_400, JSON.stringify(result));
+    res.status(201).json(result);
+  } catch (err) {
+    // Don't cache errors — client retries with the same key
+    next(err);
+  }
+});`,
+    gotchas: `Assuming network calls succeed — every RPC can fail, timeout, or return a partial response; handle all three cases.
+Using wall-clock timestamps for event ordering across nodes — clock skew makes this unreliable; use logical clocks.
+Distributed lock without fencing tokens — two holders during a partition both think they hold the lock (split-brain).
+Two-phase commit for long-running workflows — coordinator failure blocks all participants indefinitely; prefer sagas.
+At-most-once delivery (fire-and-forget) for critical events — missed events are unrecoverable; prefer at-least-once + idempotent consumers.`,
+    flashcards: [
+      card('State the CAP theorem.', "In a network partition, a distributed system can guarantee at most two of: Consistency (all nodes see the same data), Availability (every request gets a response), Partition tolerance (works despite network failures). Network partitions are inevitable, so you really choose between CP and AP."),
+      card('What is eventual consistency?', 'Updates propagate asynchronously; nodes converge to the same state given enough time without new writes. Common in distributed DBs (Cassandra, DynamoDB, Mongo with weak read concerns), CDNs, replicated caches.'),
+      card('How to make a POST endpoint idempotent?', 'Client sends an `Idempotency-Key` header per logical request. Server stores key + result for some TTL. If same key arrives again, return stored result instead of re-processing. Stripe-style.'),
+      card('Distributed locking — why is it controversial?', "Easy to think you have a lock but a network partition + clock skew can mean two clients hold the lock simultaneously (split-brain). Redis Redlock claims to solve this; Martin Kleppmann's critique argues you need fencing tokens."),
+      card('What is a fencing token?', 'A monotonically increasing ID issued with each lock. Downstream services check the token — if a higher token has been seen, reject older ones. Protects against stale lock holders even during partitions.'),
+      card('Why is "exactly once" delivery impossible to guarantee?', "Network failures + crashes mean you can't simultaneously confirm \"message sent\" and \"message processed.\" Practical answer: at-least-once delivery + idempotent handlers = effectively exactly once."),
+      card('Read-after-write consistency — what breaks it?', "Async replication lag. User writes to master, reads from a lagging replica, doesn't see their own update. Fixes: read-your-writes from master for that user, causal tokens, or session stickiness to a replica."),
+      card('Two-phase commit — why rarely used?', "Distributed coordinator + prepare/commit phases. Provides atomicity across services. Blocks on coordinator failure (no liveness during partitions), high latency, doesn't scale. Sagas + idempotency are preferred in practice."),
+      card('What is a clock skew problem?', 'Distributed nodes have slightly different clocks. Comparing timestamps across nodes is unreliable. Use logical clocks (Lamport, vector clocks) or hybrid logical clocks for causality, not wall clock.'),
+    ],
+    apis: [],
+    refs: [
+      ref('Designing Data-Intensive Applications (Kleppmann)', 'https://dataintensive.net/'),
+      ref('Jepsen — distributed systems testing', 'https://aphyr.com/tags/jepsen'),
+      ref('Martin Fowler — Patterns of Distributed Systems', 'https://martinfowler.com/articles/patterns-of-distributed-systems/'),
+      ref('CAP Theorem — Brewer revisited', 'https://www.infoq.com/articles/cap-twelve-years-later-how-the-rules-have-changed/'),
+      ref('Stripe Idempotency Keys', 'https://stripe.com/blog/idempotency'),
+    ],
+  });
+  skills.push(subDist);
+
+  // 12. Scalability, Infra & Observability
+  const subInfra = mk('Scalability, Infra & Observability', 'backend', beSkill.id, {
+    definition:
+      'Scalability is the ability to handle more load by adding resources: stateless services scale horizontally; stateful ones require sharding, replication, or external state stores. Kubernetes orchestrates containerized workloads with probes, rolling deploys, and auto-scaling. Observability — structured logs, metrics, and distributed traces — provides the feedback loop to understand production behavior and diagnose failures.',
+    codeExample: `# docker-compose with healthchecks + Prometheus scrape labels
+version: "3.9"
+services:
+  api:
+    image: myapp:latest
+    ports: ["3000:3000"]
+    environment:
+      - DATABASE_URL=postgres://db/app
+      - REDIS_URL=redis://redis:6379
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/health/live"]
+      interval: 15s
+      timeout: 5s
+      retries: 3
+      start_period: 10s
+    labels:
+      - "prometheus.io/scrape=true"
+      - "prometheus.io/port=3000"
+      - "prometheus.io/path=/metrics"
+
+  db:
+    image: postgres:16-alpine
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s`,
+    gotchas: `Conflating liveness and readiness probes — a slow-starting pod failing liveness gets killed in a restart loop; use readiness to gate traffic and liveness only for truly crashed containers.
+No circuit breaker on downstream calls — one slow dependency cascades into 503s across the entire call graph.
+Logs without correlation IDs — you can't trace a single user request across 5 microservices without a shared trace ID.
+Deploying without canary or blue-green strategy — a bad deploy immediately affects 100% of traffic.
+Sizing K8s resource requests/limits incorrectly — too low causes OOMKills, too high wastes capacity and prevents scheduling.`,
+    flashcards: [
+      card('Horizontal vs vertical scaling — pick when?', 'Vertical (bigger box): simple, has a ceiling. Horizontal (more boxes): unbounded but requires stateless services and distributed coordination. Vertical first, horizontal once stateless.'),
+      card('L4 vs L7 load balancer?', 'L4 (transport): routes by IP/port, fast, protocol-agnostic. L7 (application): routes by HTTP path/header/cookie, can do SSL termination and content-aware routing. Use L7 for HTTP services.'),
+      card('Load balancing algorithms?', 'Round-robin (simple, ignores server load), least-connections (smarter under variable request cost), IP hash (sticky), weighted (mixed-capacity fleets), EWMA / least-response-time (latency-aware).'),
+      card('Reverse proxy vs load balancer?', 'Reverse proxy: receives client requests, forwards to backends (one or many) — adds SSL termination, caching, compression. Load balancer: distributes across many backends for HA/scale. Nginx and Envoy do both.'),
+      card('Liveness vs readiness probes in K8s?', 'Liveness: "is this container alive?" — restart if fails. Readiness: "ready to serve traffic?" — remove from LB if fails. Conflating them causes restart storms (slow startup → liveness fail → restart loop).'),
+      card('Zero-downtime deployment strategies?', 'Rolling update (replace pods gradually — default in K8s). Blue-green (full duplicate environment, switch traffic). Canary (route % of traffic to new version, monitor, ramp up). Each trades risk for cost.'),
+      card('What is a circuit breaker?', '"Opens" after N failures within a window — fails fast without calling the downstream. Periodically tries a "half-open" probe. Prevents cascading failures and gives downstream room to recover.'),
+      card('Bulkhead pattern?', "Isolate resources so one failure can't drown others. E.g., separate thread pools or connection pools per downstream service. If one service hangs, only its bulkhead fills — others stay healthy."),
+      card('Three pillars of observability?', 'Logs (discrete events), metrics (numeric aggregates over time), traces (request flow across services). Together: what happened, how often, where time was spent. Tools: ELK, Prometheus, OpenTelemetry.'),
+      card('Why is distributed tracing essential at scale?', 'A single user request can touch 10+ services. Without trace IDs propagated end-to-end, "this request is slow" is unsolvable. OpenTelemetry, Jaeger, Tempo, Datadog APM provide this.'),
+      card('What is a dead letter queue?', "When a message can't be processed after N retries, it's moved to a separate \"dead letter\" queue for inspection. Keeps the main queue healthy. Critical for debugging async pipelines."),
+      card('Retry strategy — what\'s "exponential backoff with jitter"?', 'Wait 2^attempt seconds between retries (1, 2, 4, 8...) + random jitter to prevent synchronized retries from clients all hitting at once after an outage. Without jitter you cause a thundering herd on recovery.'),
+      card('What does an API gateway do?', 'Single entry point for client traffic. Handles auth, rate limiting, request routing, request/response transformation, SSL termination, logging. Examples: Kong, AWS API Gateway, Envoy, Apigee.'),
+    ],
+    apis: [
+      api('K8s livenessProbe', 'livenessProbe: { httpGet: { path, port }, initialDelaySeconds, periodSeconds }', 'K8s restarts the container if this probe fails — use for truly crashed/deadlocked containers only.', 'HTTP/TCP/exec check + timing thresholds', 'K8s Pod spec field', "livenessProbe:\n  httpGet: { path: /health/live, port: 3000 }\n  initialDelaySeconds: 15\n  periodSeconds: 20", 'Do NOT use for slow-start — a slow init will trigger a restart loop.'),
+      api('K8s readinessProbe', 'readinessProbe: { httpGet: { path, port }, periodSeconds, failureThreshold }', 'K8s removes the pod from the load balancer endpoint slice if this probe fails.', 'HTTP/TCP/exec check + timing thresholds', 'K8s Pod spec field', "readinessProbe:\n  httpGet: { path: /health/ready, port: 3000 }\n  periodSeconds: 10\n  failureThreshold: 3", 'Block readiness until DB migrations, cache warming, and startup checks complete.'),
+      api('Prometheus /metrics', 'GET /metrics', 'Exposes metrics in Prometheus text format for scraping by Prometheus server.', 'none', 'text/plain metrics exposition format', "import { collectDefaultMetrics, Registry } from 'prom-client';\nconst reg = new Registry();\ncollectDefaultMetrics({ register: reg });\napp.get('/metrics', async (_, res) => res.set('Content-Type', reg.contentType).send(await reg.metrics()));", 'Default metrics include Node.js event loop lag, memory, and GC stats out of the box.'),
+      api('OpenTelemetry span', 'tracer.startActiveSpan(name, fn)', 'Instruments a code block with a distributed trace span sent to a collector.', 'span name + callback', 'span with attributes', "const span = tracer.startSpan('db.query');\ntry { await query(); } finally { span.end(); }", 'Propagate trace context via W3C TraceContext headers (traceparent) across service boundaries.'),
+    ],
+    refs: [
+      ref('Kubernetes Documentation', 'https://kubernetes.io/docs/home/'),
+      ref('OpenTelemetry Node.js Getting Started', 'https://opentelemetry.io/docs/languages/js/getting-started/nodejs/'),
+      ref('prom-client — Prometheus for Node', 'https://github.com/siimon/prom-client'),
+      ref('Martin Fowler — Circuit Breaker', 'https://martinfowler.com/bliki/CircuitBreaker.html'),
+      ref('Google SRE Book (free online)', 'https://sre.google/sre-book/table-of-contents/'),
+    ],
+  });
+  skills.push(subInfra);
+
   return skills;
 }
