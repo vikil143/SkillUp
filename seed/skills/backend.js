@@ -58,14 +58,28 @@ export default function buildBackendSkills() {
   skills.push(node);
 
   [
-    'Event Loop & Concurrency',
-    'Modules & Package Management',
-    'File System & Streams',
-    'Process & Environment',
-    'Error Handling Patterns',
-    'Worker Threads',
-    'Testing Node Services',
-  ].forEach((name) => {
+    ['Event Loop & Concurrency',
+      'Long synchronous work blocks the loop — heavy CPU tasks, sync I/O (fs.readFileSync), large JSON.parse — stalls all other I/O and timers. Concurrency assumed but never measured; under load, event loop lag spikes invisibly until everything times out.',
+      'No sync fs/crypto calls in request paths. CPU-heavy work delegated to worker threads. Event loop lag exposed via /metrics. Async patterns consistent (no nested promise chains where async/await reads cleaner).'],
+    ['Modules & Package Management',
+      'Mixed CJS/ESM (require vs import in same project), unpinned dependency ranges causing reproducible-build failures, transitive vulnerabilities ignored. Lockfile drift between local and CI is a common culprit.',
+      'package.json "type" field set explicitly, lockfile committed and respected in CI (`npm ci`, `pnpm install --frozen-lockfile`), engines field pins Node version, dependencies audited via `npm audit` / Snyk in CI.'],
+    ['File System & Streams',
+      'Reading entire files into memory with fs.readFile when streaming would do — OOM on large uploads. Or streams without backpressure handling — producer outpaces consumer, memory grows unbounded until crash.',
+      '`pipe()` preferred over manual stream wiring. Every stream has error handler attached. Sync fs methods banned in request paths. File operations validate paths (no directory traversal) and check size before reading.'],
+    ['Process & Environment',
+      'Process exits silently on unhandled promise rejection (default in modern Node), env vars assumed present without validation, signals (SIGTERM, SIGINT) not handled — container kill = abrupt shutdown, lost in-flight requests.',
+      'All env vars validated at boot (Zod/envalid) with fail-fast on missing required. Graceful shutdown on SIGTERM (stop accepting connections, drain in-flight, close DB pool). Unhandled rejection / uncaughtException logged and process exits cleanly.'],
+    ['Error Handling Patterns',
+      'Errors swallowed with empty catch blocks, async errors lost (no await on a function that throws), or all errors treated as 500 — no distinction between user errors (400-class) and server errors (500-class). Production sees errors that never reach logs.',
+      'Typed error classes with HTTP status codes built in. Single error middleware maps errors to response envelopes. Unhandled rejection / uncaughtException at process level always logs + exits (not silent recovery). No empty catch blocks.'],
+    ['Worker Threads',
+      'Sharing JS objects across threads — workers only share ArrayBuffer/SharedArrayBuffer, not regular objects. Devs assume reference semantics, get value copies, are confused when "updates" don\'t propagate.',
+      'Workers used only for CPU-bound work, not I/O. Message protocol typed and validated. No leaked workers — every spawn paired with cleanup on completion or error. Worker pool bounded, not unlimited.'],
+    ['Testing Node Services',
+      'Integration tests sharing DB state between runs — flaky tests, order-dependent passes. Or tests mocking everything (including the unit under test) — passes don\'t reflect real behavior. Or test suites taking 20+ minutes — CI bypassed under deadline.',
+      'Tests use real DB with per-test isolation (transactions, schema reset). Mocks only at external boundaries (third-party APIs). Test pyramid respected — many fast unit tests, fewer integration, fewer e2e. Coverage tracked but not the only gate.'],
+  ].forEach(([name, a1, a2]) => {
     skills.push(
       mk(name, 'backend', node.id, {
         definition: `${name} is a core Node.js subtopic needed for resilient production services.`,
@@ -76,8 +90,8 @@ export default function buildBackendSkills() {
               ? "import { Worker } from 'node:worker_threads';\nnew Worker(new URL('./worker.js', import.meta.url));"
               : "try {\n  await serviceCall();\n} catch (err) {\n  logger.error(err);\n}",
         flashcards: [
-          card(`What commonly breaks first in ${name}?`, 'Assumptions about async ordering, resource cleanup, or runtime boundaries.'),
-          card(`What is a strong code-review signal for ${name}?`, 'Explicit failure handling and measurable operational safeguards.'),
+          card(`What commonly breaks first in ${name}?`, a1),
+          card(`What is a strong code-review signal for ${name}?`, a2),
         ],
       })
     );
@@ -124,14 +138,28 @@ export default function buildBackendSkills() {
   skills.push(express);
 
   [
-    'Middleware Architecture',
-    'Routing & Modular Routers',
-    'Validation & Sanitization',
-    'Auth Middleware',
-    'Error Handling',
-    'Security Hardening',
-    'Observability & Logging',
-  ].forEach((name) => {
+    ['Middleware Architecture',
+      'Business logic in middleware — auth checks doing DB lookups every request, response transformations that should be in controllers. Middleware is for cross-cutting concerns (logging, parsing, auth header parse), not domain work.',
+      'All middleware async/await-safe (errors propagated via `next(err)`). Order documented in a central middleware setup file. Per-route middleware preferred over global for narrow concerns (auth, validation).'],
+    ['Routing & Modular Routers',
+      'All routes in app.js — single 2000-line file. Or catch-all `app.use` blocks placed before specific routes — they swallow downstream requests. Or path strings hardcoded everywhere — refactoring becomes find-and-replace nightmare.',
+      'Routes split into feature-based Router modules, mounted on app with consistent prefixes. URL conventions (kebab-case, plural nouns) enforced via lint rules. OpenAPI spec generated from routes — single source of truth.'],
+    ['Validation & Sanitization',
+      'Validation logic scattered across route handlers (inline if/throw for each field). Or trust client-side validation — backend assumes data is well-formed. Or sanitize for one threat (XSS) and forget another (SQL injection, prototype pollution).',
+      'Schema-based validation (Zod, Joi, ajv) applied as middleware before handlers run. Single source of truth for input shape. Sanitization explicit per data path (HTML output → escape, DB query → parameterize). Rejected inputs return consistent 422 with field-level errors.'],
+    ['Auth Middleware',
+      'Auth middleware mounted globally with route-by-route exemptions in handlers. Easy to miss an exemption → wrong default. Or auth tied to a specific JWT library — swap = rewrite everywhere.',
+      'Single auth middleware attaches `req.user`; downstream handlers never re-implement auth. Token validation centralized. Failures return consistent 401 envelope. Permissions checked via separate authorization middleware (RBAC/ABAC).'],
+    ['Error Handling',
+      'try/catch in every controller doing the same error mapping. Or errors caught and swallowed silently. Or stack traces leaked to clients in 500 responses. Centralize in a single error middleware (4-arg signature: `err, req, res, next`).',
+      'Typed error classes (NotFoundError, ValidationError, AuthError) with status codes built in. Single error middleware maps them to consistent JSON envelope. Stack traces never leaked to clients in production. Errors logged with request context (traceId, userId).'],
+    ['Security Hardening',
+      'Default Express setup left in production — `X-Powered-By` header leaks framework, no helmet, verbose error stacks in 500 responses, no request timeouts. Each is a fingerprinting or attack surface.',
+      '`helmet()` middleware globally, `X-Powered-By` disabled, request timeouts set, body size limits enforced, CORS configured explicitly (not `*`), security headers verified via automated scan (OWASP ZAP).'],
+    ['Observability & Logging',
+      'console.log everywhere with no structure — can\'t filter, can\'t search, can\'t correlate. Or logging PII (tokens, passwords) into log aggregator without scrubbing. Or no traceId — debugging a request across services means manual log-stitching.',
+      'Structured logging (JSON) with pino/winston. Every request assigned a traceId (header or generated), included in every log line. PII scrubbing rules defined centrally. Log levels respected per environment (debug in dev, info in prod). Metrics exposed via /metrics endpoint.'],
+  ].forEach(([name, a1, a2]) => {
     skills.push(
       mk(name, 'backend', express.id, {
         definition: `${name} in Express ensures APIs stay maintainable, safe, and diagnosable under load.`,
@@ -142,8 +170,8 @@ export default function buildBackendSkills() {
               ? "app.use(requestId());\napp.use(auth());\napp.use(rateLimit());"
               : "router.get('/resource', handler);",
         flashcards: [
-          card(`What anti-pattern appears often in ${name}?`, 'Coupling transport-layer concerns with domain logic and losing clear boundaries.'),
-          card(`How do you enforce consistency in ${name}?`, 'Centralized conventions, reusable middleware wrappers, and contract tests.'),
+          card(`What anti-pattern appears often in ${name}?`, a1),
+          card(`How do you enforce consistency in ${name}?`, a2),
         ],
       })
     );
@@ -190,14 +218,28 @@ export default function buildBackendSkills() {
   skills.push(rest);
 
   [
-    'Resource Modeling',
-    'Status Codes & Error Shapes',
-    'Pagination & Filtering',
-    'Idempotency',
-    'Versioning Strategies',
-    'Caching & Conditional Requests',
-    'Rate Limiting',
-  ].forEach((name) => {
+    ['Resource Modeling',
+      'Inconsistent resource naming across the API — singular vs plural, verb in path (`/getUser`) vs noun (`/users/{id}`). Clients hit edge cases. Once external clients depend on inconsistency, refactoring cost compounds.',
+      'API style guide enforced at PR time (lint rules for path patterns). Schema-first approach (OpenAPI) — design endpoints before coding. Contract tests verify shape changes are explicit, not accidental. Resource lifecycle documented.'],
+    ['Status Codes & Error Shapes',
+      'Inconsistent error shapes across endpoints — clients can\'t write generic error handling. Or 500s with stack traces leaking internal details. Or wrong status codes (200 with error body, 404 for forbidden) — breaks client logic.',
+      'Single error envelope (`{ code, message, details, traceId }`) applied via error middleware. Error codes stable and enumerated. Status codes follow conventions (4xx client error, 5xx server error). Stack traces never sent to clients in prod.'],
+    ['Pagination & Filtering',
+      'Offset-based pagination on large datasets — DB scans + skips, performance degrades. Plus inserts between pages cause duplicates/skips. Filters without validation allow DoS (sort on unindexed column, deep nested filters).',
+      'Cursor-based pagination for collections expected to grow. Cursor opaque to clients. Page size capped (default 20, max 100). Filter fields whitelisted, mapped to indexed columns. Slow-query monitoring alerts on filter combos blowing p95.'],
+    ['Idempotency',
+      'POST endpoints that aren\'t idempotent — retries (client network blip, mobile reconnect) create duplicate resources. Charges processed twice, orders submitted twice. Causes worst-case data corruption.',
+      'Idempotency-Key header for state-changing requests. Server stores key + result for TTL (24h typical). Retries with same key return stored result, never re-execute. Critical for payment, order, and any expensive side-effect operation.'],
+    ['Versioning Strategies',
+      'No versioning at all → first breaking change ships and breaks every consumer. Or version in query param (`?v=2`) that gets cached differently than path versioning, causing inconsistent client experiences.',
+      'URL path versioning (`/v1`, `/v2`) for clarity. Deprecation timeline announced 6+ months before breaking changes. Deprecation headers returned on deprecated endpoints. Client telemetry shows version usage before sunset.'],
+    ['Caching & Conditional Requests',
+      'No caching headers → every client hits origin on every request, expensive endpoints overwhelmed. Or aggressive caching with no invalidation → stale data shown for hours. Or caching personalized responses (logged-in pages) at CDN → leaked data between users.',
+      'ETag / Last-Modified on responses, clients send If-None-Match / If-Modified-Since for 304s. Cache-Control set explicitly per endpoint (private vs public, max-age tuned). Personalized responses marked `Cache-Control: private`. CDN cache keys include relevant headers (Vary).'],
+    ['Rate Limiting',
+      'Single-instance rate limit counters in a horizontally scaled service — each instance enforces independently, real limit = N × intended. Or no rate limit on expensive endpoints (search, exports) → first abusive client takes down the API.',
+      'Distributed counter store (Redis with INCR + EXPIRE). Limits applied per user, per IP, per endpoint — tiered. 429 responses include Retry-After header. Limits logged and alerted when 429 rate spikes.'],
+  ].forEach(([name, a1, a2]) => {
     skills.push(
       mk(name, 'backend', rest.id, {
         definition: `${name} determines API clarity, evolvability, and client reliability.`,
@@ -208,8 +250,8 @@ export default function buildBackendSkills() {
               ? "GET /v1/orders?cursor=abc&limit=20&status=open"
               : 'const idempotencyKey = req.header("Idempotency-Key");',
         flashcards: [
-          card(`What reliability risk is highest in ${name}?`, 'Silent contract ambiguity that clients interpret differently.'),
-          card(`How do you de-risk ${name} changes?`, 'Publish contract tests and monitor client error rates during rollout.'),
+          card(`What reliability risk is highest in ${name}?`, a1),
+          card(`How do you de-risk ${name} changes?`, a2),
         ],
       })
     );
@@ -256,14 +298,28 @@ export default function buildBackendSkills() {
   skills.push(gql);
 
   [
-    'Schema Design',
-    'Resolvers & Data Sources',
-    'N+1 & Batching',
-    'Auth & Authorization',
-    'Query Cost Control',
-    'Caching Strategies',
-    'Federation Basics',
-  ].forEach((name) => {
+    ['Schema Design',
+      'Treating GraphQL schema as a thin layer over DB tables — exposes implementation details, locks DB shape to API contract, forces clients into N+1 queries by default. Schema should model the domain, not the storage.',
+      'Schema changes go through PR review with breaking-change linting (graphql-inspector). Deprecation directive used before removal. Schema versioned in source control. Field-level metrics show actual usage — informs what to deprecate.'],
+    ['Resolvers & Data Sources',
+      'Resolvers doing DB queries individually per field, per object → exponential query count for nested selections. Looks fine in dev with 10 records; melts in prod with 10k. DataLoader batching mandatory at scale.',
+      'Per-resolver metrics (latency, error rate, call count). N+1 detection in dev via query count assertions in tests. Resolver tests verify expected DB queries for representative selection sets. Data sources abstracted (DB, REST, gRPC) so resolvers stay thin.'],
+    ['N+1 & Batching',
+      'DataLoader instance shared across requests — caches results from one user\'s session and serves them to another → data leak. Or per-request DataLoader forgotten → defaults back to N+1. Each is a different production failure mode.',
+      'DataLoader instances created per-request, never global. Tests verify batch size > 1 for nested selections. Query count assertions in tests catch N+1 regressions. Production metrics track resolver-level DB call count.'],
+    ['Auth & Authorization',
+      'Auth checks done in resolvers, scattered across the codebase. Adding a new field requires remembering to add auth. Missed checks ship without anyone noticing. Authorization is a cross-cutting concern that belongs in middleware/directives.',
+      'Auth via schema directives (`@auth`, `@hasRole`) so every protected field is visibly tagged. Default-deny: any field without an auth directive treated as authenticated-only. Audit script flags untagged fields in CI.'],
+    ['Query Cost Control',
+      'Unbounded queries — clients request deeply nested data (post → author → posts → author → posts...), or request 10,000 items in one query. Server tries, falls over. GraphQL\'s flexibility is its DoS vector.',
+      'Query depth limit (max 10), query complexity analysis (each field has a cost, total bounded). Persisted queries for known clients — only pre-approved queries run. Rate limiting per user. Slow query alerts.'],
+    ['Caching Strategies',
+      'Query-level caching incompatible with GraphQL\'s flexible selections — every unique selection set is a different cache key. Cache hit rate stays low. Persisted queries + per-resolver caching is the practical answer, not HTTP caching.',
+      'Persisted queries (clients send query ID, not query string) enable HTTP-level caching. Per-resolver cache keys include user permissions (to prevent cross-user leaks). Cache hit rate monitored — low rate signals wrong cache layer.'],
+    ['Federation Basics',
+      'Gateway becomes a single point of failure / latency bottleneck. Subgraph queries hit slowest service. Cross-service joins (entity resolution) hide complexity from clients but compound failure modes.',
+      'Subgraph composition validated in CI before merge. Gateway emits per-subgraph latency metrics. Schema ownership documented per team. Federated query plans visualized in observability for debugging slow queries.'],
+  ].forEach(([name, a1, a2]) => {
     skills.push(
       mk(name, 'backend', gql.id, {
         definition: `${name} keeps GraphQL APIs scalable, secure, and understandable for client teams.`,
@@ -274,8 +330,8 @@ export default function buildBackendSkills() {
               ? "if (!ctx.user || ctx.user.id !== parent.ownerId) {\n  throw new Error('forbidden');\n}"
               : 'type Query { health: String! }',
         flashcards: [
-          card(`What is the biggest scaling trap in ${name}?`, 'Treating schema convenience as free and ignoring resolver-level cost.'),
-          card(`How do you verify correctness in ${name}?`, 'Contract tests, resolver metrics, and strict schema review discipline.'),
+          card(`What is the biggest scaling trap in ${name}?`, a1),
+          card(`How do you verify correctness in ${name}?`, a2),
         ],
       })
     );
@@ -322,14 +378,28 @@ export default function buildBackendSkills() {
   skills.push(ws);
 
   [
-    'Connection Lifecycle',
-    'Pub/Sub Fan-out',
-    'Presence & Heartbeats',
-    'Message Protocol Design',
-    'Auth & Re-auth',
-    'Backpressure & Flow Control',
-    'Horizontal Scaling',
-  ].forEach((name) => {
+    ['Connection Lifecycle',
+      'Zombie connections — TCP-level connection held open but client-side state died (app backgrounded, network changed). Server keeps "subscriber" alive, wastes memory, fires events into the void. Without heartbeat, undetectable until restart.',
+      'Heartbeat ping every 30–60s; missing pong → close connection. Per-connection memory cap. Logging on connect/disconnect with reason. Metrics for connection count, churn rate, and avg lifetime.'],
+    ['Pub/Sub Fan-out',
+      'Single-server pub/sub — clients on server A miss messages from clients on server B. Or fan-out without filtering — every subscriber gets every message, then filters client-side, wasting bandwidth and battery. Or pub/sub backend overloaded by high fan-out ratios.',
+      'Redis pub/sub or Kafka for cross-instance fan-out. Server-side filtering before send (don\'t ship messages clients will drop). Topic granularity tuned (too broad = waste, too narrow = topic explosion). Metrics on fan-out ratio per topic.'],
+    ['Presence & Heartbeats',
+      'Presence (who\'s online) drifts — clients disconnect ungracefully, server still shows them online for minutes. Or heartbeat too aggressive on mobile → drains battery. Or presence broadcast on every change → N² message storm in large rooms.',
+      'Heartbeat tuned per platform (longer on mobile, shorter on web). Presence updates batched and debounced. Last-seen timestamp instead of strict online/offline. Presence cleanup on connection close, scheduled cleanup for missed closes.'],
+    ['Message Protocol Design',
+      'No protocol versioning — server adds new fields, old clients break or vice versa. Or messages without IDs — can\'t dedupe on reconnect/replay, can\'t correlate request/response. Or schema-less JSON — typo in field name silently ignored.',
+      'Protocol version negotiated on connect. Every message has type, id, sequence. Schema validation server-side and client-side (Zod, protobuf). Backwards-compat rules (new optional fields okay, removing fields requires deprecation period).'],
+    ['Auth & Re-auth',
+      'Token validated only at connection open, then never re-checked. User logs out / token revoked → WebSocket still active forever. Long-lived connections need periodic re-auth or push-revocation handling.',
+      'JWT validated on connect via query param or first message. Token refresh handled — client reconnects with new token before old expires. Revocation handled via pub/sub on logout events. Per-message authorization for sensitive operations.'],
+    ['Backpressure & Flow Control',
+      'Slow client (mobile on bad network) can\'t drain messages as fast as server sends. Server\'s send buffer grows unbounded → OOM, or messages dropped silently. Or producer floods consumers with no rate control.',
+      'Per-connection send buffer cap with drop or disconnect policy. Producer throttled to consumer rate where possible. Critical messages acknowledged (ack/replay) so drops are recoverable. Metrics on buffer fill rate.'],
+    ['Horizontal Scaling',
+      'Single-server pub/sub — clients connected to server A never receive messages sent to clients on server B. Or sticky sessions used as a crutch, breaking on server restart. Cross-instance fan-out requires a shared message bus.',
+      'Redis pub/sub or Kafka for cross-instance message fan-out. Each instance subscribes to relevant channels, forwards to its local clients. Sticky sessions only for stateful use cases; stateless WS preferred.'],
+  ].forEach(([name, a1, a2]) => {
     skills.push(
       mk(name, 'backend', ws.id, {
         definition: `${name} is essential for reliable real-time systems under variable traffic and network quality.`,
@@ -340,8 +410,8 @@ export default function buildBackendSkills() {
               ? 'const envelope = { id, type, version: 1, ts: Date.now(), payload };'
               : "if (client.readyState === client.OPEN) {\n  client.send(payload);\n}",
         flashcards: [
-          card(`What production bug appears often in ${name}?`, 'State desynchronization between connection events and business event streams.'),
-          card(`What is the baseline safeguard for ${name}?`, 'Explicit protocol contracts, timeout policies, and per-connection cleanup guarantees.'),
+          card(`What production bug appears often in ${name}?`, a1),
+          card(`What is the baseline safeguard for ${name}?`, a2),
         ],
       })
     );
