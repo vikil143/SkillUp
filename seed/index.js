@@ -2,7 +2,9 @@
 import { categories } from './categories.js';
 import { projects } from './projects.js';
 import { buildExperiences } from './experiences.js';
+import { addFoundationQuestions } from './foundationQuestions.js';
 
+import buildFoundationSkills from './skills/foundation.js';
 import buildFrontendSkills from './skills/frontend.js';
 import buildMobileSkills from './skills/mobile.js';
 import buildWebGLSkills from './skills/webgl-3d.js';
@@ -27,6 +29,7 @@ import buildPerformanceSkills from './skills/performance.js';
 
 export const SEED = () => {
   const skills = [
+    ...buildFoundationSkills(),
     ...buildFrontendSkills(),
     ...buildMobileSkills(),
     ...buildWebGLSkills(),
@@ -49,6 +52,8 @@ export const SEED = () => {
     ...buildToolsSkills(),
     ...buildPerformanceSkills(),
   ];
+
+  addFoundationQuestions(skills, categories);
 
   // Auto-link skills to projects by stack name match
   skills.forEach((s) => {

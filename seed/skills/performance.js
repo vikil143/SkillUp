@@ -867,8 +867,8 @@ export default function buildPerformanceSkills() {
       'Planner picks cheaper path based on statistics—stale stats mis-fire.',
       ),
       card(
-        ' btree vs hash general purpose?',
-      'Postgres btree default; hash limited/withering—assume btree mental model broadly.',
+        'B-tree vs hash index - which is more general purpose?',
+      'B-tree is the general-purpose default because it supports equality, range queries, ordering, and prefix-style access. Hash indexes are mainly for equality lookups and are less broadly useful.',
       ),
     ],
     apis: [
@@ -922,11 +922,11 @@ export default function buildPerformanceSkills() {
     skills,
     dbIndexing,
       [
-        ' btree mechanics',
-      ' Composite design',
-      ' Covering queries',
-      ' Write cost awareness',
-      ' Planner literacy',
+        'B-tree mechanics',
+      'Composite design',
+      'Covering queries',
+      'Write cost awareness',
+      'Planner literacy',
       ],
       [
       'Seek vs scan intuition anchors understanding.',

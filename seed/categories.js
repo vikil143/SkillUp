@@ -1,6 +1,7 @@
 // seed/categories.js — all skill categories
 // Colors are hardcoded to avoid importing from App.js
 export const categories = [
+  { id: 'foundation',      name: 'Foundation',             emoji: 'F', color: '#0EA5E9' },
   { id: 'frontend',        name: 'Frontend',               emoji: '🎨', color: '#58CC02' },
   { id: 'state',           name: 'State & Architecture',   emoji: '🧩', color: '#1CB0F6' },
   { id: 'styling',         name: 'Styling',                emoji: '💅', color: '#FF86D0' },

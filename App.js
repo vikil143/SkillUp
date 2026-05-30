@@ -30,6 +30,7 @@ import QuestionEditModal from './src/features/questions/QuestionEditModal';
 import QuestionsScreen from './src/features/questions/QuestionsScreen';
 import RichAnswerText from './src/features/questions/RichAnswerText';
 import ExplanationEditModal from './src/features/questions/ExplanationEditModal';
+import RagScreen from './src/features/rag/RagScreen';
 import { COLORS } from './src/theme/colors';
 
 // ============================================================
@@ -39,8 +40,11 @@ const STORAGE_KEY = 'skillup-data-v1';
 const STREAK_KEY = 'skillup-streak-v1';
 const REVISE_STATE_KEY = 'skillup-revise-state-v1';
 // Bump this string whenever seed content changes — forces migration to re-run
-const SEED_VERSION = '2026-05-25-v12';
+const SEED_VERSION = '2026-05-30-v14';
 const REQUIRED_SEED_SKILLS = [
+  'foundation||Programming Foundations',
+  'foundation||Web Foundations',
+  'foundation||Data Foundations',
   'frontend||JavaScript + React Senior Interview',
   'frontend||Microfrontends Interview',
 ];
@@ -496,6 +500,12 @@ export default function App() {
               onEdit={(e) => setEditing({ type: 'experience', item: e })}
             />
           )}
+          {view.screen === 'rag' && (
+            <RagScreen
+              data={data}
+              navigate={navigate}
+            />
+          )}
           {view.screen === 'revise' && (
             <ReviseMode 
               data={data} 
@@ -583,6 +593,7 @@ function BottomNav({ current, navigate }) {
     { key: 'projects', label: 'Projects', emoji: '🚀' },
     { key: 'experience', label: 'Career', emoji: '💼' },
     { key: 'questions', label: 'Questions', emoji: '❓' },
+    { key: 'rag', label: 'RAG', emoji: '🔎' },
     { key: 'revise', label: 'Revise', emoji: '⚡' },
   ];
   const isActive = (k) =>
@@ -2644,8 +2655,8 @@ const styles = StyleSheet.create({
     paddingBottom: Platform.OS === 'ios' ? 22 : 10,
   },
   navItem: {
-    alignItems: 'center', paddingVertical: 4, paddingHorizontal: 10,
-    borderRadius: 12, minWidth: 64,
+    alignItems: 'center', paddingVertical: 4, paddingHorizontal: 6,
+    borderRadius: 12, minWidth: 52,
   },
   navItemActive: { backgroundColor: '#F0FFE5' },
   navLabel: { fontSize: 11, color: COLORS.textLight, fontWeight: '800', marginTop: 2 },
