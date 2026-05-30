@@ -425,5 +425,570 @@ export default function buildMobileSkills() {
   });
   skills.push(subRnSec);
 
+  // ─── MOBILE APP ARCHITECTURE PATTERNS ──────────────────────────────────────
+  const archPatternsSkill = mk('Mobile App Architecture Patterns', 'mobile', null, {
+    definition: 'Architecture patterns are the foundational shapes of a mobile app — offline-first, real-time, local-collaborative, event-sourced, on-device AI, server-driven UI, microfrontend, push-sync, hybrid native, heavy-animation. Each solves a different hard constraint. Senior engineers pick the right pattern for the problem, not the trendy one. Most production apps combine 2-3 patterns.',
+    codeExample: `// Pattern selection by primary constraint:
+//
+// "Must work without internet"           → Offline-first
+// "Updates must be instant, sub-second"  → Real-time streaming
+// "Multiple users editing same data"     → Local-first collaborative (CRDT)
+// "Audit trail / time-travel debug"      → Event-sourced / CQRS
+// "Privacy, no network, low-latency ML"  → On-device AI
+// "Change UI without app release"        → Server-driven UI
+// "5+ teams owning different sections"   → Microfrontend
+// "Data ready when user opens app"       → Push-sync / background
+// "Legacy native app being modernized"   → Hybrid native + RN
+// "Visual polish, 60fps, GPU effects"    → Heavy-animation
+
+// Real apps combine patterns:
+// Trading app = Real-time + Heavy-animation + Offline-first
+// WhatsApp = Offline-first + Real-time + Push-sync
+// Uber driver = Real-time + Background-heavy + Offline-first`,
+    flashcards: [
+      card('How do you pick an architecture pattern for a new app?', 'Identify the hardest constraint first. "Must work offline" forces offline-first. "Real-time updates required" forces streaming. "Multiple teams own sections" forces microfrontend. Pattern follows constraint — not preference, not trend.'),
+      card('Can architecture patterns be combined?', 'Yes — real production apps combine 2-3 patterns. Trading app = real-time streaming (live prices) + heavy-animation (charts) + offline-first (positions cached). WhatsApp = offline-first (messages) + real-time (delivery) + push-sync (background fetch).'),
+      card('What is the cost of picking the wrong pattern?', 'Rewriting core data flow halfway through. Example: building chat with REST polling, then realizing you need real-time — entire state management changes. Costs months. Pattern choice is high-leverage, low-reversibility.'),
+      card('Senior vs mid engineer on architecture patterns?', 'Mid picks the pattern they know best. Senior identifies the constraint, evaluates 2-3 candidate patterns, considers operational cost (debugging, observability, team familiarity), and picks the simplest one that solves the actual constraint.'),
+      card('When is "just REST + Redux" the right answer?', 'When no special constraint applies — read-mostly app, online-only acceptable, single team, no real-time needs, no offline editing. Most apps. Adding offline-first or microfrontends without need is over-engineering.'),
+      card('Why is offline-first often combined with real-time?', 'Offline-first handles "no connection." Real-time handles "connection is fast." Together they cover the full connectivity spectrum — app works on metro WiFi, in elevator, on flight. Most modern consumer apps need both.'),
+      card('What pattern does an AI-integrated mobile app typically use?', 'Often hybrid: server-side for heavy LLM calls (API key safety, model size), on-device AI for privacy-sensitive or low-latency tasks (transcription, OCR). Plus streaming pattern for chat UX. Three patterns combined.'),
+    ],
+    refs: [
+      ref('Local-first software (Ink & Switch)', 'https://www.inkandswitch.com/local-first/'),
+      ref('React Native architecture overview', 'https://reactnative.dev/architecture/landing-page'),
+      ref('Patterns for distributed systems (Martin Fowler)', 'https://martinfowler.com/articles/patterns-of-distributed-systems/'),
+    ],
+    relatedProjectIds: ['p-stock', 'p-editor'],
+  });
+  skills.push(archPatternsSkill);
+
+  // Sub 1: Offline-First
+  skills.push(mk('Offline-First Architecture', 'mobile', archPatternsSkill.id, {
+    definition: 'App treats local storage as source of truth. Server is a sync target, not a dependency. Works fully without internet; syncs when available. Used in field service, healthcare, notes, reading, banking in poor-connectivity regions.',
+    codeExample: `// Optimistic write with mutation queue
+async function createNote(text) {
+  const note = { id: uuid(), text, status: 'pending', createdAt: Date.now() };
+
+  // 1. Write locally first (optimistic)
+  await db.notes.insert(note);
+
+  // 2. Queue for sync
+  await mutationQueue.enqueue({
+    type: 'CREATE_NOTE',
+    payload: note,
+    idempotencyKey: note.id,
+    retries: 0,
+  });
+
+  // 3. UI updates immediately from local store
+  return note;
+}
+
+// Background sync worker
+async function syncQueue() {
+  if (!(await NetInfo.fetch()).isConnected) return;
+
+  const pending = await mutationQueue.getAll();
+  for (const mutation of pending) {
+    try {
+      await api.applyMutation(mutation);
+      await mutationQueue.markDone(mutation.id);
+    } catch (e) {
+      if (mutation.retries > 5) await mutationQueue.deadLetter(mutation.id);
+      else await mutationQueue.incrementRetry(mutation.id);
+    }
+  }
+}`,
+    gotchas: `Connectivity detection is unreliable — "connected" ≠ "internet works." Captive portals look connected. Ping your API to confirm reachability before sync.
+Mutation queue without idempotency keys causes double-creates on retry — every mutation needs a stable idempotency key.
+Conflict resolution strategy must match data semantics — last-write-wins works for prefs but destroys data in concurrent edits; pick per entity type.
+Partial sync cursors going stale — after a long offline gap, a last-sync timestamp may miss server-side deletes; design sync to handle tombstones.
+Dead-lettered mutations silently dropped — always surface them to the user ("3 changes failed to sync") so they can resolve manually.`,
+    flashcards: [
+      card('What is offline-first architecture?', 'Local storage is the source of truth. App writes locally first, then syncs to server in background. Reads always come from local. App works fully without network. Contrast with online-first where server is truth and offline is a degraded mode.'),
+      card('Which storage layer for offline-first on RN?', 'SQLite (relational, complex queries, joins) via op-sqlite or expo-sqlite — best for entity data. MMKV (key-value, fastest, mmap-based) for prefs and small state. Realm or WatermelonDB for sync-aware object DBs. AsyncStorage is too slow and unencrypted for serious offline data.'),
+      card('What is a mutation queue?', "Persisted list of pending writes (CREATE, UPDATE, DELETE) waiting to be synced. Survives app kill. Replayed on reconnect. Each mutation has an idempotency key so re-applying on retry doesn't double-create."),
+      card('How do you handle conflicts when two devices edit the same record offline?', 'Three strategies: (1) Last-write-wins — simple, lossy. (2) Server-authoritative with vector clocks or version numbers — server decides, client reconciles. (3) CRDTs — auto-merge mathematically. Pick based on data semantics: LWW for prefs, CRDT for collaborative text, server-authoritative for transactions.'),
+      card('Why must mutations be idempotent?', 'Client may retry a mutation (network blip, app crash mid-sync). Without idempotency key, server processes it twice → duplicate records, double charges. Idempotency key = unique ID per logical mutation; server stores result keyed by it, returns same result on retry.'),
+      card('What is optimistic update?', 'UI updates immediately on user action, before server confirms. Trade: instant perceived speed for potential rollback complexity if server rejects. Critical for offline-first where server confirmation may be minutes away.'),
+      card('Partial sync vs full sync — which and when?', 'Full sync downloads entire user history — easy but wasteful for large datasets. Partial sync downloads since-last-sync timestamp or cursor — efficient but harder to implement. Default to partial sync with full-sync option for first install or after corruption.'),
+      card('How to detect connectivity reliably on mobile?', '@react-native-community/netinfo gives connection type and reachability. But "connected" ≠ "internet works" — captive portals, dead WiFi look connected. Verify with a lightweight reachability ping to your API before assuming online.'),
+    ],
+    refs: [
+      ref('WatermelonDB — offline-first DB for RN', 'https://watermelondb.dev/'),
+      ref('PowerSync — managed offline sync', 'https://www.powersync.com/'),
+      ref('op-sqlite — fast SQLite for RN', 'https://github.com/OP-Engineering/op-sqlite'),
+    ],
+  }));
+
+  // Sub 2: Real-Time Streaming
+  skills.push(mk('Real-Time Streaming Architecture', 'mobile', archPatternsSkill.id, {
+    definition: 'Server pushes data continuously via persistent connection (WebSocket, SSE, gRPC streams). UI reflects state changes immediately. Used in chat, trading, live sports, collaborative editing, driver tracking.',
+    codeExample: `// Singleton WebSocket manager + store integration
+class WebSocketManager {
+  socket = null;
+  reconnectAttempts = 0;
+
+  connect(token) {
+    this.socket = new WebSocket(\`wss://api.example.com/ws?token=\${token}\`);
+
+    this.socket.onmessage = (e) => {
+      const event = JSON.parse(e.data);
+      // Don't render directly — push to store, let selectors notify subscribed UI
+      store.dispatch(eventReceived(event));
+    };
+
+    this.socket.onclose = () => this.scheduleReconnect();
+    this.socket.onerror = (e) => console.error('WS error', e);
+
+    // Heartbeat
+    this.heartbeat = setInterval(() => {
+      if (this.socket.readyState === WebSocket.OPEN) this.socket.send('ping');
+    }, 30000);
+  }
+
+  scheduleReconnect() {
+    clearInterval(this.heartbeat);
+    const delay = Math.min(1000 * 2 ** this.reconnectAttempts, 30000) + Math.random() * 1000;
+    setTimeout(() => {
+      this.reconnectAttempts++;
+      this.connect(getToken());
+    }, delay);
+  }
+}`,
+    gotchas: `iOS suspends WebSocket connections within seconds of backgrounding — always reconnect on AppState "active" and push-notify messages that arrive while backgrounded.
+Thundering herd on server restart — all clients reconnect simultaneously. Exponential backoff + jitter is mandatory, not optional.
+100s of updates/second without batching → UI thrash and frame drops — buffer updates, flush in requestAnimationFrame.
+Presence state lags after ungraceful disconnects — a client killed by the OS still appears "online" until the heartbeat timeout clears it.
+Scaling WS beyond one server requires a message bus (Redis pub/sub, Kafka) — otherwise server A cannot reach clients on server B.`,
+    flashcards: [
+      card('WebSocket vs SSE vs polling — when each?', 'Polling: simplest, ok for low-frequency (every 30s). SSE: server→client only, plain HTTP, auto-reconnect built in, simpler than WS. WebSocket: bidirectional, lowest latency, custom protocol — needed for chat, gaming, real-time editing.'),
+      card('How should the WebSocket layer be architected in RN?', "Singleton WebSocketManager handles connection lifecycle (connect, reconnect, heartbeat, close). Pushes events to a store (Redux/Zustand). UI subscribes to the store, never to WS directly. Decouples connection lifecycle from rendering — UI doesn't care if WS is up or down."),
+      card('Reconnection strategy for WebSocket?', 'Exponential backoff with jitter: wait 2^attempt seconds + random 0-1000ms to prevent thundering herd after server restart. Replay missed events via sequence numbers or last-event-id. On reconnect, reconcile local state with a server snapshot if disconnected too long.'),
+      card('How to handle 100s of WS updates per second without UI thrash?', 'Batch incoming updates into a buffer, flush in requestAnimationFrame so UI re-renders at most 60fps. Throttle store writes — coalesce multiple updates for same entity. Virtualize lists (FlatList) so off-screen items don\'t render. Diff at store level — only notify subscribers whose specific data actually changed.'),
+      card('Why authenticate WebSocket on connect AND on messages?', 'Connect-time auth verifies the user can establish the connection. But the connection lives long-lived; permissions can change (role revoked, plan downgraded). Critical operations re-check authorization per message. Plus, server pushes "re-auth required" on token revocation events.'),
+      card('How does WS behave when mobile app is backgrounded?', 'iOS suspends socket after a few seconds in background — connection dies. Android Doze mode kills connections after extended idle. Both: app must reconnect on foreground. Use push notifications for messages that arrive while app is backgrounded; reconcile state on next foreground.'),
+      card('What is presence and why is it hard?', 'Presence = "who is online right now." Clients disconnect ungracefully (kill app, lose signal), server still shows them online for minutes. Solution: heartbeat with timeout, last-seen-timestamp instead of strict online/offline, cleanup on connection close.'),
+      card('Scaling WebSocket across multiple servers?', "Each server only knows its own connected clients. Messages from server A can't reach clients on server B without a shared message bus. Solution: Redis pub/sub or Kafka — each server subscribes to topics, forwards relevant messages to its local clients."),
+    ],
+    refs: [
+      ref('Socket.IO — high-level WS library', 'https://socket.io/docs/v4/'),
+      ref('WebSocket scaling patterns (Ably)', 'https://ably.com/topic/the-challenge-of-scaling-websockets'),
+    ],
+  }));
+
+  // Sub 3: Local-First Collaborative (CRDT)
+  skills.push(mk('Local-First Collaborative (CRDT)', 'mobile', archPatternsSkill.id, {
+    definition: 'Multiple users edit the same data simultaneously, even offline. Local changes merge deterministically without a central server arbitrating. Powered by CRDTs (Conflict-free Replicated Data Types) like Yjs, Automerge. Used in Figma, Notion, Linear, collaborative editors.',
+    codeExample: `// Yjs example — collaborative shared text
+import * as Y from 'yjs';
+import { WebsocketProvider } from 'y-websocket';
+
+const doc = new Y.Doc();
+const provider = new WebsocketProvider('wss://sync.example.com', 'room-id', doc);
+
+const yText = doc.getText('content');
+
+// User edits — applied locally first, then broadcast
+yText.insert(0, 'Hello');
+
+// Remote edits arrive — auto-merged
+yText.observe(event => {
+  // event.changes contains delta — apply to UI
+  setLocalText(yText.toString());
+});
+
+// Awareness (cursors, presence) — separate from persistent state
+provider.awareness.setLocalState({
+  user: { name: 'vk', color: '#58CC02' },
+  cursor: { line: 5, ch: 10 },
+});`,
+    gotchas: `CRDT doc history grows unboundedly — compact with snapshots periodically or Yjs GC, otherwise a long-lived doc grows to MBs of operation log.
+CRDTs cannot enforce permissions — anyone in the room can edit anything; access control must be at the sync-server level, not in the CRDT.
+Schema evolution is genuinely hard — renaming a field in a live CRDT doc breaks old clients that still write the old field name.
+Initial sync of a large doc stalls first load — use a snapshot endpoint for the current state, then stream deltas; don't replay the full history on join.
+Awareness state is ephemeral and lossy by design — never store business-critical data in awareness; it clears on disconnect.`,
+    flashcards: [
+      card('What is a CRDT?', 'Conflict-free Replicated Data Type. A data structure that can be updated independently on multiple devices and merged deterministically — the merge result is the same regardless of operation order. Mathematically guaranteed convergence, no central authority needed.'),
+      card('Yjs vs Automerge — which to pick?', "Yjs: most mature, performant for text/lists, smaller bundle, used by Notion/Linear. Automerge: more JSON-shape-friendly, slower historically (newer Automerge 2 is competitive), better for document-shaped data. Default to Yjs unless you need Automerge's document model specifically."),
+      card('Why is "awareness" separate from persistent state in CRDTs?', 'Awareness = ephemeral state (cursor positions, "user is typing", presence). Doesn\'t need to persist or merge — just broadcast. Storing in the CRDT would bloat the doc with junk that doesn\'t matter after the session. Yjs and Automerge keep awareness as a separate channel.'),
+      card('How does a CRDT-based app sync over WebSocket?', "Each edit produces a binary update (a small diff). Client sends updates to a sync server (y-websocket); server broadcasts to other connected clients in the same room. Server doesn't interpret the doc — just relays updates. Clients can also sync peer-to-peer via WebRTC if needed."),
+      card('What problems do CRDTs not solve well?', "Permissions (CRDTs are all-or-nothing — you can't hide parts of the doc from a user). Schema evolution (changing field types in a live CRDT is genuinely hard). Server-side validation (you can't reject \"invalid\" merges without breaking convergence). Backend filtering by user."),
+      card('How do CRDT documents grow over time?', 'Every edit adds to the history. Without compaction, a long-lived doc accumulates MB of operation log even if current content is small. Solutions: snapshotting (replace history with current state), garbage collection (Yjs has this), or periodic re-creation with a fresh doc seeded from the snapshot.'),
+      card('When NOT to use CRDTs?', "Single-user apps. Apps where conflicts are rare (mostly read-only). Apps with strict server-authoritative rules (banking, inventory). Anywhere you need \"this exact field can only be edited by admins\" — CRDTs can't enforce that."),
+      card('How is initial sync handled for a large CRDT document?', "New client requests state vector (compressed summary of \"what edits do I have?\") from server. Server sends the diff between client's state vector and current doc. Typically much smaller than full history. For really large docs, snapshot endpoint sends current state, then incremental updates flow normally."),
+    ],
+    refs: [
+      ref('Yjs documentation', 'https://docs.yjs.dev/'),
+      ref('Automerge', 'https://automerge.org/'),
+      ref('Local-first software essay (Ink & Switch)', 'https://www.inkandswitch.com/local-first/'),
+    ],
+  }));
+
+  // Sub 4: Event-Sourced / CQRS
+  skills.push(mk('Event-Sourced / CQRS', 'mobile', archPatternsSkill.id, {
+    definition: 'State is derived from an append-only log of events, not stored directly. Reads and writes use separate models (CQRS). Used in banking (audit trail mandatory), e-commerce orders, anywhere "how did we get to this state" matters.',
+    codeExample: `// Event-sourced order flow
+// Commands → Events → Projections → Queries
+
+// Command (intent) — can be rejected
+// { type: 'PlaceOrder', userId: 'u1', items: [...], total: 500 }
+
+// Validate, emit event (fact that happened) — immutable
+const event = { type: 'OrderPlaced', orderId: 'o42', userId: 'u1', total: 500, ts: Date.now() };
+await eventStore.append('order-o42', event);
+
+// Projection handler — updates denormalized read model
+async function onOrderPlaced(event) {
+  await readDb.orders.insert({
+    id: event.orderId,
+    userId: event.userId,
+    status: 'placed',
+    total: event.total,
+  });
+  await readDb.userOrderCount.increment(event.userId);
+}
+
+// Client query — reads from projection, never from event log directly
+const orders = await readDb.orders.findBy({ userId: 'u1' });`,
+    gotchas: `Event schema evolution is the hardest problem — events are immutable forever; add versioned upcasters early, never rely on a "just add fields" migration strategy.
+Projection rebuild time grows with event volume — snapshot projections periodically, replay only from last snapshot.
+Eventual consistency gaps confuse users — "I just placed an order but it's not in My Orders" needs explicit UX handling (optimistic local state while projection catches up).
+Event sourcing overkill for simple CRUD — the cost (event store, versioning, replay infra) only pays off when audit trail or time-travel debug genuinely matters.
+Forgetting to handle duplicates — event processors must be idempotent; events can be delivered more than once in failure scenarios.`,
+    flashcards: [
+      card('What is event sourcing?', 'State is derived from an append-only log of events, not stored as current values. Order doesn\'t have a "status" column you update — you append events (OrderPlaced, OrderPaid, OrderShipped) and compute current status from the log. Full audit trail comes free.'),
+      card('What is CQRS?', 'Command Query Responsibility Segregation. Writes (commands) and reads (queries) use separate models. Commands validate intent and emit events. Queries read from denormalized projections optimized for specific views. Often paired with event sourcing.'),
+      card('Commands vs events — difference?', 'Command = intent ("PlaceOrder") — can be rejected. Event = fact ("OrderPlaced") — already happened, immutable. Commands flow client → server. Events flow server → projections → clients. Different verb tense matters: "Place" (imperative) vs "Placed" (past).'),
+      card('What is a projection?', 'A materialized read model built by replaying events. Example: UserStats projection tracks total orders, total spend per user — computed by handling OrderPlaced events. Multiple projections per event stream — same events feed different views.'),
+      card('How are projections rebuilt?', 'Replay all events from the beginning, applying each to a fresh projection. Slow for millions of events. Solution: snapshots — save projection state periodically; replay only events since last snapshot. Critical for production systems with long event histories.'),
+      card('Why is event schema evolution hard?', 'Events are immutable — once written, never changed. But over years, your event shape evolves (new fields, renames, splits). Old events still exist in the log. Solutions: versioned events (OrderPlacedV1, V2), upcasters (transform old events at read time), or never-remove-only-add discipline.'),
+      card('Eventual consistency in CQRS — what does it mean for UX?', 'Write succeeds immediately (command accepted, event emitted). Read may lag briefly (projection updates async). User submits order → sees confirmation → refreshes "My Orders" → might not see it yet for 100ms-1s. UX must handle this (show optimistic state, retry, "syncing..." indicator).'),
+      card('When is event sourcing overkill?', "Simple CRUD apps. Apps where audit trail isn't critical. Small teams that don't need the operational complexity. Event sourcing adds: event store, projection management, schema versioning, replay infrastructure. Cost is real — only adopt when audit/history/time-travel-debug genuinely matters."),
+    ],
+    refs: [
+      ref('Event Sourcing (Martin Fowler)', 'https://martinfowler.com/eaaDev/EventSourcing.html'),
+      ref('CQRS (Martin Fowler)', 'https://martinfowler.com/bliki/CQRS.html'),
+      ref('Microservices.io — Event Sourcing pattern', 'https://microservices.io/patterns/data/event-sourcing.html'),
+    ],
+  }));
+
+  // Sub 5: On-Device / Edge AI
+  skills.push(mk('On-Device / Edge AI', 'mobile', archPatternsSkill.id, {
+    definition: 'ML inference runs on the device, not on a server. Privacy-preserving, low-latency, works offline. Used in translation, OCR, voice transcription, on-device chat, image classification, AR effects.',
+    codeExample: `// On-device inference with TFLite via react-native-fast-tflite
+import { loadTensorflowModel } from 'react-native-fast-tflite';
+
+const model = await loadTensorflowModel(
+  require('./assets/image-classifier.tflite')
+);
+
+async function classifyImage(imageUri) {
+  const inputTensor = await preprocessImage(imageUri); // resize, normalize
+
+  const output = await model.run([inputTensor]);
+
+  const predictions = postprocess(output[0]);
+  return predictions; // [{ label: 'dog', confidence: 0.92 }, ...]
+}
+
+// Hybrid fallback pattern: on-device first, cloud if confidence low
+async function classify(image) {
+  const local = await classifyImage(image);
+  if (local[0].confidence < 0.7) {
+    return await cloudClassifier.classify(image); // server LLM
+  }
+  return local;
+}`,
+    gotchas: `Cold start lag of 1-3s for large models — warm the model in background on app launch, not on first user action.
+Hardware variability causes 10x perf spread — Pixel/iPhone NPUs are fast; old mid-range CPUs are very slow. Detect device tier and use a smaller model or cloud fallback for low-end devices.
+Continuous inference drains battery 2-5x faster — throttle to every Nth frame, stop when app is backgrounded.
+Quantization quality drop must be validated — 4-bit quant can hallucinate more on edge cases; benchmark on your specific task before shipping.
+Model update without an app release requires OTA delivery pipeline — plan for secure model signing and version management.`,
+    flashcards: [
+      card('What is on-device / edge AI?', "ML model inference running on the user's device (CPU, GPU, NPU) instead of a server. Eliminates network latency, preserves privacy (data never leaves device), works offline. Trade-offs: model size limits, battery cost, hardware variability."),
+      card('Inference runtimes for RN — which to use?', 'TensorFlow Lite via react-native-fast-tflite (mature, broad model support). ONNX Runtime for cross-framework models. ExecuTorch for PyTorch models on mobile. Core ML on iOS (native, fastest on Apple silicon). MLC LLM for running LLMs locally. Pick based on which framework your model was trained in.'),
+      card('What is quantization and why is it essential on mobile?', 'Reducing numeric precision of model weights from 32-bit floats to 8-bit or 4-bit integers. Drastically smaller model size (10x reduction common), faster inference, less RAM. Slight quality drop, usually acceptable. Almost mandatory for shipping ML models on mobile.'),
+      card('Can you run an LLM on-device?', "Yes, but constrained. 4-bit quantized 3-7B parameter models can run on modern phones (Pixel 8 Pro, iPhone 15 Pro+). MLC LLM, llama.cpp via bridge, Apple's MLX framework. Slow compared to cloud (5-20 tokens/sec). Best for privacy-critical tasks (medical notes, journaling) or offline use cases."),
+      card('Cold start problem with on-device models?', 'Loading a 100MB+ model into memory on first inference takes 1-3 seconds. User sees lag. Solutions: lazy-load on app startup in background, warm the model on app foreground, keep model in memory if RAM allows, use smaller models for instant tasks.'),
+      card('Hybrid on-device + cloud pattern?', 'Run cheap/fast model on device for common cases. Fall back to cloud LLM (Claude, GPT) for complex queries or when on-device model is uncertain. Example: voice transcription on-device, but translation falls back to cloud. Best of both worlds — privacy + capability.'),
+      card('Battery impact of continuous on-device inference?', "Significant. Sustained ML inference drains battery 2-5x faster than typical app use. Solutions: throttle inference rate (don't process every frame, every 3rd frame), use NPU when available (more efficient than CPU/GPU), batch operations, run heavy tasks only when plugged in."),
+      card('Hardware variability problem — what is it?', 'Same model runs differently across devices: NPU on Pixel/iPhone (fast), GPU on mid-range Android (slower), CPU on old devices (very slow). Same code, 10x perf difference. Need device-tier detection and fallback strategies (smaller model on weaker hardware, cloud fallback on very old devices).'),
+    ],
+    refs: [
+      ref('react-native-fast-tflite', 'https://github.com/mrousavy/react-native-fast-tflite'),
+      ref('ExecuTorch — PyTorch on mobile', 'https://pytorch.org/executorch/'),
+      ref('MLC LLM — on-device LLMs', 'https://llm.mlc.ai/'),
+    ],
+  }));
+
+  // Sub 6: Server-Driven UI
+  skills.push(mk('Server-Driven UI', 'mobile', archPatternsSkill.id, {
+    definition: 'Server sends UI structure as JSON, client interprets and renders it using a registered component library. Change app behavior without releasing a new app version. Used by Airbnb, Lyft, banking apps with frequently-changing screens.',
+    codeExample: `// Server returns UI schema
+const screenSchema = {
+  type: 'Screen',
+  children: [
+    { type: 'Header', props: { title: 'Welcome' } },
+    {
+      type: 'Card',
+      props: { padding: 16 },
+      children: [
+        { type: 'Text', props: { text: 'Hello, vk' } },
+        { type: 'Button', props: { label: 'Continue', action: 'navigate:home' } },
+      ],
+    },
+  ],
+};
+
+// Client renderer — walks schema, instantiates registered components
+const componentRegistry = {
+  Screen: ScreenComponent,
+  Header: HeaderComponent,
+  Card: CardComponent,
+  Text: TextComponent,
+  Button: ButtonComponent,
+};
+
+function renderNode(node) {
+  const Component = componentRegistry[node.type];
+  if (!Component) return null;
+  return (
+    <Component {...node.props}>
+      {node.children?.map((child, i) => (
+        <Fragment key={i}>{renderNode(child)}</Fragment>
+      ))}
+    </Component>
+  );
+}`,
+    gotchas: `Unknown component types silently render nothing — always have a fallback/error node so designers see broken layouts in testing, not invisible holes in production.
+Schema versioning across old clients — an app from 12 months ago must still render current schemas; use forward-compatible unknown-field-ignore and required-field fallback conventions from day one.
+Type safety across server/client boundary is hard — schema type drift causes subtle render bugs; use a shared schema type definition and validate server output in CI.
+Native feel suffers — generic renderers can't match hand-tuned gesture animations; mark high-polish screens as non-SDUI candidates.
+Without caching, every screen open = network request — LRU cache with TTL is mandatory for usable perceived performance.`,
+    flashcards: [
+      card('What is server-driven UI?', 'Server sends a JSON description of the UI; client renders it using pre-registered components. Adds or modifies screens without an app release. Used in banking, e-commerce promos, A/B testing, regional customization.'),
+      card('What are the components of an SDUI system?', '(1) Component library on client — finite set of registered, typed components. (2) Schema format (JSON) describing component trees. (3) Renderer that walks the JSON tree and instantiates components. (4) Backend service that builds and serves schemas. (5) Caching layer for resilience.'),
+      card('Why do major apps use SDUI?', "Promotional banners change weekly. Onboarding flows change per region. Feature flags require new UI. Without SDUI, every change = app release = 2-week App Store review + slow user upgrade. SDUI ships in seconds. Critical for high-velocity teams (Airbnb, Lyft, ICICI)."),
+      card("What's the downside of SDUI?", "Native feel suffers — generic renderer can't match hand-tuned animations. Debugging is harder (errors live in JSON, not code). Performance overhead of dynamic rendering. Type safety across server/client boundary is hard. Schema versioning is complex (old clients seeing new schemas)."),
+      card('How do you handle SDUI schema versioning?', "Each app version declares its supported schema version range. Server returns a schema matching what the client can render. Unknown fields are ignored (forward compatibility). Required fields trigger fallback to older schema or graceful error. Default-on-failure to a cached or bundled fallback screen."),
+      card('What kinds of screens are good fits for SDUI?', "Promotional / marketing screens. Onboarding flows that change frequently. Configuration / settings screens. Lists of products / cards. Bad fits: highly interactive flows (gestures, animations), screens with custom business logic, performance-sensitive screens (lists with complex cells)."),
+      card('How do interactions work in SDUI?', 'Schema includes action descriptors (e.g., `{ action: "navigate:home" }` or `{ action: "submit:order", payload: {...} }`). Client renderer maps actions to handlers. Limited to pre-defined action types — you can\'t ship new action logic via schema, only re-use existing handlers.'),
+      card('How does caching work in SDUI?', 'Schemas cached locally per screen URL with TTL. On open: serve cache instantly, fetch fresh in background, update if changed. On network failure: fall back to cache, then to bundled default schema. Without caching, every screen open = network request = bad UX on slow networks.'),
+    ],
+    refs: [
+      ref('Airbnb SDUI deep dive (engineering blog)', 'https://medium.com/airbnb-engineering/a-deep-dive-into-airbnbs-server-driven-ui-system-842244c5f5'),
+      ref("Lyft's server-driven UI", 'https://eng.lyft.com/server-driven-user-interfaces-fcfacccd5fd1'),
+    ],
+  }));
+
+  // Sub 7: Microfrontend on Mobile
+  skills.push(mk('Microfrontend on Mobile', 'mobile', archPatternsSkill.id, {
+    definition: 'Multiple independent RN apps composed into one shell. Different teams own different sections (checkout, search, profile). Used by large orgs (banking super-apps, Microsoft Office mobile) where 5+ teams ship to the same app.',
+    codeExample: `// Re.Pack-based Module Federation
+// shell/webpack.config.js
+new Repack.ModuleFederationPlugin({
+  name: 'shell',
+  remotes: {
+    checkout: 'checkout@https://cdn.example.com/checkout/remoteEntry.js',
+    profile:  'profile@https://cdn.example.com/profile/remoteEntry.js',
+  },
+  shared: {
+    react:         { singleton: true, requiredVersion: '18.2.0' },
+    'react-native': { singleton: true, requiredVersion: '0.74.0' },
+  },
+});
+
+// shell/App.js — lazy-load MFE on tab press
+const Checkout = lazy(() => import('checkout/CheckoutScreen'));
+
+function App() {
+  return (
+    <Tab.Navigator>
+      <Tab.Screen name="Home" component={Home} />
+      <Tab.Screen name="Checkout" component={() => (
+        <Suspense fallback={<Loader />}>
+          <Checkout />
+        </Suspense>
+      )} />
+    </Tab.Navigator>
+  );
+}`,
+    gotchas: `Missing singleton config for React → multiple React instances at runtime → hooks break with cryptic "invalid hook call" errors. Always declare react and react-native as singletons.
+App Store dynamic code loading gray area — Apple allows loading known JS modules; introducing entirely new features without review is risky. Consult legal/policy before shipping features via remote bundles.
+Cold start of first MFE tab = network fetch + parse + execute — prefetch in background on app start for tabs the user will likely visit.
+MFE communication via shared store defeats the isolation benefit — prefer event bus or route-state-as-contract to keep MFEs genuinely decoupled.
+Most apps don't need MFE — the overhead only pays off at 5+ teams with genuinely independent release cadences.`,
+    flashcards: [
+      card('What is microfrontend on mobile?', "Multiple independent RN apps (MFEs) composed at runtime into one shell app. Each MFE owned by one team, deployed independently. Shell handles top-level navigation, shared deps, auth. Same pattern as web microfrontends, harder to implement on mobile due to bundle constraints."),
+      card('When does mobile MFE make sense?', "5+ teams owning different sections. Independent release cadence required. Different teams want different framework versions. Org structure mirrors product boundaries (Conway's Law). Bad fit for small teams — overhead exceeds benefit."),
+      card('What is Re.Pack?', 'Webpack-based bundler for RN that adds Module Federation support. Lets one RN app load JS modules from another at runtime via `remoteEntry.js`. Foundation of runtime MFE composition on RN. Alternative to Metro (the default bundler).'),
+      card('Module Federation singletons — why mandatory?', 'Each MFE has React in its bundle. Without singleton config, multiple React instances at runtime → hooks break (React detects hook calls outside its context tree). Declaring `react: { singleton: true }` ensures one shared React instance across all MFEs.'),
+      card('How do MFEs communicate?', "Three patterns: (1) Custom DOM/native events via event bus. (2) URL/route state as the contract — MFEs read what they need from current route. (3) Shared store (Redux/Zustand) — careful, defeats isolation. Avoid: direct module imports between MFEs (recreates monolith coupling)."),
+      card('App store policy concerns with MFE?', 'Apple is strict about dynamic code loading. Loading new JS at runtime is allowed for "core functionality" but introducing entirely new features without app review is a gray area. Most MFE approaches pre-bundle all code; runtime loading limited to known modules. Code-push (Expo Updates, App Center) is allowed within these limits.'),
+      card('Cold start cost of MFE?', 'Loading a remote MFE bundle = network request + parse + execute. On first tab press, user waits 500ms-2s. Solutions: prefetch popular MFEs in background, ship critical MFEs in the main bundle, show optimistic loading states. Cold start is the #1 perceived perf issue with mobile MFE.'),
+      card('When is mobile MFE the wrong call?', "Small team (<5 teams). Single product, single deploy cadence. Performance-sensitive apps (games, trading). Apps where bundle size is critical. Most apps. MFE's overhead (shared deps, runtime composition, communication contracts) only pays off at significant team scale."),
+    ],
+    refs: [
+      ref('Re.Pack — Module Federation for RN', 'https://re-pack.dev/'),
+      ref('Module Federation overview', 'https://module-federation.io/'),
+    ],
+  }));
+
+  // Sub 8: Push-Sync / Background-Heavy
+  skills.push(mk('Push-Sync / Background-Heavy', 'mobile', archPatternsSkill.id, {
+    definition: 'App is mostly background — silent push notifications wake it to sync data, then sleep again. Email clients, messaging apps, sync-heavy productivity apps. Data is ready when user opens the app.',
+    codeExample: `// FCM data-only push handler
+import messaging from '@react-native-firebase/messaging';
+
+// Background handler — runs even when app is killed
+messaging().setBackgroundMessageHandler(async (remoteMessage) => {
+  const { type, payload } = remoteMessage.data;
+
+  if (type === 'NEW_MESSAGE') {
+    // Sync the new message into local DB
+    await db.messages.upsert(payload);
+
+    // Show local notification only if important
+    if (payload.isImportant) {
+      await notifee.displayNotification({
+        title: payload.sender,
+        body: payload.preview,
+      });
+    }
+  }
+});
+
+// Foreground handler — same sync, no notification (user is in-app)
+messaging().onMessage(async (remoteMessage) => {
+  await syncFromPush(remoteMessage.data);
+});`,
+    gotchas: `Push delivery is best-effort — FCM/APNs can drop pushes (device offline too long, quota exceeded). Always reconcile state on app foreground; never rely solely on pushes for critical data delivery.
+iOS gives only ~30s of background execution per push — heavy sync must be chunked or deferred to BGProcessingTask (plugged-in, idle device only).
+Android Doze batches background work to maintenance windows — timing is non-deterministic; design sync to be eventual, not time-sensitive.
+Silent pushes on iOS require "content-available" flag AND background mode enabled in capabilities — missing either means the push wakes no one.
+Battery vs freshness trade-off must be surfaced to users — allow sync frequency control in settings and throttle on low battery.`,
+    flashcards: [
+      card('What is push-sync architecture?', 'App relies on push notifications to trigger background data sync. Silent (data-only) pushes wake the app, app fetches/applies data, then sleeps. User opens app → data already current. Lower battery cost than polling.'),
+      card('Silent push vs notification push?', 'Notification push: visible alert in tray, user sees it. Silent push: data-only payload, no alert — used purely to trigger sync. iOS calls these "content-available" pushes. Useful for syncing in background without bothering user.'),
+      card('iOS background execution limits?', 'iOS gives ~30 seconds of background time after a push wakes the app. After that, the app is suspended. Heavy sync must be quick or chunked. BGProcessingTask (newer API) allows longer background work but only when device is plugged in and idle.'),
+      card('Android Doze mode — what is it?', 'When the device is unplugged and idle for extended period, Android batches background tasks and delays network access to save battery. Apps wake up only during maintenance windows (every 15-30 min). Affects push delivery and sync timing.'),
+      card('How to do reliable background sync on RN?', 'WorkManager on Android via react-native-background-fetch. BGTaskScheduler on iOS via expo-background-fetch. Schedule periodic sync tasks; OS decides when to run based on battery, network, device state. Not guaranteed timing — design sync to be eventual.'),
+      card('Why is push delivery best-effort, not guaranteed?', "FCM/APNs deliver \"at most once with high probability.\" Pushes can be dropped if device offline too long, quota exceeded, network unreliable. Apps must handle missed pushes — sync on app foreground, reconcile state, never rely solely on pushes for critical data."),
+      card('Battery vs freshness trade-off?', 'More frequent background syncs → fresher data → worse battery. Push-driven sync (only when server has updates) is more efficient than polling. Throttle sync frequency on low battery. Allow user to control sync frequency in settings.'),
+      card('When does push-sync make sense?', "Email, messaging, news apps, syncing CRMs — apps where users open and expect \"everything updated.\" Bad fit for real-time interactive apps (use WebSocket instead) or apps where freshness isn't critical (lazy-load on open is simpler)."),
+    ],
+    refs: [
+      ref('Firebase Cloud Messaging — RN (@react-native-firebase)', 'https://rnfirebase.io/messaging/usage'),
+      ref('iOS background execution modes (Apple docs)', 'https://developer.apple.com/documentation/uikit/app_and_environment/scenes/preparing_your_ui_to_run_in_the_background'),
+      ref('react-native-background-fetch', 'https://github.com/transistorsoft/react-native-background-fetch'),
+    ],
+  }));
+
+  // Sub 9: Hybrid Native + RN
+  skills.push(mk('Hybrid Native + RN', 'mobile', archPatternsSkill.id, {
+    definition: "Existing native app embeds RN screens for specific flows. RN doesn't own the whole app, just slices. Used in enterprise modernization — gradual migration of legacy Swift/Kotlin apps to RN.",
+    codeExample: `// Android — embedding an RN screen in a native Activity
+class CheckoutActivity : AppCompatActivity(), DefaultHardwareBackBtnHandler {
+  private lateinit var reactRootView: ReactRootView
+
+  override fun onCreate(savedInstanceState: Bundle?) {
+    super.onCreate(savedInstanceState)
+    reactRootView = ReactRootView(this)
+    val reactInstanceManager = (application as MyApp).reactNativeHost.reactInstanceManager
+
+    reactRootView.startReactApplication(
+      reactInstanceManager,
+      "CheckoutScreen",   // JS-side registered name
+      Bundle().apply { putString("orderId", intent.getStringExtra("orderId")) }
+    )
+    setContentView(reactRootView)
+  }
+}
+
+// JS side — register the component for native embedding
+import { AppRegistry } from 'react-native';
+AppRegistry.registerComponent('CheckoutScreen', () => CheckoutScreen);`,
+    gotchas: `Bridge call frequency kills perf — design native modules to be coarse-grained (one call does many things); chatty fine-grained calls cause serialization lag visible to users.
+Two debug environments — native crash in Crashlytics with native stack, RN crash in Sentry with JS stack; bugs spanning both require comfort with two toolchains.
+Design token drift — native and RN screens showing different shades of "primary blue" next to each other; generate tokens from a single source of truth for both layers.
+Eager RN initialization adds cold start time — lazy-initialize the JS runtime only when the first RN screen is actually needed.
+Teams lacking expertise in one stack can't maintain hybrid effectively — hybrid requires senior engineers comfortable with both Swift/Kotlin and React Native.`,
+    flashcards: [
+      card('What is hybrid native + RN architecture?', 'Existing native app (Swift/Kotlin) embeds RN screens for specific flows. Native owns navigation, RN screens are pushed/presented like any other native view. Lets teams ship new features in RN without rewriting the whole app.'),
+      card('When is hybrid the right approach?', "Migrating legacy native apps to RN gradually. Large existing native codebase, can't rewrite in one go. Native shell already polished, only specific new features need RN's cross-platform speed. Common in banking, insurance, enterprise where the existing app is years old."),
+      card("What's the bridging cost?", 'Every call between native and RN crosses the bridge — serialization overhead, async hop. Frequent native-RN communication kills perf. Mitigation: batch calls, use JSI (new architecture) where possible, design native modules to be coarse-grained (one call does many things).'),
+      card('How is navigation handled in hybrid?', "Native navigator drives top-level navigation. RN screens push themselves onto the native stack via a bridge method (e.g., `Navigator.push('CheckoutScreen')`). RN doesn't use its own navigator at the top level — would conflict with native nav. Internal sub-navigation within an RN section can use RN navigator."),
+      card('Sharing design tokens between native and RN?', 'Generate a single source of truth (e.g., a JSON file of colors/spacing/typography). Pipeline converts to: native style resources (Android XML, iOS Swift), RN style objects, web CSS. Without this, native and RN screens drift visually — different shades of "primary blue" appear side by side.'),
+      card('Two debug environments — what does this mean in practice?', 'Native crashes go to Crashlytics with native stack. RN crashes go to Sentry/Bugsnag with JS stack. A bug spanning both (RN screen calling native module) is debugged in two places. Junior engineers struggle here — senior on hybrid teams must be comfortable with both stacks.'),
+      card('Memory footprint of hybrid apps?', 'Larger than pure native or pure RN. Both runtimes coexist — JS engine, RN bridge, plus native code. Cold start can be slower if RN is initialized eagerly. Mitigation: lazy-initialize RN only when first RN screen is needed, share JS runtime across all RN screens.'),
+      card('When is hybrid the wrong choice?', "Greenfield apps — just build in RN or native from start, don't mix without need. Apps where the existing native code is small enough to rewrite cleanly. Teams that lack expertise in one of the two stacks (can't maintain hybrid effectively)."),
+    ],
+    refs: [
+      ref('RN integration with existing apps', 'https://reactnative.dev/docs/integration-with-existing-apps'),
+      ref('Brownfield RN — Callstack guide', 'https://www.callstack.com/blog/embracing-rn-in-existing-apps-with-brownfield'),
+    ],
+  }));
+
+  // Sub 10: Heavy-Animation / Graphics
+  skills.push(mk('Heavy-Animation / Graphics', 'mobile', archPatternsSkill.id, {
+    definition: "App's primary value is visual polish — 60fps animations, custom graphics, GPU-accelerated effects. Onboarding flows, games, creative tools, trading charts with smooth interaction.",
+    codeExample: `// Reanimated 3 worklet — runs on UI thread, never blocks JS
+import Animated, {
+  useSharedValue, useAnimatedStyle, withSpring,
+} from 'react-native-reanimated';
+import { Gesture, GestureDetector } from 'react-native-gesture-handler';
+
+function DraggableCard() {
+  const translateX = useSharedValue(0);
+  const translateY = useSharedValue(0);
+
+  const gesture = Gesture.Pan()
+    .onUpdate((e) => {
+      // Runs on UI thread — zero JS bridge hops per frame
+      translateX.value = e.translationX;
+      translateY.value = e.translationY;
+    })
+    .onEnd(() => {
+      translateX.value = withSpring(0);
+      translateY.value = withSpring(0);
+    });
+
+  const animatedStyle = useAnimatedStyle(() => ({
+    transform: [
+      { translateX: translateX.value },
+      { translateY: translateY.value },
+    ],
+  }));
+
+  return (
+    <GestureDetector gesture={gesture}>
+      <Animated.View style={[styles.card, animatedStyle]} />
+    </GestureDetector>
+  );
+}`,
+    gotchas: `Animations on JS thread cause frame drops whenever JS is busy — always use Reanimated worklets or useNativeDriver for transform/opacity; never animate layout properties on JS thread.
+Continuous 60fps GPU usage drains battery significantly — pause animations when component is off-screen or app is backgrounded.
+Large textures dominate RAM — a single 4K image is ~30MB; downsize to display resolution, recycle offscreen assets.
+react-native-wgpu requires New Architecture (RN 0.81+) — verify architecture compatibility before committing to WebGPU-based 3D.
+Profiling is mandatory — assume nothing about perf. Use Hermes Profiler (JS) + Xcode Instruments / Android Studio Profiler (native GPU/CPU) before optimizing.`,
+    flashcards: [
+      card('Why is keeping animations off the JS thread critical?', 'JS thread handles all your business logic — fetches, state updates, effects. If animation logic runs on JS thread, any blocking work (heavy render, API parse) causes frame drops. Animations on UI thread (via Reanimated worklets or `useNativeDriver`) keep running smoothly regardless of JS thread state.'),
+      card('Animated API vs Reanimated 3 — pick which?', 'Animated with `useNativeDriver: true` — runs on UI thread but limited to specific props (transform, opacity). Reanimated 3 — JS worklets compiled to run on UI thread, full JS expressiveness per frame, gesture integration. Default to Reanimated for anything non-trivial.'),
+      card('What is a worklet in Reanimated?', "A function marked with 'worklet' directive that Reanimated compiles to run on the UI thread instead of JS thread. Has access to shared values, can update them at 60fps. Can't access JS context (no calling regular JS functions, no React state directly)."),
+      card('React Native Skia — when to use?', 'When you need custom 2D graphics beyond what RN views can do — charts, custom shapes, image filters, drawing apps, animated illustrations. Skia is GPU-accelerated (same engine as Flutter, Chrome). Much faster than SVG for complex graphics. Used in trading dashboards, drawing apps, advanced loading animations.'),
+      card('3D graphics on RN — current options?', 'react-native-wgpu + Three.js WebGPURenderer is the cutting edge (requires RN 0.81+ New Architecture). expo-three with expo-gl works on older RN. Performance limited by GPU; complex 3D scenes drain battery fast. Realistic use cases: product configurators, simple games, AR effects, data visualization.'),
+      card('How to budget memory for graphics-heavy apps?', 'Large textures dominate memory. 4K background image = ~30MB in RAM. Multiple textures, animation frames, Skia canvases compound fast. Mitigations: downsize textures to display resolution, recycle/release when offscreen, lazy-load animation assets, profile memory in Xcode Instruments / Android Studio Profiler.'),
+      card('Why does iOS animation feel smoother than Android by default?', 'iOS Core Animation runs all animations on a dedicated rendering thread with minimal app involvement. Android animations are tied closer to the UI thread, more susceptible to jank when other work is happening. Reanimated narrows the gap by running animations off-main-thread on both platforms.'),
+      card('Battery cost of animation-heavy apps?', 'Continuous 60fps animation = GPU active continuously = significant battery drain. Strategies: pause animations when not visible (off-screen, app backgrounded), reduce frame rate for non-critical animations, use static states when interaction stops, profile battery impact in real-world usage.'),
+    ],
+    refs: [
+      ref('Reanimated 3 docs', 'https://docs.swmansion.com/react-native-reanimated/'),
+      ref('React Native Skia', 'https://shopify.github.io/react-native-skia/'),
+      ref('react-native-wgpu', 'https://github.com/wcandillon/react-native-webgpu'),
+    ],
+  }));
+
   return skills;
 }
