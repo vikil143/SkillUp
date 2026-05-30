@@ -1533,5 +1533,682 @@ Examples: Old JavaScript engines, Python`),
     if (cards) s.flashcards.push(...cards);
   });
 
+  // ─── JAVASCRIPT APP CATEGORIES ──────────────────────────────────────────────
+  const jsAppsSkill = mk('JavaScript App Categories', 'frontend', null, {
+    definition: 'JavaScript runs almost everywhere now — browsers, mobile, desktop, servers, edge, embedded devices, even microcontrollers. Each environment has its own runtime, constraints, and best-fit use cases. Senior JS engineers know the landscape and pick the right runtime per problem, not just the one they know.',
+    codeExample: `// Same JS, different runtimes, different capabilities:
+//
+// Browser      → DOM, Web APIs, sandboxed, no file system
+// Node.js      → File system, networking, child processes, no DOM
+// Bun          → Node-compatible but faster, built-in bundler
+// Deno         → Secure-by-default Node alternative, TypeScript native
+// React Native → Mobile UI, native modules, no DOM
+// Electron     → Browser + Node combined for desktop
+// CF Workers   → Edge runtime, V8 isolates, no Node APIs
+// Espruino     → JS on microcontrollers (sensors, smart bulbs)`,
+    flashcards: [
+      card("Why does JavaScript run on so many platforms?", "V8 (Chrome's engine) was extracted to create Node.js in 2009, proving JS could run outside browsers. Since then, JS engines have been embedded in mobile (RN), desktop (Electron), serverless (Lambda), edge (Cloudflare Workers), and even microcontrollers (Espruino). The browser API legacy is what makes the language portable."),
+      card('Node.js vs Deno vs Bun — when each?', 'Node.js: mature, vast ecosystem, default choice. Deno: secure-by-default, TypeScript native, web-standard APIs (fetch, Promise) — good for new greenfield. Bun: fastest, drop-in Node replacement with built-in bundler/test runner — promising but newer, some compat gaps.'),
+      card('How does same JS run differently across runtimes?', "Each runtime exposes different global APIs. Browser has `window`, `document`. Node has `process`, `fs`, `require`. Workers have `caches`, no `process`. Code targeting one runtime breaks on another unless it uses only the shared subset (ECMAScript + maybe `fetch`)."),
+      card('What is "isomorphic" or "universal" JavaScript?', 'Code that runs on both server and client without modification — used in SSR frameworks (Next.js, Remix). Same React component renders to HTML on server, hydrates in browser. Requires avoiding environment-specific APIs (no `window` access in shared code).'),
+      card('Why TypeScript over plain JavaScript for serious apps?', 'Type safety catches bugs at compile time (typos, wrong shapes, refactor breakage). IDE autocomplete and refactoring become reliable. Documentation lives in code. Cost: build step, learning curve, slower initial development. Worth it for any app > 10K LOC or team > 2 developers.'),
+      card('What environment should a beginner JS engineer learn first?', 'Browser + Node.js. Browser teaches DOM, events, async, debugging. Node.js teaches modules, file system, networking, server basics. Together they cover ~80% of JS jobs. Specialize after — mobile (RN), edge (Workers), or backend frameworks (NestJS).'),
+    ],
+    refs: [
+      ref('MDN Web Docs', 'https://developer.mozilla.org/'),
+      ref('Node.js docs', 'https://nodejs.org/docs/'),
+      ref('State of JS survey', 'https://stateofjs.com/'),
+    ],
+  });
+  skills.push(jsAppsSkill);
+
+  // Sub 1: Browser-Based Web Apps
+  skills.push(mk('Browser-Based Web Apps', 'frontend', jsAppsSkill.id, {
+    definition: 'Apps running in a browser tab — static sites, SPAs, SSR apps, PWAs, browser extensions. The most familiar JS environment. Covers landing pages, dashboards, e-commerce, SaaS web apps.',
+    codeExample: `// SPA — runs entirely in browser after first load
+// SSR — server pre-renders HTML, browser hydrates JS
+// SSG — HTML generated at build time, served as static files
+// PWA — installable, offline-capable web app
+
+// Vite + React SPA entry point
+import { createRoot } from 'react-dom/client';
+import App from './App';
+createRoot(document.getElementById('root')).render(<App />);
+
+// Next.js SSR page (server renders each request)
+export default function ProductPage({ product }) {
+  return <h1>{product.name}</h1>;
+}
+export async function getServerSideProps({ params }) {
+  return { props: { product: await fetchProduct(params.id) } };
+}`,
+    flashcards: [
+      card('SPA vs SSR vs SSG — quick rules?', 'SPA: full app loads as JS bundle, then renders client-side — slow first paint, fast navigation, bad SEO out of box. SSR: server renders HTML per request — good SEO, slower at scale. SSG: HTML pre-built at deploy time — fastest, best SEO, but only works for content not personalized per user.'),
+      card('When is a SPA the right choice?', "Behind-login dashboards (no SEO needed), highly interactive apps (Figma, Linear), apps where first paint matters less than navigation speed. Bad fit: marketing sites, blogs, e-commerce product pages — SEO and first paint dominate."),
+      card('What is a PWA?', 'Progressive Web App — a web app that can be installed to the home screen, runs offline, sends push notifications. Built with service workers + Web App Manifest. Closes the gap between web and native. Examples: Twitter Lite, Starbucks PWA, Spotify web.'),
+      card('What is hydration in SSR?', "Server sends HTML with content already rendered. Browser displays it instantly. Then JS bundle loads and \"hydrates\" — attaches event listeners, makes the page interactive. Slow hydration = page looks loaded but doesn't respond to clicks for seconds. React 18 added partial hydration to address this."),
+      card('Modern SPA stack in 2026?', 'Vite (build tool, replaces CRA), React or Vue or Svelte (framework), TanStack Router or React Router (routing), TanStack Query (server state), Zustand or Redux (client state), Tailwind (CSS), shadcn/ui (components). Or pick a meta-framework (Next.js, Remix, Nuxt, SvelteKit) for batteries-included.'),
+      card('When to use a meta-framework vs plain SPA?', "Meta-framework (Next.js, Remix): SEO matters, SSR/SSG needed, want file-based routing + API routes + image optimization out of box. Plain SPA: behind-login app, no SEO concern, simpler deploy, want to control the stack. Default to meta-framework unless reason against."),
+    ],
+    refs: [
+      ref('Vite docs', 'https://vitejs.dev/'),
+      ref('Next.js docs', 'https://nextjs.org/docs'),
+      ref('web.dev — PWA guide', 'https://web.dev/explore/progressive-web-apps'),
+    ],
+  }));
+
+  // Sub 2: Static Sites & SSG
+  skills.push(mk('Static Sites & SSG', 'frontend', jsAppsSkill.id, {
+    definition: 'HTML/CSS/JS generated at build time, served as static files via CDN. Fastest possible page loads, best SEO, lowest hosting cost. Used for marketing sites, blogs, documentation, portfolios.',
+    codeExample: `// Astro — ships zero JS by default, opt-in per component
+---
+// Frontmatter runs at build time on the server
+const posts = await fetch('https://api.example.com/posts').then(r => r.json());
+---
+<html>
+  <body>
+    {posts.map(post => (
+      <article>
+        <h2>{post.title}</h2>
+        <p>{post.summary}</p>
+      </article>
+    ))}
+    {/* Only this island ships JS to the browser */}
+    <SearchBox client:load />
+  </body>
+</html>`,
+    flashcards: [
+      card('Why pick a static site generator over a SPA?', 'SEO is dramatically better (HTML pre-rendered, crawlers see content immediately). First paint is fastest possible (no JS execution required). Hosting is cheap (CDN serves files, no server compute). Trade: no per-user dynamic content without client-side hydration.'),
+      card('Astro vs Next.js static export vs Eleventy?', "Astro: ships zero JS by default, opt-in islands for interactivity — best for content-heavy sites with selective interactivity. Next.js static export: full React stack, but ships JS for all components. Eleventy: pure HTML/templates, minimal JS — simplest, no React/Vue."),
+      card('What is "islands architecture"?', 'Most of the page is static HTML (no JS). Only specific interactive components ("islands") hydrate with JS. Drastically less JS shipped, faster pages. Astro popularized it. Modern Next.js (with React Server Components) takes a similar approach.'),
+      card('When does SSG break down?', "Sites with 100K+ pages — full rebuild becomes slow. Sites with per-user personalized content (dashboards, social feeds). Sites needing fresh data every minute. ISR (Incremental Static Regeneration) and on-demand revalidation help, but at some point switching to SSR or SPA makes sense."),
+      card('What is ISR?', 'Incremental Static Regeneration — Next.js feature where pages are statically generated but revalidated on a schedule or on-demand. Best of SSG (fast, cached) + freshness (auto-updates without full rebuild). Used by e-commerce, news sites where content changes regularly but not per-request.'),
+      card('Hosting options for SSG sites?', "Cloudflare Pages, Vercel, Netlify, GitHub Pages — all free tiers, deploy from git. CDN-cached globally. For high-traffic sites, S3 + CloudFront also works. Hosting cost for a static site can be $0 for small projects."),
+    ],
+    refs: [
+      ref('Astro', 'https://astro.build/'),
+      ref('Eleventy', 'https://www.11ty.dev/'),
+      ref('Jamstack overview', 'https://jamstack.org/'),
+    ],
+  }));
+
+  // Sub 3: Server-Side Apps (Node.js)
+  skills.push(mk('Server-Side Apps (Node.js)', 'frontend', jsAppsSkill.id, {
+    definition: 'Backend services running on Node.js, Deno, or Bun. REST APIs, GraphQL endpoints, WebSocket servers, background workers, microservices. Same JS skills as frontend, applied to server-side concerns.',
+    codeExample: `// Express REST API with Zod validation
+import express from 'express';
+import { z } from 'zod';
+
+const app = express();
+app.use(express.json({ limit: '10kb' }));
+
+const CreateUserSchema = z.object({
+  email: z.string().email(),
+  name: z.string().min(2),
+});
+
+app.post('/users', async (req, res, next) => {
+  try {
+    const data = CreateUserSchema.parse(req.body);
+    const user = await db.users.create(data);
+    res.status(201).json(user);
+  } catch (e) { next(e); }
+});
+
+// 4-arg signature required for error middleware
+app.use((err, req, res, next) => {
+  if (err.name === 'ZodError')
+    return res.status(422).json({ code: 'VALIDATION', details: err.errors });
+  res.status(500).json({ code: 'INTERNAL' });
+});
+
+app.listen(3000);`,
+    flashcards: [
+      card('Express vs Fastify vs Hono vs NestJS — which to pick?', 'Express: most popular, mature, simple, slowest. Fastify: 2-3x faster, schema-first validation built in. Hono: fastest, designed for edge/serverless, smaller. NestJS: opinionated, decorators, DI, structured — best for large teams and enterprise apps.'),
+      card('Why is Node well-suited for I/O-heavy backends?', "Single-threaded event loop + non-blocking I/O = thousands of concurrent connections per server with minimal memory. Perfect for APIs, chat, real-time. Worse fit for CPU-heavy work (image processing, ML) — use worker threads or different language for that."),
+      card('GraphQL vs REST for server APIs?', 'REST: simple, cacheable, multiple endpoints, fixed shapes. GraphQL: single endpoint, client picks fields, flexible. GraphQL wins for diverse clients (mobile + web with different needs), aggregating multiple sources. REST wins for public APIs, simple CRUD, where caching matters.'),
+      card('When use worker threads in Node?', "CPU-bound work — image processing, encryption, large data parsing. Event loop handles I/O fine on its own; worker threads only help when JS itself blocks the loop. Communication between main and worker is async message-passing."),
+      card('How do you do background jobs in Node?', 'BullMQ + Redis is the standard — define jobs, queue them, workers process. Use cases: email sending, image processing, scheduled tasks, retries. Alternatives: Agenda (MongoDB-backed), Temporal (workflow engine), simple cron via node-cron for in-process scheduled tasks.'),
+      card('How do Node apps deploy in production?', 'PM2 for single-server (process manager, restart on crash). Docker container + Kubernetes for cloud-scale. Serverless (Lambda, Vercel, Cloudflare Workers) for stateless functions. Most production Node apps: Docker + orchestrator + load balancer in front.'),
+      card('Common Node performance pitfalls?', 'Blocking the event loop with sync work (fs.readFileSync, heavy CPU). Memory leaks from uncleaned listeners, intervals, closures. Unbounded request body sizes (DoS). Synchronous JSON.parse on huge payloads. All fixable with awareness — profile with clinic.js.'),
+    ],
+    refs: [
+      ref('Node.js docs', 'https://nodejs.org/docs/'),
+      ref('Fastify', 'https://fastify.dev/'),
+      ref('NestJS', 'https://docs.nestjs.com/'),
+    ],
+  }));
+
+  // Sub 4: Serverless & Edge Functions
+  skills.push(mk('Serverless & Edge Functions', 'frontend', jsAppsSkill.id, {
+    definition: 'Backend functions that run on-demand without managing servers — AWS Lambda, Vercel Functions, Cloudflare Workers. Auto-scale, pay-per-execution. Edge functions run at CDN locations globally with <50ms latency.',
+    codeExample: `// Cloudflare Worker — runs at edge, V8 isolate (not Node)
+export default {
+  async fetch(request, env, ctx) {
+    const url = new URL(request.url);
+
+    if (url.pathname === '/api/hello')
+      return Response.json({ message: 'Hello from the edge' });
+
+    // KV at edge — global key-value store
+    const cached = await env.MY_KV.get('homepage');
+    if (cached) return new Response(cached, {
+      headers: { 'Content-Type': 'text/html' },
+    });
+
+    const fresh = await fetch('https://origin.example.com').then(r => r.text());
+    ctx.waitUntil(env.MY_KV.put('homepage', fresh, { expirationTtl: 60 }));
+    return new Response(fresh);
+  },
+};`,
+    flashcards: [
+      card('What is serverless?', 'Backend functions that run on-demand, fully managed by the cloud provider. No server to provision, configure, or scale. Auto-scales from 0 to thousands of concurrent invocations. Pay per execution, not per server-hour. Examples: AWS Lambda, Vercel Functions, Cloudflare Workers.'),
+      card('Edge vs traditional serverless?', 'Traditional serverless (Lambda): runs in one region, cold start 100-500ms, full Node runtime. Edge (Cloudflare Workers, Vercel Edge): runs at CDN locations globally (<50ms to user), faster cold starts (V8 isolates, ~5ms), but limited APIs (no full Node, no native modules).'),
+      card('When is serverless the right choice?', "Variable / spiky traffic (auto-scales free). Simple stateless endpoints. Cron jobs. Webhook handlers. Bad fit: long-running connections, heavy CPU work (timeouts, cost spikes), apps needing persistent in-memory state."),
+      card('What is the cold start problem?', "When a serverless function hasn't been invoked recently, the runtime needs to spin up — first request waits seconds. Subsequent requests in the warm window are instant. Mitigations: provisioned concurrency (paid warm pool), keep functions warm via scheduled pings, use V8 isolates (Workers) instead of containers."),
+      card('Cloudflare Workers vs Vercel Edge vs Deno Deploy?', "Cloudflare Workers: most mature, broadest edge network, KV/D1/R2 ecosystem. Vercel Edge: best Next.js integration, easier deploy. Deno Deploy: Deno-native, TypeScript-first. All three use V8 isolates for fast cold starts."),
+      card('What runs differently at the edge vs Node?', "No Node APIs (no `fs`, no `process`, no native modules). Uses Web Standard APIs (`fetch`, `Request`, `Response`, `crypto.subtle`). Code that works in browser is more portable to edge than Node code. Most modern frameworks (Hono, itty-router) target both."),
+    ],
+    refs: [
+      ref('Cloudflare Workers', 'https://developers.cloudflare.com/workers/'),
+      ref('Vercel Edge Functions', 'https://vercel.com/docs/functions/edge-functions'),
+      ref('Hono — edge-first framework', 'https://hono.dev/'),
+    ],
+  }));
+
+  // Sub 5: Mobile Apps (RN, Capacitor, NativeScript)
+  skills.push(mk('Mobile Apps (RN, Capacitor, NativeScript)', 'frontend', jsAppsSkill.id, {
+    definition: 'Build iOS and Android apps using JavaScript. React Native is dominant for native-feel apps. Capacitor wraps web apps in native shells. NativeScript provides direct native API access. Each has different performance and capability ceilings.',
+    codeExample: `// React Native — JS code, native UI components
+import { View, Text, FlatList } from 'react-native';
+
+function MyList({ items }) {
+  return (
+    <FlatList
+      data={items}
+      keyExtractor={(item) => item.id}
+      renderItem={({ item }) => (
+        <View><Text>{item.name}</Text></View>
+      )}
+    />
+  );
+}
+
+// Capacitor — web app accessing native device APIs
+import { Camera } from '@capacitor/camera';
+
+async function takePhoto() {
+  const photo = await Camera.getPhoto({ quality: 90 });
+  return photo.webPath;
+}`,
+    flashcards: [
+      card('React Native vs Capacitor vs NativeScript?', 'React Native: native UI components rendered from JS, best native feel, biggest ecosystem. Capacitor: web app wrapped in WebView, easier (any web stack works), lower performance ceiling. NativeScript: direct native API access from JS, less common, niche use cases.'),
+      card('When is Capacitor good enough vs needing RN?', "Capacitor: content-heavy apps, dashboards, e-commerce, anything where 60fps animation isn't critical. RN: when you need native-feel UI, complex gestures, high-performance lists, or platform-specific UX patterns."),
+      card('Expo vs bare React Native?', "Expo: managed workflow, EAS Build, OTA updates, easier dev experience, broad module library. Bare RN: full native control, any third-party native module, custom native code. Expo has gotten so good that bare RN is mostly chosen for very custom needs or legacy projects."),
+      card('Can web apps become mobile apps directly?', 'Yes via Capacitor or PWA. Capacitor packages your web app into a native iOS/Android binary that ships through app stores. PWA installs from browser to home screen without app store. Both have trade-offs vs native performance and platform integration.'),
+      card('OTA updates for mobile JS apps — what are they?', "Ship JS bundle updates without going through App Store / Play Store review. Expo Updates, CodePush. Critical for hotfixes, A/B tests, rapid iteration. Limited to JS changes — native code still requires store submission."),
+      card('When NOT to use JS for mobile?', "Games (use native or Unity/Unreal). Apps requiring deep OS integration (advanced AR, system-level access). Apps where every MB of binary size matters (RN adds ~10MB baseline). Pure native is still better for very polished UX or maximum performance."),
+    ],
+    refs: [
+      ref('React Native docs', 'https://reactnative.dev/'),
+      ref('Capacitor', 'https://capacitorjs.com/'),
+      ref('Expo', 'https://docs.expo.dev/'),
+    ],
+  }));
+
+  // Sub 6: Desktop Apps (Electron, Tauri)
+  skills.push(mk('Desktop Apps (Electron, Tauri)', 'frontend', jsAppsSkill.id, {
+    definition: 'Cross-platform desktop apps with JavaScript UIs. Electron bundles Chromium + Node.js (heavy but battle-tested). Tauri uses native webview + Rust backend (10x smaller, faster). Used for VS Code, Slack, Discord, Notion, Figma desktop.',
+    codeExample: `// Electron main process
+const { app, BrowserWindow, ipcMain } = require('electron');
+
+app.whenReady().then(() => {
+  const win = new BrowserWindow({
+    width: 1200, height: 800,
+    webPreferences: {
+      preload: __dirname + '/preload.js',
+      contextIsolation: true,
+      nodeIntegration: false,       // security: never enable
+    },
+  });
+  win.loadURL('http://localhost:3000');
+});
+
+// IPC handler — renderer calls this securely via preload
+ipcMain.handle('readFile', async (_, filePath) =>
+  fs.promises.readFile(filePath, 'utf8')
+);
+
+// preload.js — safe bridge to renderer
+contextBridge.exposeInMainWorld('api', {
+  readFile: (path) => ipcRenderer.invoke('readFile', path),
+});`,
+    flashcards: [
+      card('Electron vs Tauri?', 'Electron: Chromium + Node.js bundled per app — 100-200MB binaries, high RAM use, but mature and battle-tested (VS Code, Slack, Discord). Tauri: uses OS-native webview + Rust backend — 5-20MB binaries, much lower RAM, faster startup, smaller ecosystem.'),
+      card('When does building a desktop app make sense?', "Need: file system access, system tray, global keyboard shortcuts, native menus, offline-heavy use, multi-window. Examples: writing tools, IDEs, design apps, dev tools. Don't build desktop if a web app + PWA install works — saves the deploy/install friction."),
+      card('Why is Electron criticized for size and RAM?', "Each Electron app ships its own Chromium (~120MB) and Node runtime. 5 Electron apps open = 5 copies of Chromium running. RAM use 200MB+ per app baseline. Web apps in a browser share one Chromium — efficient. Tauri solves this by using OS webview."),
+      card('How does an Electron app communicate between renderer and main?', "IPC (inter-process communication). Renderer (your React app) sends messages to main process (Node) via `ipcRenderer.invoke()`. Main process handles via `ipcMain.handle()`. Preload scripts expose safe APIs to renderer. Never expose `require` directly to renderer — security risk."),
+      card('Auto-updates for desktop apps?', "electron-updater (Electron) or Tauri's built-in updater. Apps check a release URL on startup, download new versions, install on restart. Critical for shipping fixes — desktop users don't restart their apps often, so silent auto-update is essential."),
+      card('Code signing for desktop apps?', 'Required for distribution. macOS: Apple Developer certificate + notarization. Windows: code signing certificate (DigiCert, Sectigo). Without signing, users see "unidentified developer" warnings. Cost: ~$100-500/year. Annoying setup but non-negotiable for professional apps.'),
+    ],
+    refs: [
+      ref('Electron docs', 'https://www.electronjs.org/docs/latest'),
+      ref('Tauri', 'https://tauri.app/'),
+    ],
+  }));
+
+  // Sub 7: Browser Extensions
+  skills.push(mk('Browser Extensions', 'frontend', jsAppsSkill.id, {
+    definition: 'Add functionality to browsers — Chrome, Firefox, Safari, Edge. Productivity tools, ad blockers, password managers, AI helpers. Low effort, fast to ship, can become viral.',
+    codeExample: `// manifest.json (Manifest V3 — Chrome current standard)
+{
+  "manifest_version": 3,
+  "name": "My Extension",
+  "version": "1.0.0",
+  "action": { "default_popup": "popup.html" },
+  "background": { "service_worker": "background.js" },
+  "content_scripts": [{
+    "matches": ["https://*.example.com/*"],
+    "js": ["content.js"]
+  }],
+  "permissions": ["storage", "activeTab"]
+}
+
+// content.js — injected into matching pages
+const observer = new MutationObserver(() => {
+  // read/modify page DOM or extract data
+});
+observer.observe(document.body, { childList: true, subtree: true });`,
+    flashcards: [
+      card('What are the parts of a browser extension?', 'Popup (UI when icon clicked), content scripts (JS injected into web pages), background script / service worker (long-running logic), options page (settings), permissions (declared in manifest). Each runs in a different context with different APIs available.'),
+      card('Manifest V3 — what changed?', "Chrome's newest extension format. Background scripts became service workers (not persistent). Stricter content security policy. Stricter permission model. Older Manifest V2 extensions (with full webRequest) being deprecated. Most new development targets V3."),
+      card('Cross-browser extensions — how?', 'WebExtensions API is supported across Chrome, Firefox, Edge. Same code largely works everywhere. Safari uses similar API but requires Apple Developer Program + Xcode for distribution. Tools like Plasmo or WXT make cross-browser development easier.'),
+      card('Why are extensions a good first project?', 'Small scope (popup + content script), low publishing friction (Chrome Web Store, $5 one-time fee), instant distribution (no app store reviews), can become viral if useful. Many successful SaaS started as extensions.'),
+      card('Common extension use cases?', 'Page modifiers (dark mode, ad blocker, custom CSS), productivity tools (tab managers, notes, password fillers), AI helpers (summarizers, translators, code explainers), data extractors (scraping for personal use), automation (form fillers, repetitive tasks).'),
+      card('Extension security concerns?', "Extensions have powerful permissions — can read all page data, modify pages, capture inputs. Malicious extensions are a real threat. Best practices: minimal permissions, no `<all_urls>` unless essential, no eval, sanitize injected content. Users trust extensions implicitly — don't betray that."),
+    ],
+    refs: [
+      ref('Chrome Extension docs', 'https://developer.chrome.com/docs/extensions/'),
+      ref('Plasmo — extension framework', 'https://docs.plasmo.com/'),
+      ref('WXT — modern extension framework', 'https://wxt.dev/'),
+    ],
+  }));
+
+  // Sub 8: CLI Tools
+  skills.push(mk('CLI Tools', 'frontend', jsAppsSkill.id, {
+    definition: 'Command-line tools written in JavaScript. Build tools (Vite, Webpack), test runners (Jest), scaffolding (create-next-app), DevOps utilities, internal team tools. Distributed via npm.',
+    codeExample: `#!/usr/bin/env node
+import { Command } from 'commander';
+import chalk from 'chalk';
+import inquirer from 'inquirer';
+
+const program = new Command();
+program.name('my-cli').description('Example CLI').version('1.0.0');
+
+program
+  .command('init')
+  .option('-n, --name <name>', 'project name')
+  .action(async (options) => {
+    if (!options.name) {
+      const { name } = await inquirer.prompt([
+        { type: 'input', name: 'name', message: 'Project name?' },
+      ]);
+      options.name = name;
+    }
+    console.log(chalk.green(\`Creating \${options.name}...\`));
+    // scaffold files here
+  });
+
+program.parse();`,
+    flashcards: [
+      card('When is JavaScript a good fit for a CLI?', "When your users are already in the Node ecosystem (frontend devs, fullstack teams). When you want easy distribution via npm. When CLI integrates with web/JS toolchains. Less ideal: system-level tools where startup time matters (Go, Rust faster cold-start)."),
+      card('Commander vs Yargs vs oclif?', 'Commander: simple, declarative API, most popular for small CLIs. Yargs: more powerful argument parsing, better for complex flag combinations. oclif: opinionated framework for multi-command CLIs (like git), used by Salesforce, Heroku. Pick Commander unless you need scaling.'),
+      card('How do you distribute a Node CLI?', 'Publish to npm with `"bin"` field in package.json mapping command name to script. Users install globally (`npm install -g my-cli`) or run via `npx my-cli`. Add shebang `#!/usr/bin/env node` to the entry script. Make it executable.'),
+      card('Common Node CLI libraries?', 'commander/yargs (args), chalk (colors), inquirer/prompts (interactive prompts), ora (spinners), execa (run shell commands), fs-extra (file operations), zx (shell scripts in JS). These compose into rich CLI UX.'),
+      card('How to handle startup time in Node CLIs?', "Node CLI cold start is ~100-300ms — too slow for tools invoked frequently (like git). Mitigations: lazy-load modules, avoid heavy deps at top level, use esbuild to compile to single-file bundle, or compile via Bun to native binary for fast startup."),
+      card('When to ship a CLI as a single binary?', "When users don't have Node installed. When startup speed matters. When you want a clean installation without npm. Tools: Bun has `bun build --compile`, Node has SEA (Single Executable Application), pkg packages Node apps into binaries."),
+    ],
+    refs: [
+      ref('Commander.js', 'https://github.com/tj/commander.js'),
+      ref('oclif', 'https://oclif.io/'),
+    ],
+  }));
+
+  // Sub 9: AI / LLM Apps
+  skills.push(mk('AI / LLM Apps', 'frontend', jsAppsSkill.id, {
+    definition: 'Apps built around LLM APIs — chat assistants, RAG systems, AI agents, code copilots, content generators. Fastest-growing JS app category. Most are full-stack (frontend + backend proxy to LLM provider).',
+    codeExample: `// Vercel AI SDK — streaming chat with Anthropic
+import { streamText } from 'ai';
+import { anthropic } from '@ai-sdk/anthropic';
+
+// Server-side route (Next.js App Router)
+export async function POST(req) {
+  const { messages } = await req.json();
+  const result = await streamText({
+    model: anthropic('claude-sonnet-4-6'),
+    messages,
+    system: 'You are a helpful coding assistant.',
+  });
+  return result.toDataStreamResponse();
+}
+
+// Client — useChat handles streaming automatically
+import { useChat } from 'ai/react';
+
+function ChatUI() {
+  const { messages, input, handleSubmit, handleInputChange } = useChat();
+  return (
+    <>
+      {messages.map(m => <div key={m.id}>{m.role}: {m.content}</div>)}
+      <form onSubmit={handleSubmit}>
+        <input value={input} onChange={handleInputChange} />
+      </form>
+    </>
+  );
+}`,
+    flashcards: [
+      card('What categories of AI apps can you build with JS?', 'Chat interfaces (ChatGPT-style), RAG apps (document Q&A), AI agents (tool-using autonomous systems), AI coding tools (Cursor-style assistants), content generators (writing, image prompts, code), browser extensions with AI (summarizers, translators).'),
+      card('Why must AI apps go through a backend proxy?', "API keys cannot live in frontend code — they'd be extracted in seconds. Backend holds keys, handles auth, rate limiting per user, prompt management, cost tracking, logging. Frontend talks to your backend, not directly to OpenAI/Anthropic."),
+      card('Vercel AI SDK — what does it solve?', "Unified API for streaming from multiple LLM providers (Anthropic, OpenAI, Google, etc.) with built-in React hooks (`useChat`, `useCompletion`). Handles SSE streaming, abort signals, tool calls. Drops setup time for AI features from days to hours."),
+      card('LangChain.js vs raw LLM SDK?', 'Raw SDK: minimal abstraction, you control everything, simpler for simple use cases. LangChain: framework for chains, agents, RAG, tool calling — useful when building complex agentic workflows. Start with raw SDK, adopt LangChain only when you outgrow it.'),
+      card('How do you build a RAG app in JS?', 'Chunk documents → generate embeddings (OpenAI / Cohere / open models) → store in vector DB (Pinecone, Weaviate, Chroma, pgvector). On query: embed query, similarity search, send top-k chunks + question to LLM. Frameworks: LlamaIndex.ts, LangChain.js.'),
+      card('What is MCP (Model Context Protocol)?', 'Open protocol from Anthropic for connecting LLMs to external tools and data. Build an MCP server in JS once (with @modelcontextprotocol/sdk), any MCP-compatible client (Claude Desktop, IDEs) can use it. Standardizes tool calling across the ecosystem.'),
+      card('Cost concerns with AI apps?', 'LLM API calls compound fast. Mitigations: prompt caching (Anthropic/OpenAI offer this — up to 90% off cached portions), pick smaller models for simpler tasks, cache deterministic responses, per-user cost caps, batch non-urgent requests.'),
+    ],
+    refs: [
+      ref('Vercel AI SDK', 'https://sdk.vercel.ai/docs'),
+      ref('LangChain.js', 'https://js.langchain.com/docs/'),
+      ref('Anthropic SDK for TypeScript', 'https://github.com/anthropics/anthropic-sdk-typescript'),
+    ],
+  }));
+
+  // Sub 10: Real-Time Collaborative Apps
+  skills.push(mk('Real-Time Collaborative Apps', 'frontend', jsAppsSkill.id, {
+    definition: 'Multiple users editing the same data simultaneously — Figma, Miro, Notion, Linear, Excalidraw. Built on WebSocket transport + CRDT or operational-transform algorithms. JavaScript dominates this space.',
+    codeExample: `// Yjs + WebSocket — collaborative shared text
+import * as Y from 'yjs';
+import { WebsocketProvider } from 'y-websocket';
+
+const doc = new Y.Doc();
+const provider = new WebsocketProvider(
+  'wss://collab.example.com', 'document-id', doc
+);
+const yText = doc.getText('content');
+
+// Local edit — applied instantly, broadcast to peers
+yText.insert(0, 'Hello ');
+
+// Remote edits arrive and merge automatically
+yText.observe(() => console.log('Updated:', yText.toString()));
+
+// Presence — cursors, online status
+provider.awareness.setLocalState({
+  user: { name: 'vk' },
+  cursor: { line: 5, ch: 12 },
+});`,
+    flashcards: [
+      card("What makes a 'real-time collaborative' app distinct?", "Multiple users see each other's changes within ~100ms. State converges automatically without conflicts. Each user can edit offline; changes merge when reconnected. Examples: Figma, Notion, Linear, Google Docs, Miro, Excalidraw."),
+      card('CRDT vs Operational Transform (OT)?', "OT (Google Docs era): central server maintains canonical state, transforms incoming ops against concurrent ops. Complex, hard to get right. CRDT: math-based merge that works without a central server — simpler distributed model. Modern apps mostly use CRDTs."),
+      card('What libraries support collaborative editing in JS?', 'Yjs: most mature CRDT library, used by Notion, JupyterHub. Automerge: JSON-shape CRDT, simpler model. Liveblocks: managed service for presence + collab. PartyKit: collab-focused edge platform. TipTap / ProseMirror: rich text editors that integrate with Yjs.'),
+      card('How does presence work in collab apps?', 'Separate from persistent state. Awareness channel broadcasts ephemeral data — cursor positions, "user is typing", selected elements. Updates fast (multiple per second). Does not persist on disconnect. Yjs has awareness built in via providers.'),
+      card('Self-host vs managed (Liveblocks, PartyKit)?', "Self-host: Yjs + y-websocket server, full control, free. Managed: Liveblocks / PartyKit / Hocuspocus Cloud — pay per user, no server ops, presence + persistence included. Default to managed for fast launches; self-host once you understand the trade-offs."),
+      card('Persisting collaborative documents?', 'CRDTs serialize to binary updates — store as blob in Postgres, S3, or specialized stores. On user connect, server loads the doc, syncs the user up to current state. Hocuspocus, y-redis, y-leveldb provide persistence layers for Yjs.'),
+      card('How do collab apps handle access control?', "CRDTs are inherently \"all or nothing\" — can't hide parts of doc from a user. Permissions enforced at connection time (can this user open this document?) and at server level (server rejects mutations from unauthorized users). Fine-grained per-field permissions are genuinely hard."),
+    ],
+    refs: [
+      ref('Yjs', 'https://docs.yjs.dev/'),
+      ref('Liveblocks', 'https://liveblocks.io/docs'),
+      ref('PartyKit', 'https://docs.partykit.io/'),
+    ],
+  }));
+
+  // Sub 11: Game Development
+  skills.push(mk('Game Development', 'frontend', jsAppsSkill.id, {
+    definition: 'Browser-based games using Canvas, WebGL, or WebGPU. 2D casual games (Wordle, puzzle games), 3D experiences (Three.js), multiplayer games with WebSocket backends. Less common than other categories but a fun specialization.',
+    codeExample: `// Phaser 3 — full-featured 2D game framework
+import Phaser from 'phaser';
+
+class MainScene extends Phaser.Scene {
+  preload() { this.load.image('player', '/assets/player.png'); }
+  create() {
+    this.player = this.physics.add.sprite(100, 100, 'player');
+    this.player.setCollideWorldBounds(true);
+    this.cursors = this.input.keyboard.createCursorKeys();
+  }
+  update() {
+    if (this.cursors.left.isDown) this.player.setVelocityX(-160);
+    else if (this.cursors.right.isDown) this.player.setVelocityX(160);
+    else this.player.setVelocityX(0);
+  }
+}
+
+new Phaser.Game({
+  type: Phaser.AUTO,
+  width: 800, height: 600,
+  physics: { default: 'arcade', arcade: { gravity: { y: 300 } } },
+  scene: MainScene,
+});`,
+    flashcards: [
+      card('Phaser vs PixiJS vs Three.js — which when?', 'Phaser: full 2D game framework — physics, scenes, input, audio. Great for browser games. PixiJS: 2D rendering library (no game logic) — flexible, used for custom 2D engines. Three.js: 3D scenes — used for 3D games, product viewers, data viz.'),
+      card('Can you ship a real game with JS?', 'Yes for casual / web games — Wordle, Cookie Clicker, Townscaper, indie .io games all use JS. For AAA or console games, you need C++/Rust/Unity/Unreal. JS games shine in: instant play (no install), web distribution, multiplayer browser games.'),
+      card('WebGL vs WebGPU?', 'WebGL: established standard, broad browser support, OpenGL-based. WebGPU: newer (2023+), modern API based on Metal/Vulkan/D3D12, faster, supports compute shaders. WebGPU is the future but WebGL still dominates today.'),
+      card('Multiplayer game backends in JS?', 'Colyseus: state synchronization framework, multiplayer rooms, easy to start. Nakama: full backend platform with auth, leaderboards, multiplayer. Custom WebSocket server: full control, more work. Most JS multiplayer games are small-scale (rooms of 2-50 players).'),
+      card('react-three-fiber — what is it?', 'React wrapper for Three.js. Lets you write Three.js scenes as React JSX, with hooks, declarative state. Used in product configurators, portfolio sites, simple games. Lower learning curve than raw Three.js for React developers.'),
+      card('Performance constraints for JS games?', "Single-threaded JS = can't use full CPU. Garbage collection causes frame drops if not careful (avoid allocating in game loop). Mobile browser performance varies wildly. Best practices: object pooling, requestAnimationFrame loop, minimize per-frame allocation."),
+    ],
+    refs: [
+      ref('Phaser', 'https://phaser.io/'),
+      ref('Three.js', 'https://threejs.org/docs/'),
+      ref('react-three-fiber', 'https://r3f.docs.pmnd.rs/'),
+    ],
+  }));
+
+  // Sub 12: IoT & Hardware
+  skills.push(mk('IoT & Hardware', 'frontend', jsAppsSkill.id, {
+    definition: 'JavaScript controlling physical devices — Raspberry Pi controllers, smart home hubs, browser apps talking to Bluetooth/USB devices, microcontrollers running JS directly. Niche but growing as JS ecosystem expands beyond traditional environments.',
+    codeExample: `// Web Bluetooth API — browser talks directly to BLE device
+async function connectToHeartRateMonitor() {
+  const device = await navigator.bluetooth.requestDevice({
+    filters: [{ services: ['heart_rate'] }],
+  });
+  const server = await device.gatt.connect();
+  const service = await server.getPrimaryService('heart_rate');
+  const char = await service.getCharacteristic('heart_rate_measurement');
+
+  await char.startNotifications();
+  char.addEventListener('characteristicvaluechanged', (e) => {
+    const bpm = e.target.value.getUint8(1);
+    console.log('Heart rate:', bpm, 'bpm');
+  });
+}`,
+    flashcards: [
+      card('What hardware can JavaScript control?', 'Raspberry Pi GPIO (LEDs, sensors, motors) via Node.js + Johnny-Five. Bluetooth devices from browser via Web Bluetooth API. USB devices via WebUSB. Serial devices via Web Serial. Microcontrollers via Espruino (JS runtime for embedded chips).'),
+      card('Web Bluetooth — what is it?', 'Browser API that lets web pages communicate with BLE devices (heart rate monitors, smart bulbs, fitness trackers). Currently Chromium-based browsers only. Permission-gated. Powerful for hardware-companion apps without needing native apps.'),
+      card('When use JavaScript for hardware?', "Web-first products (smart home apps that just work in browser). Rapid prototyping (Node.js GPIO is fast iteration vs C). Maker projects (JS is familiar to web devs). Bad fit: real-time control (motor control, audio synthesis — use C/Rust/MicroPython)."),
+      card('Espruino vs MicroPython?', 'Espruino: JS runtime on microcontrollers — small ESP32, nRF52 boards. Niche but growing. MicroPython: Python on microcontrollers, much more popular in maker community. Pick by language preference and existing skills.'),
+      card('Common smart home stack with Node.js?', 'Home Assistant or Homebridge (Node-based) connect smart devices to a central hub. Custom dashboards via web UI. MQTT for device messaging. Examples: control lights via web app, build custom automations beyond manufacturer apps.'),
+      card('Limitations of JS for hardware?', 'GC pauses make real-time impossible (no audio synthesis, no motor control loops). Limited library ecosystem vs Python/C. Power consumption higher than native. Best for hubs, controllers, dashboards — not the lowest-level firmware.'),
+    ],
+    refs: [
+      ref('Johnny-Five — Node.js robotics', 'http://johnny-five.io/'),
+      ref('Web Bluetooth API (MDN)', 'https://developer.mozilla.org/en-US/docs/Web/API/Web_Bluetooth_API'),
+      ref('Espruino', 'https://www.espruino.com/'),
+    ],
+  }));
+
+  // Sub 13: Blockchain / Web3 Apps
+  skills.push(mk('Blockchain / Web3 Apps', 'frontend', jsAppsSkill.id, {
+    definition: 'Decentralized apps (dApps) interacting with blockchains — DeFi protocols, NFT marketplaces, DAOs, crypto wallets. JavaScript is the dominant language for the user-facing layer; Solidity/Rust for the on-chain contracts.',
+    codeExample: `// wagmi + viem — modern web3 React stack
+import { createConfig, http } from 'wagmi';
+import { mainnet } from 'wagmi/chains';
+import { useAccount, useConnect, useReadContract } from 'wagmi';
+
+const config = createConfig({
+  chains: [mainnet],
+  transports: { [mainnet.id]: http() },
+});
+
+function WalletApp() {
+  const { address, isConnected } = useAccount();
+  const { connect, connectors } = useConnect();
+  const { data: balance } = useReadContract({
+    address: '0xTokenAddress',
+    abi: erc20Abi,
+    functionName: 'balanceOf',
+    args: [address],
+  });
+
+  return isConnected ? (
+    <div>Balance: {balance?.toString()}</div>
+  ) : (
+    <button onClick={() => connect({ connector: connectors[0] })}>
+      Connect Wallet
+    </button>
+  );
+}`,
+    flashcards: [
+      card('What is a dApp?', "Decentralized application — frontend is normal JS web app, backend is a smart contract on a blockchain (Ethereum, Solana, Polygon). User interacts via a wallet (MetaMask) that signs transactions. Examples: Uniswap, OpenSea, Aave."),
+      card('ethers.js vs viem — which to pick?', 'ethers.js: older, established, broad community, large bundle. viem: newer (2023+), TypeScript-first, modular, smaller bundle, more performant. New projects mostly pick viem. ethers still dominant in older codebases.'),
+      card('wagmi — what does it solve?', 'React hooks for Ethereum — `useAccount`, `useReadContract`, `useWriteContract`, `useConnect`. Wraps viem. Handles wallet connection, network switching, transaction state. Drops boilerplate significantly. Most modern dApps use wagmi.'),
+      card('How do users sign transactions in a dApp?', "Browser wallet (MetaMask, Rainbow, Coinbase Wallet) injects `window.ethereum`. dApp requests a transaction via wagmi/viem; wallet shows confirmation popup; user approves; wallet broadcasts to blockchain. dApp never sees user's private keys."),
+      card('Wallet connection libraries?', "RainbowKit (most popular UI), ConnectKit, Web3Modal, WalletConnect (cross-wallet protocol). They provide ready-made UI for wallet selection + connection. Wrap wagmi. Saves weeks of UI work."),
+      card('When does building a dApp make sense?', "Crypto-native use cases — DeFi, NFTs, DAOs, token-gated content. When decentralization is a real product requirement. Bad fit: most consumer apps (custodial alternatives are simpler), regulated industries (compliance burden), apps where blockchain doesn't add user value."),
+    ],
+    refs: [
+      ref('wagmi', 'https://wagmi.sh/'),
+      ref('viem', 'https://viem.sh/'),
+      ref('RainbowKit', 'https://www.rainbowkit.com/docs/introduction'),
+    ],
+  }));
+
+  // Sub 14: Voice & Bot Apps
+  skills.push(mk('Voice & Bot Apps', 'frontend', jsAppsSkill.id, {
+    definition: 'Conversational apps on chat platforms (Discord, Slack, WhatsApp) and voice platforms (Alexa, Google Assistant). Lightweight, fast to ship, can reach huge audiences via existing platforms.',
+    codeExample: `// Discord bot with discord.js
+import { Client, GatewayIntentBits } from 'discord.js';
+
+const client = new Client({
+  intents: [
+    GatewayIntentBits.Guilds,
+    GatewayIntentBits.GuildMessages,
+    GatewayIntentBits.MessageContent,
+  ],
+});
+
+client.on('messageCreate', async (message) => {
+  if (message.author.bot) return;
+
+  if (message.content === '!ping') {
+    await message.reply('Pong!');
+  }
+  if (message.content.startsWith('!ai ')) {
+    const prompt = message.content.slice(4);
+    const response = await llm.complete(prompt);
+    await message.reply(response);
+  }
+});
+
+client.login(process.env.DISCORD_TOKEN);`,
+    flashcards: [
+      card('Discord vs Slack bots — which platform when?', "Discord: communities, gaming, casual use, easier to ship without enterprise approval. Slack: work, enterprise users, B2B SaaS distribution. Both use similar architecture (webhook events + bot user account). Pick by where your users already are."),
+      card('How do chat bots authenticate?', "Platform issues a bot token (Discord, Slack). Token used to authenticate API requests. Bot listens for events via WebSocket (Discord) or webhook (Slack). Never expose token client-side. Rotate on compromise."),
+      card('Alexa Skills vs Google Actions — JS support?', 'Both have Node.js SDKs. Alexa Skills Kit (`ask-sdk-core`), Actions on Google (`@assistant/conversation`). Bot logic runs in Lambda or any Node-friendly serverless function. Voice apps are declining in mainstream use, but still niche-viable.'),
+      card('WhatsApp bots — how?', 'Official: Twilio API, Meta Cloud API. Requires business verification, costs per message. Unofficial: whatsapp-web.js (uses browser automation — fragile, against ToS). Most production WhatsApp bots use Twilio for reliability.'),
+      card('Common bot use cases?', "Community management (moderation, welcome messages, role assignment), developer tools (CI/CD notifications, PR review bots, deployment alerts), customer support (FAQ answering, ticket routing), notification digests, and entertainment (trivia, games)."),
+      card('How do you deploy a chat bot in production?', "Discord bots need a persistent WebSocket connection — use a VPS (Railway, Fly.io, DigitalOcean, ~$5-10/mo) not serverless. Slack bots work with webhooks — Lambda or Vercel Functions fine. Keep the token in env vars, never in code. PM2 or Docker for reliability."),
+    ],
+    refs: [
+      ref('discord.js', 'https://discord.js.org/'),
+      ref('Slack Bolt SDK (Node)', 'https://slack.dev/bolt-js/'),
+      ref('Twilio — WhatsApp API', 'https://www.twilio.com/en-us/whatsapp'),
+    ],
+  }));
+
+  // Sub 15: Data Visualization & Dashboards
+  skills.push(mk('Data Visualization & Dashboards', 'frontend', jsAppsSkill.id, {
+    definition: 'Apps built primarily around charts, graphs, maps, and interactive data exploration. D3.js is the low-level engine; Recharts, Chart.js, and Observable Plot offer higher-level abstractions. Used in analytics platforms, monitoring dashboards, BI tools, financial reporting.',
+    codeExample: `// Recharts — composable charts inside React
+import {
+  LineChart, Line, XAxis, YAxis, Tooltip, ResponsiveContainer,
+} from 'recharts';
+
+const data = [
+  { date: 'Jan', revenue: 42000, costs: 31000 },
+  { date: 'Feb', revenue: 58000, costs: 34000 },
+  { date: 'Mar', revenue: 67000, costs: 36000 },
+];
+
+function RevenueChart() {
+  return (
+    <ResponsiveContainer width="100%" height={300}>
+      <LineChart data={data}>
+        <XAxis dataKey="date" />
+        <YAxis />
+        <Tooltip formatter={(v) => \`₹\${v.toLocaleString()}\`} />
+        <Line dataKey="revenue" stroke="#58CC02" strokeWidth={2} dot={false} />
+        <Line dataKey="costs"   stroke="#FF4B4B" strokeWidth={2} dot={false} />
+      </LineChart>
+    </ResponsiveContainer>
+  );
+}`,
+    flashcards: [
+      card('D3.js vs Recharts vs Chart.js — pick which?', 'D3.js: low-level, full control, steep learning curve — use for custom/novel chart types. Recharts: React-composable, sensible defaults — best for most dashboards. Chart.js: simple canvas-based, framework-agnostic — great for non-React projects or quick charts.'),
+      card('When is D3.js worth the complexity?', "When you need chart types no library provides (custom geographic maps, force-directed graphs, complex hierarchical visualizations, animated transitions between data states). For bar/line/pie charts — use Recharts or Chart.js, not D3 directly."),
+      card('What is Observable Plot?', "Mike Bostock's (D3 creator) higher-level successor to D3 for exploratory data visualization. Concise grammar-of-graphics API — build charts in 5 lines instead of 50. Excellent for data exploration, notebooks, internal tools. Less flexible than raw D3 for custom work."),
+      card('How to handle large datasets in charts (100K+ points)?', "Downsampling (LTTB algorithm reduces points while preserving visual shape), WebGL rendering (deck.gl, ECharts WebGL mode) for millions of points, virtualized tables, server-side aggregation before sending to client. Canvas outperforms SVG beyond ~1000 elements."),
+      card('WebGL for data visualization — when?', "Standard SVG/Canvas charts break above ~10K elements (frame drops, memory). WebGL renders millions of points at 60fps. Libraries: deck.gl (geospatial, large data), ECharts (built-in WebGL mode). Required for heatmaps, scatter plots with 100K+ points, real-time streaming data."),
+      card('What is a headless chart library?', "Provides the data-processing and math layer (scales, ticks, layout) without rendering — you supply the SVG/Canvas drawing. Examples: Visx (Airbnb), Nivo (hooks-based). Gives D3-level control with React state integration. Good middle ground between Recharts and raw D3."),
+    ],
+    refs: [
+      ref('D3.js', 'https://d3js.org/'),
+      ref('Recharts', 'https://recharts.org/'),
+      ref('Observable Plot', 'https://observablehq.com/plot/'),
+    ],
+  }));
+
+  // Sub 16: Developer Tools & Plugin APIs
+  skills.push(mk('Developer Tools & Plugin APIs', 'frontend', jsAppsSkill.id, {
+    definition: 'VS Code extensions, Figma plugins, browser DevTools extensions, Webpack/Vite plugins — JavaScript has become the dominant language for tooling other developers use daily. These ecosystems offer large, captive audiences and low distribution friction.',
+    codeExample: `// VS Code Extension — register a command
+import * as vscode from 'vscode';
+
+export function activate(context: vscode.ExtensionContext) {
+  const cmd = vscode.commands.registerCommand(
+    'myExt.insertTimestamp',
+    () => {
+      const editor = vscode.window.activeTextEditor;
+      if (!editor) return;
+      editor.edit((b) => b.insert(
+        editor.selection.active,
+        new Date().toISOString()
+      ));
+    }
+  );
+  context.subscriptions.push(cmd);
+}
+
+// package.json contribution point:
+// "contributes": {
+//   "commands": [{
+//     "command": "myExt.insertTimestamp",
+//     "title": "Insert Timestamp"
+//   }]
+// }`,
+    flashcards: [
+      card('What kinds of VS Code extensions can you build?', "Language features (syntax highlighting, LSP servers, hover docs), editor commands (code generation, formatting, refactoring), UI panels (sidebar webviews, tree views), snippets, themes/icon packs, and git/SCM providers. Most ship via marketplace with zero friction."),
+      card('VS Code extension API — what can it access?', "Active editor + selections, workspace files (read/write), diagnostics (errors/warnings), terminals, tasks, git state, language services, status bar, notifications, and full webview panels (render any HTML/React inside the editor). Sandboxed — no arbitrary shell by default."),
+      card('Figma plugin architecture?', "Figma plugins run in two sandboxed iframes: the plugin code (has access to Figma's document API — nodes, styles, components) and the UI (renders your HTML/React interface). Communication between them is via `postMessage`. Published in Figma Community, no app store review delay."),
+      card('Vite plugin vs Webpack plugin — how different?', "Vite plugins use a Rollup-based hook system — simpler, more composable. Webpack plugins hook into a complex compilation lifecycle. Vite is the default for new projects; Webpack plugins are needed for large existing Webpack projects or loaders not yet ported."),
+      card('Why build developer tools vs consumer apps?', "Developer tools have a passionate, vocal audience that advocates for good tools. Distribution is easy (npm, VS Code marketplace, Chrome Web Store). Users tolerate rough edges more than consumers. One popular extension → thousands of users without marketing spend."),
+      card('What is a Language Server Protocol (LSP) server?', "A protocol that separates language intelligence (autocomplete, go-to-definition, hover docs, diagnostics) from the editor. Write one LSP server in JS/TS and it works in VS Code, Neovim, Emacs, JetBrains. Libraries: vscode-languageserver-node, tree-sitter for parsing."),
+    ],
+    refs: [
+      ref('VS Code Extension API', 'https://code.visualstudio.com/api'),
+      ref('Figma Plugin docs', 'https://www.figma.com/plugin-docs/'),
+      ref('Vite Plugin API', 'https://vitejs.dev/guide/api-plugin.html'),
+    ],
+  }));
+
   return skills;
 }

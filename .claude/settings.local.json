@@ -2,7 +2,8 @@
   "permissions": {
     "allow": [
       "Bash(Select-Object Name, PSIsContainer)",
-      "Bash(node -e ' *)"
+      "Bash(node -e ' *)",
+      "Bash(node -e \"const src = require\\('fs'\\).readFileSync\\('d:/vikil/SkillUp/seed/skills/frontend.js','utf8'\\); console.log\\(src.slice\\(0, 3000\\)\\);\")"
     ]
   }
 }
