@@ -31,7 +31,7 @@ export default function buildPerformanceSkills() {
 
   const reactPerf = mk('React Performance', 'perf', null, {
     definition:
-      'React performance tuning reduces wasted renders, trims render tree traversal, lowers async scheduling pressure, defers costly updates, keeps lists virtualized sized memory stable. Tools pair runtime memoization disciplined context boundaries concurrent features DevTools Profiler evidence.',
+      'React performance tuning is about finding wasted work, then removing it carefully. Common fixes include stable props, memoization where it pays off, smaller context updates, virtualized lists, deferred non-urgent UI, route-level code splitting, and profiler-guided changes.',
     codeExample:
       "import { memo, useDeferredValue } from 'react';\nconst Row = memo(function Row({ symbol }) {\n return <Cell symbol={symbol} />;\n});\nexport function Tape({ symbols }) {\n const deferred = useDeferredValue(symbols);\n return deferred.map((s) => <Row key={s.id} symbol={s} />);\n}\n",
     whenUsed:
@@ -642,7 +642,7 @@ export default function buildPerformanceSkills() {
       '<iframe loading="lazy" src="about:blank" data-src="https://maps…"></iframe>',
       "const observer = useRef(new IntersectionObserver(cb)).current;",
       '<link rel="prefetch" href="/next-route" />',
-      'expo-router push with preloaded bundles // TODO verify bundler prefetch hooks',
+      'Preload the next route bundle only when the router or bundler supports it; otherwise keep the navigation lazy and show a fast fallback.',
     ],
     [
       [
@@ -1071,7 +1071,7 @@ export default function buildPerformanceSkills() {
       'Boundaries between module singletons versus per-instance caches explicit.',
       'Compare heap delta after forcing navigation loops.',
       'Three snapshot technique pinpoint growing constructor names.',
-      'WeakMap keyed by DOM nodes caches metadata without pinning whole tree wrongly',
+      'WeakMap can store metadata for DOM nodes without preventing those nodes from being garbage-collected.',
       ],
       [
       `addEventListener('scroll', onScroll, { passive:true }); … remove duplicate options object reuse`,

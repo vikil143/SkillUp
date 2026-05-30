@@ -342,7 +342,7 @@ export default function buildSecuritySkills() {
     card('What is the operational difference between RS256 and HS256?', 'HS256 uses one shared secret — both issuer and verifier must hold it. RS256 uses a private key to sign and a public key to verify — resource servers can verify without holding the secret.'),
     card('What is a JWKS endpoint and why does it matter?', 'A JWKS endpoint (/.well-known/jwks.json) publishes the public keys used for token verification, enabling key rotation without redeploying all services.'),
     card('How does the `nbf` (not-before) claim differ from `iat` (issued-at)?', 'iat records when the token was created; nbf sets when it becomes valid — useful for delayed activation or pre-issued tokens.'),
-    card('What is JWE and when would you use it over JWT?', 'JWE is an encrypted JWT — the payload is confidential, not just signed. Use it when claims contain PII and the token may pass through untrusted intermediaries.'),
+    card('What is JWE and when would you use it over a signed JWT?', 'A normal signed JWT (JWS) is readable by anyone who has the token; the signature only proves integrity. JWE encrypts the payload, so use it when token claims must stay confidential while passing through untrusted intermediaries.'),
   );
 
   // JWT — additional APIs

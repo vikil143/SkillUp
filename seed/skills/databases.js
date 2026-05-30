@@ -285,7 +285,7 @@ export default function buildDatabaseSkills() {
         card('Why can too many indexes hurt write performance?', 'Every INSERT/UPDATE/DELETE must update all applicable indexes — tables with 10+ indexes on write-heavy workloads can see significant throughput degradation.'),
       ],
       'Transactions & Isolation': [
-        card('What is a phantom read and which isolation level prevents it?', 'A phantom read is when a transaction re-runs a range query and sees new rows inserted by another transaction. SERIALIZABLE prevents it; REPEATABLE READ does not for range queries.'),
+        card('What is a phantom read and which isolation level prevents it?', 'A phantom read is when a transaction re-runs a range query and sees new rows inserted by another transaction. SERIALIZABLE prevents it by definition. InnoDB REPEATABLE READ also prevents many phantom cases for locking reads using next-key locks, but behavior is database-specific.'),
         card('How do you handle a deadlock in application code?', 'Catch the deadlock error (MySQL error 1213) and retry the transaction — deadlocks are transient by design and the retried transaction will usually succeed.'),
       ],
       'Migrations': [

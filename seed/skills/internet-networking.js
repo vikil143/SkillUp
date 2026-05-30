@@ -182,8 +182,7 @@ export default function buildInternetSkills() {
       [
         card('What pragmatic win does multiplexing unlock?', `Parallel asset downloads without spawning dozens of TCP connections—which hits browser connection limits`),
         card('Why was HTTP2 server-push largely abandoned?', 'Complex cache interaction + mismatched precedence with real workloads; prefer preload hints + CDN strategies.'),
-        // TODO: verify against latest QUIC deployment guidance — browser rollouts evolve
-        card('Which layer handles QUIC connection migration?', 'QUIC IDs bind above IP changes—helps mobile/Wi‑Fi churn once supported end-to-end.'),
+        card('Which layer handles QUIC connection migration?', 'QUIC handles connection migration at the transport layer using connection IDs, so a connection can survive client IP or network changes when both endpoints support it.'),
       ],
       [
         card('What does `Vary` protect against?', `Ensures caches key responses on listed request headers—avoid serving gzip variant to gzip-incapable client.`),
@@ -191,7 +190,7 @@ export default function buildInternetSkills() {
       ],
       [
         card('Why pair `Secure` flag with HTTPS-only deployments?', '`Secure` refuses cookie transmission over cleartext HTTP—closes accidental downgrade leaks.'),
-        card('What does SameSite=Lax block?', `CSRF-driving cross-site POST/embed flows while still allowing safe top-level navigation GETs.`),
+        card('What does SameSite=Lax block?', `SameSite=Lax withholds cookies on most cross-site subrequests and cross-site POSTs, reducing CSRF risk. It still sends cookies on safe top-level navigations such as clicking a normal GET link.`),
       ],
       [
         card(
@@ -1063,7 +1062,7 @@ export default function buildInternetSkills() {
       ),
       card(
         'Edge KV vs relational stores?',
-      'KV great for edge config flags abusive relational writes signal wrong architecture layering.',
+      'KV storage is great for edge config, flags, and small lookup data. If you are doing relational writes, joins, or transactional workflows in KV, the architecture likely belongs in a database instead.',
       ),
       card(
         'Multi CDN pitfalls?',
@@ -1493,4 +1492,3 @@ export default function buildInternetSkills() {
 
   return skills;
 }
-
