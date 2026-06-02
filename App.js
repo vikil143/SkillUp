@@ -40,13 +40,14 @@ const STORAGE_KEY = 'skillup-data-v1';
 const STREAK_KEY = 'skillup-streak-v1';
 const REVISE_STATE_KEY = 'skillup-revise-state-v1';
 // Bump this string whenever seed content changes — forces migration to re-run
-const SEED_VERSION = '2026-06-02-v15';
+const SEED_VERSION = '2026-06-02-v16';
 const REQUIRED_SEED_SKILLS = [
   'foundation||Programming Foundations',
   'foundation||Web Foundations',
   'foundation||Data Foundations',
   'frontend||JavaScript + React Senior Interview',
   'frontend||Microfrontends Interview',
+  'internet||Internet & Networking Interview Q&A',
 ];
 
 const loadData = async () => {
