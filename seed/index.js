@@ -3,6 +3,7 @@ import { categories } from './categories.js';
 import { projects } from './projects.js';
 import { buildExperiences } from './experiences.js';
 import { addFoundationQuestions } from './foundationQuestions.js';
+import { addReactNativeInterviewQuestions } from './reactNativeInterviewQuestions.js';
 
 import buildFoundationSkills from './skills/foundation.js';
 import buildFrontendSkills from './skills/frontend.js';
@@ -53,6 +54,7 @@ export const SEED = () => {
     ...buildPerformanceSkills(),
   ];
 
+  addReactNativeInterviewQuestions(skills);
   addFoundationQuestions(skills, categories);
 
   // Auto-link skills to projects by stack name match

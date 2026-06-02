@@ -47,4 +47,30 @@ describe('question bank seed content', () => {
       expect(questions).toContain(`What should a beginner remember about ${skillName}?`);
     });
   });
+
+  it('includes unique React Native interview questions with the expected answer sections', () => {
+    const data = SEED();
+    const interviewCards = getQuestionCards(data).filter((card) =>
+      card.a.includes('### Short Interview Answer')
+    );
+    const seenQuestions = new Set();
+
+    expect(interviewCards.length).toBeGreaterThanOrEqual(28);
+
+    interviewCards.forEach((card) => {
+      const key = card.q.toLowerCase().replace(/[^\w\s]/g, '').replace(/\s+/g, ' ').trim();
+
+      expect(seenQuestions.has(key)).toBe(false);
+      seenQuestions.add(key);
+
+      expect(card.a).toContain('### Short Interview Answer');
+      expect(card.a).toContain('### Detailed Explanation');
+      expect(card.a).toContain('### Practical Example');
+      expect(card.a).toContain('### Why Interviewers Ask This Question');
+      expect(card.a).toContain('### Common Mistakes');
+      expect(card.a).toContain('### Follow-Up Questions');
+      expect(card.a).toContain('### Difficulty Level');
+      expect(card.a).toContain('### Tags');
+    });
+  });
 });
