@@ -1119,7 +1119,7 @@ Examples: Old JavaScript engines, Python`),
     );
   });
 
-  // Added by Claude Code audit — 2026-05-20
+  // Additional frontend flashcards.
 
   // React.js — additional top-level flashcards
   react.flashcards.push(
@@ -2209,6 +2209,340 @@ export function activate(context: vscode.ExtensionContext) {
       ref('Vite Plugin API', 'https://vitejs.dev/guide/api-plugin.html'),
     ],
   }));
+
+  // Frontend quick revision: short, precise interview answers.
+  const frontendQuickRevision = mk('Frontend Fundamentals Quick Revision', 'frontend', null, {
+    definition:
+      'A compact revision set for common frontend interview questions. Answers are intentionally short, with only the extra context needed to avoid confusion.',
+    codeExample:
+      "const button = document.querySelector('button');\nbutton.addEventListener('click', () => {\n  console.log('User clicked');\n});",
+    flashcards: [
+      card('What is frontend development?', 'Frontend development builds the visible and interactive part of an app that users see in the browser or mobile UI. It mainly uses HTML, CSS, JavaScript, and UI frameworks.'),
+      card('What is the role of HTML?', 'HTML provides the structure of a page, such as headings, forms, buttons, links, images, and sections. Good HTML improves accessibility and SEO.'),
+      card('What is the role of CSS?', 'CSS controls presentation: layout, color, spacing, typography, animation, and responsive behavior across screen sizes.'),
+      card('What is the role of JavaScript in frontend?', 'JavaScript adds behavior, state, events, API calls, validation, routing, and dynamic UI updates.'),
+      card('What is the DOM?', 'The DOM is the browser-created object tree for an HTML document. JavaScript can read and update this tree to change the page.'),
+      card('What is event bubbling?', 'Event bubbling means an event starts at the clicked element and then moves upward through its parent elements. It enables event delegation.'),
+      card('What is event delegation?', 'Event delegation means adding one listener to a parent and handling events from its children using event.target. It is useful for dynamic lists.'),
+      card('What does responsive design mean in frontend?', 'Responsive design makes UI adapt to different screen sizes using flexible layouts, relative units, media queries, and responsive images.'),
+      card('What is accessibility in frontend?', 'Accessibility means making UI usable by everyone, including keyboard users and screen-reader users. Use semantic HTML, labels, focus states, and sufficient contrast.'),
+      card('What is SEO from a frontend view?', 'SEO means making pages understandable to search engines through useful content, semantic HTML, metadata, fast loading, and crawlable links.'),
+      card('What is client-side rendering?', 'Client-side rendering sends a mostly empty HTML shell and lets JavaScript render the UI in the browser. It is common for dashboards and SPAs.'),
+      card('What is server-side rendering?', 'Server-side rendering generates HTML on the server before sending it to the browser. It improves first load, SEO, and content visibility.'),
+      card('What is hydration?', 'Hydration is when client JavaScript attaches event handlers and state behavior to server-rendered HTML so it becomes interactive.'),
+      card('What is a component?', 'A component is a reusable UI unit that owns markup, styling, and behavior for one part of the interface.'),
+      card('What are props?', 'Props are read-only inputs passed from a parent component to a child component. They make components reusable and configurable.'),
+      card('What is state?', 'State is data that can change over time and affect what the UI displays. Updating state usually causes the UI to re-render.'),
+      card('What is a side effect in UI code?', 'A side effect is work outside pure rendering, such as fetching data, subscribing to events, changing document title, or using timers.'),
+      card('What is API integration?', 'API integration means the frontend sends requests to a backend service, receives data, handles loading/errors, and renders the result.'),
+      card('What is form validation?', 'Form validation checks user input before submission. Client validation improves UX, but server validation is still required for security.'),
+      card('What is frontend performance?', 'Frontend performance is about loading fast and staying responsive. Key practices include smaller bundles, lazy loading, caching, optimized images, and avoiding expensive renders.'),
+    ],
+    refs: [
+      ref('MDN Learn Web Development', 'https://developer.mozilla.org/en-US/docs/Learn'),
+      ref('web.dev Learn', 'https://web.dev/learn'),
+      ref('React Learn', 'https://react.dev/learn'),
+    ],
+  });
+  skills.push(frontendQuickRevision);
+
+  react.flashcards.push(
+    card('What is the shortest mental model for React?', 'React renders UI from state. When state changes, React calculates the next UI and updates only the needed parts of the screen.'),
+    card('Why should React render logic stay pure?', 'Render should only calculate UI. Side effects in render can run repeatedly and cause bugs, especially with StrictMode and concurrent rendering.')
+  );
+
+  seniorInterview.flashcards.push(
+    card('What should you say first when asked about closures?', 'A closure is a function that remembers variables from its outer scope even after that outer function has finished. Common uses are callbacks, timers, memoization, and private state.'),
+    card('What is the simplest event loop answer?', 'JavaScript runs on one call stack. Async work waits in queues, and the event loop moves queued callbacks onto the stack when it is empty. Promise microtasks run before timer callbacks.'),
+    card('How do you explain React keys simply?', 'Keys give list items stable identity. Use IDs from data. Avoid indexes when items can be inserted, removed, or reordered.')
+  );
+
+  microfrontendInterview.flashcards.push(
+    card('What is the safest one-line answer for microfrontends?', 'Microfrontends split a large frontend into independently owned and deployed apps that are composed by a shell or host application.'),
+    card('What is the biggest trade-off of microfrontends?', 'They improve team independence but add complexity in routing, styling, shared dependencies, testing, and deployment coordination.')
+  );
+
+  reactHooks.flashcards.push(
+    card('What is the main rule of hooks?', 'Call hooks only at the top level of React function components or custom hooks. Do not call them inside loops, conditions, or nested functions.'),
+    card('When should you create a custom hook?', 'Create one when the same stateful logic is reused across components, such as fetching, subscriptions, form state, or browser APIs.')
+  );
+
+  next.flashcards.push(
+    card('What problem does Next.js solve?', 'Next.js adds routing, rendering strategies, server components, API routes, caching, and production optimizations around React.'),
+    card('When should a Next.js component use "use client"?', 'Use it only when the component needs browser-only features like state, effects, event handlers, refs, or DOM APIs.')
+  );
+
+  ts.flashcards.push(
+    card('What is the main benefit of TypeScript?', 'TypeScript catches many shape and usage mistakes before runtime and improves autocomplete, refactoring, and team readability.'),
+    card('When should you avoid `any`?', 'Avoid `any` when the value has a known shape. Prefer `unknown` for uncertain input, then narrow it safely before use.')
+  );
+
+  js.flashcards.push(
+    card('What is hoisting in simple words?', 'Hoisting is JavaScript preparing declarations before execution. Function declarations are usable early; var starts as undefined; let and const stay in the TDZ until declared.'),
+    card('What is the difference between null and undefined?', 'undefined usually means a value was not assigned. null is an intentional empty value set by the programmer.')
+  );
+
+  html.flashcards.push(
+    card('What is the simplest rule for semantic HTML?', 'Choose the element that describes the meaning of the content, not just how it looks. Use button for actions, a for navigation, and form controls for input.'),
+    card('Why are labels important for inputs?', 'Labels give inputs an accessible name and increase the clickable area. They help screen-reader, keyboard, and mouse users.')
+  );
+
+  css.flashcards.push(
+    card('What is the cascade in one sentence?', 'The cascade is the browser rule system that decides which CSS declaration wins based on origin, importance, specificity, and source order.'),
+    card('What is the best default layout choice?', 'Use Flexbox for one-dimensional alignment and Grid for two-dimensional rows-and-columns layouts.')
+  );
+
+  jsAppsSkill.flashcards.push(
+    card('What is the best first full-stack JavaScript path?', 'Learn browser fundamentals, React, Node.js APIs, databases, authentication, deployment, and testing. Add Next.js once React basics are clear.'),
+    card('How should you choose a JavaScript app type?', 'Start from the user need: browser app for reach, mobile app for device UX, desktop app for OS access, serverless for small backend tasks, and Node services for long-running backend work.')
+  );
+
+  const topicSpecificFlashcards = {
+    ts: {
+      'Basic Types & Inference': [
+        card('When is TypeScript inference enough?', 'Inference is enough for local variables with obvious values. Add explicit types at function boundaries, exported APIs, and complex objects.'),
+        card('What is a common basic-type mistake?', 'Using broad types like string when only a few values are valid. Prefer literal unions such as "small" | "medium" | "large".'),
+      ],
+      'Interfaces vs Types': [
+        card('When should you prefer interface?', 'Use interface for object shapes that may be extended or declaration-merged, especially public library APIs.'),
+        card('When should you prefer type alias?', 'Use type for unions, intersections, mapped types, conditional types, and complex type composition.'),
+      ],
+      Generics: [
+        card('What problem do generics solve?', 'Generics let a function or type keep the caller’s specific type instead of losing it to any or unknown.'),
+        card('When should a generic have a constraint?', 'Add extends when the code needs a property or shape, such as T extends { id: string }.'),
+      ],
+      'Utility Types': [
+        card('What do utility types do?', 'Utility types transform existing types, such as making fields optional with Partial or selecting fields with Pick.'),
+        card('When is Pick<T, K> useful?', 'Use Pick when an API or component needs only a small subset of a larger object type.'),
+      ],
+      'Discriminated Unions': [
+        card('Why are discriminated unions useful?', 'They model different states clearly and let TypeScript narrow by a shared literal field like type or status.'),
+        card('What bug do discriminated unions prevent?', 'They prevent reading fields that only exist on one variant, such as error on a success result.'),
+      ],
+      'Type Narrowing & Guards': [
+        card('What is type narrowing?', 'Type narrowing is reducing a broad type to a safer specific type using checks like typeof, instanceof, in, or custom guards.'),
+        card('When should you write a custom type guard?', 'Write one when runtime validation is reused and TypeScript needs to learn the narrowed type from that check.'),
+      ],
+      'Conditional Types': [
+        card('What is a conditional type?', 'A conditional type chooses one type or another using T extends U ? A : B.'),
+        card('Where are conditional types most useful?', 'They are useful for extracting or transforming types, such as unwrapping Promise<T> or function return values.'),
+      ],
+      'Mapped Types': [
+        card('What is a mapped type?', 'A mapped type creates a new object type by looping over keys of another type with keyof.'),
+        card('What can mapped types change?', 'They can make properties readonly, optional, required, renamed, or transformed by value type.'),
+      ],
+      'Template Literal Types': [
+        card('What do template literal types create?', 'They create string literal unions from other string types, such as `get_${Key}`.'),
+        card('When are template literal types useful?', 'Use them for typed event names, route names, CSS tokens, and generated object keys.'),
+      ],
+      'Module Declarations': [
+        card('Why write a module declaration?', 'Write one when TypeScript does not know the types for an imported module.'),
+        card('Where should custom declarations live?', 'Put them in a .d.ts file included by tsconfig, commonly in a types or src/types folder.'),
+      ],
+    },
+    js: {
+      'Variables & Scoping': [
+        card('What is the main scoping trap?', 'var is function-scoped, while let and const are block-scoped. Prefer const, then let when reassignment is needed.'),
+        card('How do you debug scope issues?', 'Check where the variable is declared, whether it is shadowed, and whether it is accessed before initialization.'),
+      ],
+      'Functions (arrow, this, closures)': [
+        card('What is the main arrow-function trap?', 'Arrow functions do not have their own this, so they are not suitable for methods that need dynamic this.'),
+        card('How do you debug this-binding issues?', 'Check the call site. this is decided by how a function is called, except arrow functions inherit it lexically.'),
+      ],
+      'Objects & Prototypes': [
+        card('What is the main prototype trap?', 'Property lookup can come from the prototype chain, not just the object itself. Use Object.hasOwn for own-property checks.'),
+        card('How do you debug prototype issues?', 'Inspect the object’s own keys and prototype with Object.getPrototypeOf or browser devtools.'),
+      ],
+      'Promises & Async/Await': [
+        card('What is the main async/await trap?', 'await only pauses the current async function. It does not block the whole JavaScript thread.'),
+        card('How do you debug Promise issues?', 'Use try/catch around await, handle rejections, and log the order of microtasks and timers when timing matters.'),
+      ],
+      'Iterators & Generators': [
+        card('What is the main iterator trap?', 'An iterable must expose Symbol.iterator. Array-like objects are not always iterable.'),
+        card('How do you debug generator flow?', 'Call next step by step and inspect each { value, done } result.'),
+      ],
+      'Destructuring, Spread & Rest': [
+        card('What is the main spread trap?', 'Object and array spread are shallow. Nested objects still share the same reference.'),
+        card('How do you debug destructuring issues?', 'Check whether the value is undefined/null and whether defaults only apply to undefined.'),
+      ],
+      'Modules (ESM vs CommonJS)': [
+        card('What is the main ESM/CommonJS trap?', 'ESM imports are static and live-bound. CommonJS require is runtime-based and returns exported values differently.'),
+        card('How do you debug module issues?', 'Check the package type, file extension, export shape, and whether you are mixing default and named imports.'),
+      ],
+      Classes: [
+        card('What is the main class syntax trap?', 'Classes are syntax over prototypes. Methods live on the prototype, not directly on each instance.'),
+        card('How do you debug class issues?', 'Check constructor initialization, this binding for methods, inheritance order, and private-field access.'),
+      ],
+      'Event Loop & Microtasks': [
+        card('What is the main event-loop trap?', 'Promise microtasks run before timer callbacks, so setTimeout(fn, 0) does not run first.'),
+        card('How do you debug event-loop order?', 'Log synchronous code, Promise callbacks, queueMicrotask, and timers separately to see the actual order.'),
+      ],
+      'Array/Object methods': [
+        card('What is the main array-method trap?', 'map returns a new array; forEach returns undefined. Use map for transformation and forEach for side effects.'),
+        card('How do you debug object-method issues?', 'Check own vs inherited keys, enumerable vs non-enumerable fields, and whether a method mutates the original value.'),
+      ],
+    },
+    html: {
+      'Semantic Elements': [
+        card('What is the default for semantic elements?', 'Use elements that describe meaning: main, nav, article, section, header, footer, button, and a.'),
+        card('What usually goes wrong in semantic HTML?', 'Using divs for everything hides meaning from screen readers, search engines, and browser features.'),
+      ],
+      'Forms & Validation': [
+        card('What is the default for forms?', 'Use native form controls, labels, name attributes, and input types before adding custom JavaScript.'),
+        card('What usually goes wrong in forms?', 'Missing labels, missing name attributes, weak validation, and relying only on placeholder text.'),
+      ],
+      'Accessibility & ARIA': [
+        card('What is the default for ARIA?', 'Use native HTML first. Add ARIA only when native semantics cannot express the needed behavior.'),
+        card('What usually goes wrong with ARIA?', 'Incorrect roles or missing keyboard behavior can make custom UI worse than plain HTML.'),
+      ],
+      Media: [
+        card('What is the default for media?', 'Use img, picture, video, and audio with correct alt text, dimensions, captions, and responsive sources.'),
+        card('What usually goes wrong in media?', 'Missing alt text, oversized images, missing dimensions, and videos without captions or mobile-safe playback settings.'),
+      ],
+      'Canvas basics': [
+        card('What is the default for canvas?', 'Use canvas for pixel-based drawing and provide accessible fallback text or alternative UI when content matters.'),
+        card('What usually goes wrong in canvas?', 'Canvas content is not semantic by default, and CSS sizing can make drawings blurry if buffer size is wrong.'),
+      ],
+      'Web Storage APIs': [
+        card('What is the default for web storage?', 'Use localStorage or sessionStorage only for small non-sensitive strings, preferences, and simple cache data.'),
+        card('What usually goes wrong in web storage?', 'Storing tokens or private data is risky because any script on the origin can read it after XSS.'),
+      ],
+      'Meta tags & SEO': [
+        card('What is the default for SEO meta tags?', 'Set title, description, viewport, canonical URL when needed, and Open Graph tags for shared previews.'),
+        card('What usually goes wrong in SEO metadata?', 'Missing unique titles/descriptions, blocked content, weak heading structure, and pages rendered too late for crawlers.'),
+      ],
+      'Web Components basics': [
+        card('What is the default for Web Components?', 'Use Custom Elements, Shadow DOM, and templates when you need framework-independent reusable components.'),
+        card('What usually goes wrong in Web Components?', 'Styling, form participation, accessibility, and framework integration need explicit design.'),
+      ],
+    },
+    css: {
+      'Selectors & Specificity': [
+        card('What fails first with selectors?', 'Overly specific selectors make later overrides difficult and fragile.'),
+        card('What is the better selector practice?', 'Keep selectors shallow, use clear component classes, and avoid unnecessary IDs or !important.'),
+      ],
+      'Box Model': [
+        card('What fails first with the box model?', 'Unexpected width happens when padding and border are added outside content-box sizing.'),
+        card('What is the better box-model practice?', 'Use box-sizing: border-box globally so declared width includes padding and border.'),
+      ],
+      Flexbox: [
+        card('What fails first with Flexbox?', 'Items overflow because min-width:auto preserves content width. Use min-width:0 when children must shrink.'),
+        card('What is the better Flexbox practice?', 'Use Flexbox for one-dimensional alignment and set gap, flex-wrap, and min-size constraints deliberately.'),
+      ],
+      Grid: [
+        card('What fails first with Grid?', 'Implicit tracks or fixed columns can overflow small screens.'),
+        card('What is the better Grid practice?', 'Use responsive tracks like minmax and auto-fit, and define gaps and areas clearly.'),
+      ],
+      Positioning: [
+        card('What fails first with positioning?', 'Absolute elements position against the wrong ancestor when no positioned parent exists.'),
+        card('What is the better positioning practice?', 'Set position: relative on the intended containing block and avoid positioning for normal layout.'),
+      ],
+      'Transitions & Animations': [
+        card('What fails first with animations?', 'Animating width, height, top, or margin can trigger layout work and cause jank.'),
+        card('What is the better animation practice?', 'Animate transform and opacity when possible, and respect prefers-reduced-motion.'),
+      ],
+      Transforms: [
+        card('What fails first with transforms?', 'Transforms create new stacking contexts and can change how fixed or z-index behavior feels.'),
+        card('What is the better transform practice?', 'Use transforms for visual movement, but check stacking, hit areas, and text readability.'),
+      ],
+      'Responsive Design': [
+        card('What fails first in responsive design?', 'Fixed widths, unbounded text, and large media break small screens first.'),
+        card('What is the better responsive practice?', 'Start mobile-first, use flexible layout, responsive media, and test real narrow and wide viewports.'),
+      ],
+      'Custom Properties': [
+        card('What fails first with custom properties?', 'Missing fallback values or unclear token names make themes hard to maintain.'),
+        card('What is the better custom-property practice?', 'Use meaningful design tokens, define sensible fallbacks, and scope theme values intentionally.'),
+      ],
+      'Pseudo-classes & Pseudo-elements': [
+        card('What fails first with pseudo selectors?', 'Hover-only styles miss keyboard and touch users.'),
+        card('What is the better pseudo-selector practice?', 'Pair hover with focus-visible where relevant and use pseudo-elements for decoration, not essential content.'),
+      ],
+    },
+  };
+
+  const replaceGeneratedTopicCard = (skill, item) => {
+    const q = String(item.q || '').trim();
+    const replacements =
+      skill.parentId === ts.id ? topicSpecificFlashcards.ts[skill.name] :
+      skill.parentId === js.id ? topicSpecificFlashcards.js[skill.name] :
+      skill.parentId === html.id ? topicSpecificFlashcards.html[skill.name] :
+      skill.parentId === css.id ? topicSpecificFlashcards.css[skill.name] :
+      null;
+
+    if (!replacements) return item;
+
+    if (
+      /^In .*, what typically causes unsafe code\?$/.test(q) ||
+      q.startsWith('What interview trap appears often') ||
+      q.startsWith('What is the high-value default') ||
+      q.startsWith('What fails first')
+    ) {
+      return { ...item, q: replacements[0].q, a: replacements[0].a };
+    }
+
+    if (
+      q.startsWith('How do you validate understanding') ||
+      q.startsWith('How do you debug') ||
+      q.startsWith('What breaks most often') ||
+      q.startsWith('What is the senior-level practice')
+    ) {
+      return { ...item, q: replacements[1].q, a: replacements[1].a };
+    }
+
+    return item;
+  };
+
+  const conciseFlashcardAnswers = new Map([
+    ['What is responsive design?', 'Responsive design makes UI adapt to screen size, input type, and device capability using flexible layouts, media queries, and responsive media.'],
+    ['What are Global Execution Context and Function Execution Context?', 'Global Execution Context is created when JavaScript starts and holds global variables, functions, and this. Function Execution Context is created whenever a function runs and holds its parameters, local variables, scope chain, and this.'],
+    ['If JavaScript is single-threaded, how does async work?', 'JavaScript runs one call stack, but the browser or Node handles waiting work like timers, fetch, and events. When that work finishes, callbacks wait in queues, and the event loop runs them when the stack is free.'],
+    ['Example of Module Federation Remote Configuration.', 'A remote app exposes components or modules through Module Federation. The host later loads them from remoteEntry.js. The key settings are name, filename, exposes, and shared dependencies.'],
+    ['What is Closure?', 'A closure is a function that remembers variables from its outer scope even after the outer function has finished. It is used in callbacks, timers, memoization, and private state.'],
+    ['What is Debouncing?', 'Debouncing delays a function until events stop for a short time. It is useful for search input, resize handlers, and API calls that should not run on every keystroke.'],
+    ['How does this work in JavaScript?', '`this` depends on how a function is called. In an object method, it points to the object. In an arrow function, it is inherited from the surrounding scope.'],
+    ['Why was JavaScript created?', 'JavaScript was created in 1995 to add interactivity to web pages, such as click handling, form validation, dynamic content updates, and browser-side behavior.'],
+    ['What are Memory Phase and Execution Phase?', 'In the memory phase, JavaScript allocates variables and functions. var starts as undefined, and function declarations are stored fully. In the execution phase, code runs line by line and assigns real values.'],
+    ['Explain dependency version conflicts.', 'A dependency version conflict happens when separate apps load incompatible versions of the same package. In microfrontends, duplicate React versions can break hooks and context, so shared dependency rules are important.'],
+    ['What is Lexical Environment?', 'A lexical environment is local memory plus a reference to the outer scope. It lets inner functions access variables from where they were written.'],
+    ['What is an Interpreter?', 'An interpreter runs source code step by step at runtime. It starts quickly, but repeated execution can be slower than compiled code.'],
+    ['What is JavaScript, summarized?', 'JavaScript is a high-level, single-threaded, garbage-collected, prototype-based language. Modern engines interpret it first and JIT-compile hot code for speed.'],
+    ['Is JavaScript interpreted or compiled?', 'Modern JavaScript is both. Engines interpret code for fast startup, then JIT-compile frequently used code into optimized machine code.'],
+    ['Why does JavaScript run on so many platforms?', 'JavaScript runs anywhere a JS engine is embedded. Browsers, Node.js, React Native, Electron, edge workers, and some devices all provide different runtime APIs around the same language.'],
+    ['What is Event Delegation?', 'Event delegation means adding one listener to a parent and using event.target to handle child events. It reduces listeners and works well for dynamic lists.'],
+    ['What is a Compiler?', 'A compiler converts source code into lower-level code before execution. Compiled output usually runs faster because less translation is needed at runtime.'],
+    ['What are hidden classes and why do they exist?', 'Hidden classes are internal engine structures for objects with the same property shape. They help property access run faster. Adding properties in different orders can reduce this optimization.'],
+    ['What is the difference between call, apply, and bind?', '`call` runs a function immediately with comma-separated arguments. `apply` runs it immediately with an argument array. `bind` returns a new function with this preset.'],
+    ['What is the cold start problem?', 'Cold start means the first request waits while a serverless runtime starts. Later warm requests are faster. Edge runtimes and provisioned concurrency reduce this delay.'],
+    ['What is a Microfrontend?', 'A microfrontend splits a large frontend into smaller apps owned and deployed independently. A shell or host app composes them into one user experience.'],
+    ['How does async/await work internally?', 'async/await is syntax over Promises. An async function returns a Promise, and await pauses that function until the Promise settles without blocking the whole JavaScript thread.'],
+    ['What is React Fiber?', 'React Fiber is React’s rendering engine. It splits rendering into small units so React can pause, resume, prioritize, and commit UI updates efficiently.'],
+    ['What is hydration in SSR?', 'Hydration is when browser JavaScript attaches event handlers and state behavior to server-rendered HTML. The page is visible first, then becomes interactive.'],
+    ['Modern SPA stack in 2026?', 'A common SPA stack is Vite, React, routing, server-state caching, client-state management, a styling system, tests, and deployment tooling. Choose each tool based on app complexity.'],
+    ['Extension security concerns?', 'Extensions can read and change page content, so permissions must stay minimal. Avoid broad host access, eval, unsafe injection, and storing sensitive data insecurely.'],
+    ['What is Object Delegation?', 'Object delegation means an object can use properties and methods from its prototype. If a property is missing locally, JavaScript searches upward through the prototype chain.'],
+    ['SPA vs SSR vs SSG — quick rules?', 'SPA renders mostly in the browser. SSR renders HTML on each request. SSG builds HTML ahead of time. Use SPA for dashboards, SSR for dynamic SEO pages, and SSG for mostly static content.'],
+    ['What is ISR?', 'ISR lets static pages update after deployment on a schedule or on demand. It keeps CDN speed while allowing content freshness.'],
+    ['When does SSG break down?', 'SSG becomes hard when pages are highly personalized, data changes very often, or the site has so many pages that builds are too slow. SSR or ISR may fit better.'],
+    ['Why do Promise callbacks execute before setTimeout?', 'Promise callbacks run in the microtask queue. setTimeout callbacks run in the macrotask queue. The event loop clears microtasks before moving to the next macrotask.'],
+    ['How do collab apps handle access control?', 'Collaborative apps usually check permissions when a user connects and when mutations reach the server. Fine-grained permissions inside shared CRDT documents are difficult.'],
+    ['What is a JS Engine?', 'A JavaScript engine parses, compiles, executes, and optimizes JavaScript. Examples are V8 in Chrome, SpiderMonkey in Firefox, and JavaScriptCore in Safari.'],
+  ]);
+
+  // Final flashcard safety pass: every card should have a clear question and answer.
+  skills.forEach((skill) => {
+    if (!Array.isArray(skill.flashcards)) return;
+    skill.flashcards = skill.flashcards
+      .filter((item) => item && String(item.q || '').trim() && String(item.a || '').trim())
+      .map((item) => {
+        const normalized = replaceGeneratedTopicCard(skill, item);
+        const q = String(normalized.q).trim();
+        return {
+          ...normalized,
+          q,
+          a: conciseFlashcardAnswers.get(q) || String(normalized.a).trim(),
+        };
+      });
+  });
 
   return skills;
 }
