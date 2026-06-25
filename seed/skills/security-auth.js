@@ -75,8 +75,8 @@ export default function buildSecuritySkills() {
               ? "res.cookie('access_token', token, {\n  httpOnly: true,\n  secure: true,\n  sameSite: 'strict',\n});"
               : "const header = JSON.parse(Buffer.from(token.split('.')[0], 'base64url').toString('utf8'));",
         flashcards: [
-          card(`What breaks first in ${name}?`, 'Assuming defaults are safe without explicit validation and lifecycle policy.'),
-          card(`How do you verify ${name} hardening?`, 'Threat-model token theft/replay and test negative paths (expired, wrong aud/iss, revoked).'),
+          card(`What breaks first in ${name}?`, 'Token validation usually fails first: missing algorithm pinning, aud/iss checks, exp/nbf checks, or revocation logic can make a token valid in the wrong service or time window.'),
+          card(`How do you verify ${name} hardening?`, 'Add tests that reject expired tokens, future nbf, wrong aud/iss, algorithm mismatch, tampered signatures, and revoked jti/session IDs.'),
         ],
       })
     );
@@ -139,8 +139,8 @@ export default function buildSecuritySkills() {
               ? "scope=openid profile email read:orders"
               : "POST /oauth2/revoke\ntoken=<refresh_token>",
         flashcards: [
-          card(`What is the frequent mistake in ${name}?`, 'Treating OAuth transport success as complete security without validating all response and token constraints.'),
-          card(`How do you test ${name} safely?`, 'Exercise negative callback/token scenarios and verify strict redirect/state/audience checks.'),
+          card(`What is the frequent mistake in ${name}?`, 'Trusting the callback just because a code/token exists; the client must validate state, PKCE, exact redirect_uri, token audience, issuer, and granted scopes.'),
+          card(`How do you test ${name} safely?`, 'Verify rejection for missing/wrong state, reused authorization code, missing PKCE verifier, bad redirect_uri, wrong audience, and over-broad scopes.'),
         ],
       })
     );
@@ -203,8 +203,8 @@ export default function buildSecuritySkills() {
               ? "accessTokenLifespan = 15m\nssoSessionIdleTimeout = 30m"
               : "POST /admin/realms/skillup/users",
         flashcards: [
-          card(`What commonly fails in ${name}?`, 'Configuration drift between identity provider setup and application authorization assumptions.'),
-          card(`How do you de-risk ${name}?`, 'Version-controlled config exports, staging parity, and automated login/token contract tests.'),
+          card(`What commonly fails in ${name}?`, 'Client config drifts: redirect URIs, access type, protocol mappers, role claims, or token lifetimes no longer match backend validation rules.'),
+          card(`How do you de-risk ${name}?`, 'Export realm config, review diffs, mirror staging/prod settings, and run tests that log in, refresh tokens, and assert expected role/claim shapes.'),
         ],
       })
     );
@@ -263,8 +263,8 @@ export default function buildSecuritySkills() {
               ? "speakeasy.totp.verify({ secret, token, encoding: 'base32', window: 1 });"
               : 'const recoveryCodeHash = hash(code);',
         flashcards: [
-          card(`What is a critical risk in ${name}?`, 'Balancing strict security with recovery usability to avoid either takeover or lockout.'),
-          card(`How do you test ${name}?`, 'Simulate lost-device, clock-drift, brute-force, and account-recovery scenarios end-to-end.'),
+          card(`What is a critical risk in ${name}?`, 'Weak enrollment or recovery can let attackers add/bypass MFA; overly strict recovery can permanently lock out legitimate users.'),
+          card(`How do you test ${name}?`, 'Test enrollment with current auth, valid/expired/reused codes, drift window boundaries, rate limits, recovery-code use, and lost-device reset approval.'),
         ],
       })
     );
