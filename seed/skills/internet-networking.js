@@ -56,7 +56,7 @@ export default function buildInternetSkills() {
       ),
       card(
         'How does multiplexing shift performance compared with HTTP/1.1?',
-        'HTTP/2 multiplexes many streams over one TLS connection avoiding head-of-line blocking at the HTTP layer; HTTP/3/QUIC further reduces TCP-level HoL blocking and improves lossy/mobile networks.',
+        'HTTP/2 multiplexes many streams over one TLS connection, avoiding head-of-line blocking at the HTTP layer. HTTP/3 over QUIC also reduces transport-level blocking on lossy or mobile networks.',
       ),
       card(
         'Why separate `Authorization` cookies from `Cookie`?',
@@ -180,13 +180,13 @@ export default function buildInternetSkills() {
         card('Which header commonly signals gzip vs brotli?', '`Content-Encoding`.'),
       ],
       [
-        card('What pragmatic win does multiplexing unlock?', `Parallel asset downloads without spawning dozens of TCP connections—which hits browser connection limits`),
+        card('What pragmatic win does multiplexing unlock?', 'It allows many requests to share one connection, reducing extra TCP/TLS handshakes and avoiding browser per-origin connection limits.'),
         card('Why was HTTP2 server-push largely abandoned?', 'Complex cache interaction + mismatched precedence with real workloads; prefer preload hints + CDN strategies.'),
         card('Which layer handles QUIC connection migration?', 'QUIC handles connection migration at the transport layer using connection IDs, so a connection can survive client IP or network changes when both endpoints support it.'),
       ],
       [
         card('What does `Vary` protect against?', `Ensures caches key responses on listed request headers—avoid serving gzip variant to gzip-incapable client.`),
-        card('Weak vs strong ETag?', 'Weak permits byte-equivalent substitutions; validators must match server rules for concurrency control.'),
+        card('Weak vs strong ETag?', 'A strong ETag requires byte-for-byte equality. A weak ETag only means the representation is semantically equivalent, so it is unsafe for precise write concurrency checks.'),
       ],
       [
         card('Why pair `Secure` flag with HTTPS-only deployments?', '`Secure` refuses cookie transmission over cleartext HTTP—closes accidental downgrade leaks.'),
@@ -197,7 +197,7 @@ export default function buildInternetSkills() {
           'HTTP/1.1 keep-alive implication on proxies?',
           'Idle sockets plus proxy timeouts can surface as phantom ECONNRESET bursts under churning load.',
         ),
-        card('Which metric skews heavily with HTTP version?', 'Time-to-first-byte plus parallel download waterfalls—observe via DevTools/protocol columns.'),
+        card('Which metric skews heavily with HTTP version?', 'TTFB and the request waterfall can change significantly by HTTP version because connection reuse, multiplexing, and transport-level blocking differ.'),
       ],
     ],
   );
@@ -328,22 +328,22 @@ export default function buildInternetSkills() {
     ],
     [
       [
-        card('When is nested URI depth harmful?', `Super deep paths mirror DB joins—prefer shallow resources + relational links.`),
-        card('Hypermedia HATEOAS payoff?', 'Clients resist hard-coded URL strings—helps evolve APIs gracefully when teams invest tooling.'),
+        card('When is nested URI depth harmful?', 'Deep URI nesting often leaks database relationships into the API. Prefer shallow resources with links or filters when the relationship is not truly hierarchical.'),
+        card('Hypermedia HATEOAS payoff?', 'Hypermedia lets responses advertise available actions and links, reducing hard-coded client URLs and making API evolution easier when the tooling supports it.'),
       ],
       [
-        card('Which verb for file uploads chunked/resumable?', 'Often POST to `/uploads` with signed URLs—not literal PUT binary on huge resources blindly.'),
+        card('Which verb fits chunked or resumable file uploads?', 'Usually create an upload session with `POST /uploads`, then upload chunks or signed-object parts according to that session contract.'),
       ],
       [
-        card('Difference `201` payload vs Location header?', 'Location points canonical fetch URL; bodies may embed partial summaries—document contract.'),
+        card('Difference between a `201` body and the `Location` header?', '`Location` points to the canonical URL of the created resource. The response body may include the full resource or a summary, but that shape must be documented.'),
       ],
       [
-        card('why DELETE twice should be safe?', `Second call converges deleted state—middleware must not double-charge quotas.`),
+        card('Why should calling DELETE twice be safe?', 'DELETE is idempotent: repeating it should leave the resource deleted without duplicating side effects such as billing, quota usage, or audit actions.'),
       ],
       [
         card(
           'Deprecation header pattern?',
-          'Publish `Deprecation` plus `Sunset` (RFC 8594) dates and observable logs—pair with versioning docs.',
+          'Publish `Deprecation` and `Sunset` headers with clear dates, log usage by client, and pair the change with migration/versioning documentation.',
         ),
       ],
     ],
@@ -361,27 +361,27 @@ export default function buildInternetSkills() {
     flashcards: [
       card(
         'What path does stub resolver traversal take?',
-        'Browser/OS stub → recursive resolver iterates delegated NS chain until authoritative answers or cached hit.',
+        'The browser or OS stub asks a recursive resolver; the recursive resolver either returns a cached answer or walks the root, TLD, and authoritative name servers.',
       ),
       card(
         'Why can lowering TTL dangerously destabilize origin?',
-        'Clients hammer lookups; authoritative/load balancers choke—balance agility vs infra cost.',
+        'A very low TTL increases DNS query volume, which can overload authoritative DNS or DNS-based load-balancing systems. Lower TTLs only when the operational need justifies the extra traffic.',
       ),
       card(
-        'Purpose of glue records?',
-        'Break circular dependence when NS hostnames lie inside delegated zone—they carry A/AAAA sibling answers at parent.',
+        'What is the purpose of glue records?',
+        'Glue records break circular lookups when a zone names its own name servers. The parent zone includes the name server addresses so resolvers can reach them.',
       ),
       card(
         'Why MX priority matters?',
-        'Lower integers preferred first; failover + load spread across cooperating mail relays.',
+        'Mail senders try MX records with lower preference numbers first. Higher numbers act as fallback relays, while equal priorities can share load.',
       ),
       card(
-        'DNS lookups happen per-domain how?',
-        `Each authoritative label may incur extra RTT unless prefetch/preconnect mitigation—overlap with Perf Network tuning.`,
+        'How do DNS lookups affect each hostname?',
+        'Each new hostname can require DNS resolution, adding round trips unless the answer is cached or the browser has prefetched/preconnected.',
       ),
       card(
-        'DoH implications for corp networks?',
-        'Encrypts lookups to HTTPS endpoints—security win but visibility/traditional filtering complexity.',
+        'What are DoH implications for corporate networks?',
+        'DNS-over-HTTPS encrypts DNS queries to an HTTPS resolver, improving privacy but reducing visibility for traditional corporate DNS logging and filtering.',
       ),
     ],
     apis: [
@@ -440,17 +440,17 @@ export default function buildInternetSkills() {
     ],
     [
       [
-        card('Difference authoritative vs recursive answers?', `Authoritative originates zone data; recursive synthesizes by walking chain + caching aggregates.`),
-        card('Wildcard record danger?', `Over-broad wildcard captures unintended hostnames leaking internal services`),
+        card('Difference between authoritative and recursive answers?', 'An authoritative server owns the zone data. A recursive resolver finds or caches answers on behalf of clients.'),
+        card('Wildcard record danger?', 'An overly broad wildcard can resolve unintended hostnames, hide configuration mistakes, or expose internal naming patterns.'),
       ],
       [
-        card('Chain too many CNAMES?', 'Some providers flatten; apex alias rules ≠ generic CNAME spec expectations.'),
+        card('Why avoid long CNAME chains?', 'Each CNAME hop can add latency and failure points. Apex aliases are provider-specific conveniences, not the same as standard CNAME behavior.'),
       ],
       [
-        card('Stale negative cache?', 'NXDOMAIN cached too—during cutovers flush affected PoPs thoughtfully.'),
+        card('What is stale negative caching?', '`NXDOMAIN` responses can be cached too, so a name created after a failed lookup may remain invisible until the negative TTL expires.'),
       ],
       [
-        card('Operational logging gap with DoH?', 'Traditional DNS DPI blind—plan endpoint security accordingly.'),
+        card('Operational logging gap with DoH?', 'DoH hides DNS queries inside HTTPS, so network DNS inspection may not see them. Endpoint policy and resolver configuration become more important.'),
       ],
     ],
   );
@@ -468,35 +468,35 @@ export default function buildInternetSkills() {
     flashcards: [
       card(
         'What tuple defines origin equality?',
-        'Scheme + registered host + port must match—all three—not just overlapping hostnames/subdomains.',
+        'Two URLs have the same origin only when scheme, host, and port all match exactly. Similar domains or sibling subdomains are different origins.',
       ),
       card(
         'Which requests skip preflight?',
-        'Historical “simple” subset (methods GET/HEAD/POST with safelisted headers/content-types) executes directly—anything else triggers OPTIONS choreography.',
+        'Only CORS-safelisted requests skip preflight: GET, HEAD, or POST with safelisted headers and content types. Other methods or custom headers trigger an OPTIONS preflight.',
       ),
       card(
         "Why can't `Access-Control-Allow-Origin: *` accompany `Allow-Credentials: true`?",
-        'Spec forbids—it would let any script read authenticated responses blindly; echo requesting `Origin` or reflect via server allowlist.',
+        'Browsers reject that combination because wildcard origins would let any site read credentialed responses. Use a validated allowlist and return the specific requesting origin.',
       ),
       card(
-        'Difference `Access-Control-Expose-Headers` defaults?',
-        'Browsers hide most headers from JS (`Set-Cookie` never exposed); whitelist additional ones explicitly.',
+        'What does `Access-Control-Expose-Headers` expose by default?',
+        'JavaScript can read only CORS-safelisted response headers by default. Add `Access-Control-Expose-Headers` for custom readable headers; `Set-Cookie` is never exposed to JS.',
       ),
       card(
         'How do opaque responses sabotage SPA error handling?',
-        'Failed CORS may yield unreadable bodies—observe network tab versus JavaScript readability.',
+        'When CORS blocks access, JavaScript cannot read the response body or many details, even if DevTools shows the network response. This makes API error handling look generic.',
       ),
       card(
-        'Server-side SSR fetch circumvent CORS—why?',
-        'Node fetch isn’t a browser enforcing SOP—you must still validate outbound calls manually.',
+        'Why does server-side SSR fetch bypass CORS?',
+        'CORS is enforced by browsers, not by Node.js or server runtimes. Server-side requests still need their own origin, authentication, and SSRF validation.',
       ),
       card(
         'Why preflight caches matter?',
-        'Successful preflight caches `Access-Control-Max-Age`—invalidate via unique URLs only if you truly understand fallout.',
+        '`Access-Control-Max-Age` lets browsers reuse successful preflight decisions. This reduces latency, but incorrect policies may persist until the cache expires.',
       ),
       card(
         'How does `credentials: include` change behaviour?',
-        'Sends cookies + blocks wildcard ACAO—you must synchronize cookie SameSite posture.',
+        '`credentials: include` sends cookies and HTTP credentials on cross-origin requests. The server must return a specific allowed origin and coordinate with cookie `SameSite` settings.',
       ),
     ],
     apis: [
@@ -582,32 +582,32 @@ export default function buildInternetSkills() {
     [
       [
         card(
-          'File:// origin weirdness?',
-          'Local file URLs yield opaque origins blocking standard SPA patterns unless local dev servers provide real HTTPS origins.',
+          'Why can `file://` origins behave strangely?',
+          '`file://` pages usually get opaque origins, so browser security rules can block normal SPA fetch behavior. Use a local HTTP or HTTPS dev server instead.',
         ),
       ],
       [
         card(
           'Why must OPTIONS return quickly?',
-          'Browsers block the real HTTP request until preflight settles—timeouts present as flaky cross-env bugs.',
+          'The browser waits for OPTIONS to succeed before sending the real request, so slow or failing preflights look like flaky API calls.',
         ),
       ],
       [
         card(
-          'Wildcard subdomain traps?',
-          'Each subdomain differs by origin—you must whitelist explicitly or programmatically—not DNS-style globbing.',
+          'Why are wildcard subdomain CORS rules risky?',
+          'Each subdomain is a different origin. CORS policies must validate exact origins or a carefully constrained pattern; DNS-style wildcards are not enough.',
         ),
       ],
       [
         card(
           'How do CDNs worsen CORS mistakes?',
-          'Stale `Access-Control-*` payloads cached wrong way leak headers across callers unless `Vary: Origin`.',
+          'A CDN can cache `Access-Control-*` headers for one origin and serve them to another. Use `Vary: Origin` when the allowed origin is dynamic.',
         ),
       ],
       [
         card(
-          'Duplicate ACAO headers at proxies?',
-          'Behaviour undefined across browsers—terminate with single authoritative ACAO/Vary pairing at edge.',
+          'Why are duplicate ACAO headers at proxies risky?',
+          'Duplicate `Access-Control-Allow-Origin` headers can be handled inconsistently by browsers. Emit one authoritative ACAO value with the matching `Vary` policy.',
         ),
       ],
     ],
@@ -626,36 +626,36 @@ export default function buildInternetSkills() {
       'Weak legacy cipher suites disabled by browsers; insecure renegotiation; incomplete chains; misplaced trust anchors; interception proxies violating expectations.',
     flashcards: [
       card(
-        'TLS 1.3 handshake efficiency vs TLS 1.2?',
-        'Reduced round trips, forbids insecure primitives like static RSA key transport, mandates forward secrecy by default.',
+        'How is the TLS 1.3 handshake more efficient than TLS 1.2?',
+        'TLS 1.3 usually needs fewer round trips than TLS 1.2, removes legacy primitives such as static RSA key exchange, and requires forward-secret key agreement.',
       ),
       card(
         'Why AEAD symmetric ciphers after handshake?',
-        'Bulk throughput needs fast symmetric cryptography while handshake bootstrapped slower asymmetric math.',
+        'Asymmetric cryptography is used to authenticate and agree on keys. After that, AEAD symmetric ciphers protect bulk data efficiently with both encryption and integrity.',
       ),
       card(
-        'Forward secrecy implication?',
-        'Captured ciphertext cannot decrypt later if ephemeral keys destroyed—even if RSA cert leaked later.',
+        'What does forward secrecy imply?',
+        'With forward secrecy, recorded traffic cannot be decrypted later from a leaked certificate key because each session used ephemeral key material.',
       ),
       card(
-        'Risk of sloppy certificate pinning?',
-        'Legitimate breakage during incidents / rotation—prefer CT monitoring plus fast automation versus naive pin lists.',
+        'What is the risk of sloppy certificate pinning?',
+        'Bad pinning can lock clients out during certificate rotation or incident recovery. Prefer certificate transparency monitoring and automated renewal unless pinning is truly required.',
       ),
       card(
         'Why automate ACME?',
-        'Short-lived certificates shrink blast radius of key compromise—but misconfigured renewal quietly bricks sites.',
+        'ACME automation keeps certificate issuance and renewal reliable, and short-lived certificates reduce compromise impact. Misconfigured renewal can still take a site offline.',
       ),
       card(
-        'Session ticket vs session ID resumption?',
-        'Both amortize handshakes; tickets move statelessness burden server-side securely—replay considerations remain.',
+        'How do session tickets differ from session IDs?',
+        'Both reduce repeat handshake cost. Session IDs require server-side state, while session tickets let the client carry encrypted resumption state; tickets must still be managed for replay and key rotation.',
       ),
       card(
-        '0-RTT data caveats?',
-        'Replay amplification against non-idempotent endpoints—guard with replay caches or disallow sensitive verbs.',
+        'What are the caveats of 0-RTT data?',
+        '0-RTT data can be replayed by an attacker, so it should be limited to idempotent or replay-tolerant requests and protected with replay defenses.',
       ),
       card(
-        'Corporate TLS interception fallout?',
-        'Custom roots let proxies terminate TLS breaking strict pinning assumptions—coordinate mobile fleet trust.',
+        'What is the fallout from corporate TLS interception?',
+        'Corporate proxies may install custom root certificates and terminate TLS traffic, which breaks assumptions around pinning and end-to-end certificate identity.',
       ),
     ],
     apis: [
@@ -725,29 +725,29 @@ export default function buildInternetSkills() {
       [
         card(
           'What does Finished message prove?',
-          'Both sides hashed transcript matches—detects downgrade/injection adversaries.',
+          'The Finished message proves both peers derived the same keys and saw the same handshake transcript, detecting tampering or downgrade attempts.',
         ),
         card(
-          'OCSP staple benefit?',
-          'Avoids realtime OCSP lookups for clients tightening privacy + handshake latency.',
+          'What is the benefit of OCSP stapling?',
+          'OCSP stapling lets the server provide certificate revocation status during the handshake, reducing client latency and avoiding extra privacy-leaking OCSP requests.',
         ),
       ],
       [
         card(
           'Why SAN supersedes CN intuition?',
-          'Validators insist matching Subject Alternative Name entries—legacy CN mismatch fails modern stacks.',
+          'Modern clients validate hostnames against Subject Alternative Name entries. The legacy Common Name field is no longer sufficient for hostname matching.',
         ),
       ],
       [
         card(
-          'TLS false start history?',
-          'Optimization mostly obsolete post TLS1.3—studying legacy behaviour still helps archaeology traffic.',
+          'Why is TLS False Start mostly historical?',
+          'TLS False Start is mostly a legacy optimization now that TLS 1.3 reduced handshake latency, but it still appears in older traffic analysis.',
         ),
       ],
       [
         card(
-          'Preload removals painful why?',
-          'Browsers honour max-age aggressively—coordinate HSTS downgrade windows + communication.',
+          'Why are HSTS preload removals painful?',
+          'Browsers cache HSTS preload and `max-age` policies aggressively, so removing HTTPS-only behavior can take significant time and coordination.',
         ),
       ],
     ],
@@ -764,36 +764,36 @@ export default function buildInternetSkills() {
       'TIME_WAIT explosions, asymmetric routing, QUIC UDP blocking middleboxes, PMTUD black holes impacting UDP payloads.',
     flashcards: [
       card(
-        'Three-way handshake purpose?',
-        'Synchronize sequence numbers + window sizing so both endpoints agree initial state.',
+        'What is the purpose of the TCP three-way handshake?',
+        'The TCP three-way handshake synchronizes sequence numbers and negotiates initial connection state so both endpoints can send a reliable byte stream.',
       ),
       card(
         'TCP head-of-line blocking vs QUIC streams?',
-        'Single TCP reordering stalls unrelated bytes HoL QUIC isolates logical streams despite shared connection.',
+        'In TCP, loss blocks delivery of all later bytes on the connection. QUIC can isolate loss to the affected stream, so unrelated streams can continue.',
       ),
       card(
-        'UDP sweet spots?',
-        'Low-latency voice/video RTP, QUIC, SNMP-style probes tolerant of sporadic drops.',
+        'Where is UDP a good fit?',
+        'UDP fits latency-sensitive or application-managed protocols such as RTP media, QUIC, DNS, and simple probes where the app can tolerate or handle loss.',
       ),
       card(
-        'SYN flood defenses?',
-        'SYN cookies amortize allocating full socket state until handshake completes legitimacy.',
+        'How do SYN cookies defend against SYN floods?',
+        'SYN cookies help resist SYN floods by delaying full connection-state allocation until the client proves it can complete the handshake.',
       ),
       card(
         'Why WebSockets rides TCP?',
-        'Needs reliable duplex framing semantics—inherits TCP backoff behaviour.',
+        'WebSockets need ordered, reliable, full-duplex message framing, so they commonly run over TCP and inherit TCP congestion control and retransmission behavior.',
       ),
       card(
-        'QUIC connection migration?',
-        'Connection IDs decouple endpoints from IP churn helping mobile radios—still debated operator policies.',
+        'How does QUIC connection migration work?',
+        'QUIC connection IDs let a connection survive client IP or network changes, which helps mobile devices move between Wi-Fi and cellular networks.',
       ),
       card(
-        'Port starvation symptoms?',
-        'Ephemeral exhaustion causing `EADDRNOTAVAIL` on proxies bursting short-lived connections.',
+        'What are symptoms of ephemeral port starvation?',
+        'Ephemeral port exhaustion can cause errors such as `EADDRNOTAVAIL`, especially on proxies or clients opening many short-lived outbound connections.',
       ),
       card(
-        'ICMP black hole impact?',
-        'PMTUD silently fails yielding hung giant UDP datagram transfers until MSS clamp intervenes.',
+        'What is the impact of an ICMP black hole?',
+        'If ICMP messages needed for path MTU discovery are blocked, large packets may be dropped silently, causing stalled transfers until packet sizes are reduced.',
       ),
     ],
     apis: [
@@ -842,14 +842,14 @@ export default function buildInternetSkills() {
       'Congestion interplay',
       'UDP tradeoffs',
       'Transport selection playbook',
-      'HoL contrasts',
+      'Head-of-line blocking contrasts',
     ],
     [
       'ACK clocking sequence numbers selectively retransmit loss.',
       'Reno/CUBIC/BBR sculpt throughput vs jitter—simulate with `tc netem`.',
       'Prefer app-level FEC when loss acceptable vs latency unbearable.',
       'Transactional APIs vs realtime media dictate protocol families.',
-      'HTTP/2 multiplex solved application HoL QUIC finishes transport angle.',
+      'HTTP/2 multiplexing reduced application-layer head-of-line blocking; QUIC reduces the transport-layer version across independent streams.',
     ],
     [
       "sysctl net.ipv4.tcp_tw_reuse # historical tuning—audit kernel guidance before applying",
@@ -861,32 +861,32 @@ export default function buildInternetSkills() {
     [
       [
         card(
-          'Delayed ACK × Nagle interaction?',
-          `Tiny interactive packets linger—tune tcp_nodelay for latency-sensitive consoles`,
+          'Delayed ACK and Nagle interaction?',
+          'Delayed ACK plus Nagle can make tiny interactive writes wait longer than expected. Latency-sensitive protocols may need `TCP_NODELAY` after measurement.',
         ),
       ],
       [
         card(
-          'BBR caveat?',
-          'Can appear unfair to coexistence workloads—coordinate multi-tenant infra fairness policies.',
+          'What is a BBR congestion-control caveat?',
+          'BBR can gain throughput in ways that look unfair beside loss-based algorithms, so multi-tenant networks should test and set fairness policy deliberately.',
         ),
       ],
       [
         card(
-          'DNS UDP fallback TCP?',
-          'Truncated UDP responses escalate TCP carrying identical query—explain intermittent slowness.',
+          'When does DNS fall back from UDP to TCP?',
+          'When a DNS UDP response is truncated, the client retries the same query over TCP, which can explain occasional slower DNS lookups.',
         ),
       ],
       [
         card(
           'Choosing QUIC yet blocking UDP 443?',
-          'Middleboxes degrade to TCP—measure real user uplift not synthetic lab optimism.',
+          'If UDP/443 is blocked, QUIC traffic falls back to TCP-based HTTP. Measure real-user results instead of relying only on lab tests.',
         ),
       ],
       [
         card(
           'Head-of-line at HTTP layer post multiplex?',
-          `Single QUIC connection still multiplexes logically—priorities/window updates necessary`,
+          'QUIC removes TCP-level head-of-line blocking, but poor prioritization or flow-control settings can still delay higher-priority HTTP streams.',
         ),
       ],
     ],
@@ -904,35 +904,35 @@ export default function buildInternetSkills() {
     flashcards: [
       card(
         'Why least-connections beats naive RR on long tails?',
-        'Skews away overloaded nodes holding expensive in-flight GRPC streams.',
+        'Least-connections avoids sending more traffic to nodes already holding many long-lived or expensive requests, which round robin cannot see.',
       ),
       card(
-        'SYN proxy vs full TCP proxy?',
-        'SYN absorption accelerates handshake without retaining entire connection state upfront.',
+        'How does a SYN proxy differ from a full TCP proxy?',
+        'A SYN proxy absorbs and validates TCP handshakes before passing them upstream. A full TCP proxy maintains and forwards the entire connection.',
       ),
       card(
-        'Health check path realism?',
-        'Synthetic `/health` returning 200 while DB degraded lies—probe dependencies explicitly.',
+        'Why should health check paths be realistic?',
+        'A health endpoint that always returns 200 can hide dependency failures. Health checks should reflect the dependencies needed to serve real traffic.',
       ),
       card(
         'Why drain overlap matters?',
-        'SIGTERM pods must linger until LB weight zeros so client retries converge elsewhere.',
+        'Backends need time to stop receiving new traffic and finish active requests before shutdown, otherwise clients see avoidable resets and retries.',
       ),
       card(
-        'Anycast vs GeoDNS steering?',
-        'Anycast uses BGP locality; GeoDNS leverages resolver geography + weighted records.',
+        'How does Anycast steering differ from GeoDNS?',
+        'Anycast steers traffic through BGP routing to a nearby advertised network. GeoDNS returns DNS answers based on resolver location, weights, or policy.',
       ),
       card(
-        'Sticky session downsides?',
-        'Hot tenants pin to overloaded shards breaking smooth spreading—prefer externalised session.',
+        'What are the downsides of sticky sessions?',
+        'Sticky sessions can pin heavy users to one backend and defeat load distribution. External session storage usually scales better.',
       ),
       card(
-        'EWMA/smoothed observables?',
-        'Rolling latency feedback fine-tunes weighting vs simplistic static integers.',
+        'Why use EWMA or smoothed observables in load balancing?',
+        'EWMA uses recent latency or load as smoothed feedback, allowing adaptive balancing instead of fixed static weights.',
       ),
       card(
-        'Envoy locality weighting payoff?',
-        'Prioritizes same-zone endpoints trimming cross-AZ chatter spend.',
+        'What is the payoff of Envoy locality weighting?',
+        'Locality weighting prefers same-zone or nearby endpoints, reducing cross-zone latency and data-transfer cost.',
       ),
     ],
     apis: [
@@ -1001,32 +1001,32 @@ export default function buildInternetSkills() {
     [
       [
         card(
-          'NAT pools vs IP-hash?',
-          'Huge shared NAT pools collapse hashing diversity—skew loads oddly.',
+          'How do NAT pools affect IP-hash balancing?',
+          'Large NAT pools can make many users appear to come from a few source IPs, so IP-hash balancing may overload specific backends.',
         ),
       ],
       [
         card(
           'Why passive-only checks brittle?',
-          'Idle nodes never receive probes yet cannot serve eventual spike traffic confidently.',
+          'Passive checks only learn from real requests. Idle nodes may look healthy without proving they can serve the next traffic spike.',
         ),
       ],
       [
         card(
-          'Blue/green for websockets?',
-          'Need cooperative draining because abrupt resets flood reconnect storms.',
+          'What does blue/green deployment require for WebSockets?',
+          'WebSocket deployments need graceful draining, because abruptly closing many long-lived connections can cause a reconnect surge.',
         ),
       ],
       [
         card(
-          'Cross-zone data charges?',
-          'Multi-subnet backends behind naïve round robin hemorrhage egress—locality matters.',
+          'Why do cross-zone data charges matter?',
+          'Sending traffic across zones or regions can add data-transfer charges and latency. Locality-aware balancing avoids unnecessary cross-zone hops.',
         ),
       ],
       [
         card(
-          'Hardware vs software LB choice?',
-          'Hardware saturates NIC offload software flexible but CPU heavy under microburst QUIC.',
+          'How should hardware and software load balancers be compared?',
+          'Hardware load balancers can provide high throughput and offload features, while software load balancers are more flexible but consume CPU under bursts.',
         ),
       ],
     ],
@@ -1045,36 +1045,36 @@ export default function buildInternetSkills() {
       'Accidentally caching authenticated HTML TTL chaos during partial deploy QUIC-only edges blocked corporate networks.',
     flashcards: [
       card(
-        'Anycast vs DNS steering contrast?',
-        'Anycast uses BGP locality DNS uses resolver weighted records—observe traceroute divergence.',
+        'How does Anycast differ from DNS steering?',
+        'Anycast steers users through BGP routing to a nearby announced network. DNS steering returns different records using resolver geography, weights, or health policy.',
       ),
       card(
-        'Origin shield layering benefit?',
-      'Caches shield origin from MISS stampedes POP churn invalidations thrash backends.',
+        'What is the benefit of an origin shield?',
+      'An origin shield adds a mid-tier cache so many edge misses collapse into fewer origin requests, reducing stampedes after purges or POP churn.',
       ),
       card(
-        'Soft purge vs hard purge?',
-        'Soft may keep stale-but-fresh-behind-scenes hard flush risks thundering herds unless warmed.',
+        'How does a soft purge differ from a hard purge?',
+        'A soft purge marks content stale so it can be refreshed while still serving fallback content. A hard purge removes it immediately and can create an origin stampede unless warmed.',
       ),
       card(
         'Why fingerprint filenames?',
-      'Lets `immutable`/`max-age=31536000` safely accelerate cache hits without staleness nightmares.',
+      'Fingerprinting puts a content hash in the filename, so assets can use long `max-age` and `immutable` caching without serving old bytes after deploys.',
       ),
       card(
-        'Edge KV vs relational stores?',
+        'When should edge KV be avoided in favor of a relational store?',
       'KV storage is great for edge config, flags, and small lookup data. If you are doing relational writes, joins, or transactional workflows in KV, the architecture likely belongs in a database instead.',
       ),
       card(
-        'Multi CDN pitfalls?',
-      'Certs must exist per edge TLS automation drift misaligned steering causes flaky SNI mismatches.',
+        'What are common multi-CDN pitfalls?',
+      'Every CDN must have correct certificates, host routing, cache rules, and steering policy. Drift between providers can cause SNI, purge, and routing failures.',
       ),
       card(
-        'Compliance residency nuance?',
-      'Edge crossing borders inadvertently may violate GDPR style requirements audit POP maps.',
+        'What is the compliance nuance with edge residency?',
+      'Edge delivery can move logs, cached content, or processing across borders. Regulated systems must audit POP locations and data-residency controls.',
       ),
       card(
-        'ESI legacy notes?',
-      'HTML fragment stitching largely replaced SSR streaming disciplined cache headers programmable edges.',
+        'Where do ESI-style edge includes fit today?',
+      'Edge Side Includes stitched HTML fragments at the edge. Modern systems more often use SSR streaming, explicit cache headers, or programmable edge workers.',
       ),
     ],
     apis: [
@@ -1143,32 +1143,32 @@ export default function buildInternetSkills() {
     [
       [
         card(
-          'Stale personalised cached HTML risk?',
-          'Same URL differentiated only by Cookie yet cached publicly leaks tenant data nightmares.',
+          'What is the risk of stale personalized cached HTML?',
+          'If personalized HTML is cached publicly under the same URL, one user can receive another user or tenant data. Mark it private or vary the cache key correctly.',
         ),
       ],
       [
         card(
           'Why warm after purge?',
-          'Cold MISS storms hammer origin CPU—queue deterministic warm probes.',
+          'After a purge, many cold misses can hit the origin at once. Warm critical URLs deliberately before or immediately after invalidation.',
         ),
       ],
       [
         card(
-          'Shield extra latency possibility?',
-          'Additional hop lengthens handshake—measure baseline before layering blindly.',
+          'How can an origin shield add latency?',
+          'An origin shield adds another hop, so it can increase latency for some requests. Measure hit ratio and origin protection before enabling it broadly.',
         ),
       ],
       [
         card(
-          'Programmable CDN limits?',
-          'CPU wall clocks constrain heavy transforms—fallback to centralized workers.',
+          'What limits apply to programmable CDN workers?',
+          'Edge workers usually have strict CPU, memory, and runtime limits. Heavy transforms may need centralized workers or background processing.',
         ),
       ],
       [
         card(
-          'HTTP3 QUIC blockage?',
-          'Some networks filter UDP forcing TCP degradation—observe CrUX deltas not lab-only.',
+          'How can HTTP/3 over QUIC be blocked?',
+          'Some networks block UDP, so HTTP/3 over QUIC may fall back to TCP. Use field data to confirm real-user improvement.',
         ),
       ],
     ],
@@ -1187,36 +1187,36 @@ export default function buildInternetSkills() {
       '`Cache-Control` misreadings abound `immutable` worthless without hashing `Vary` misuse blows cardinality BFCache quirks.',
     flashcards: [
       card(
-        '`private` directive intent?',
-      'Keeps caches off shared intermediaries guarding personalised payloads.',
+        'What is the intent of the `private` cache directive?',
+      '`private` allows a browser cache to store the response but prevents shared caches, such as CDNs or proxies, from storing personalized content.',
       ),
       card(
-        '`s-maxage` vs `max-age` split?',
-      'Shared caches honour `s-maxage` tighter leash personal browsers optionally longer/shorter interplay.',
+        'How does `s-maxage` differ from `max-age`?',
+      '`s-maxage` controls freshness for shared caches and overrides `max-age` there. `max-age` still applies to private browser caches.',
       ),
       card(
-        '304 vs 200 interplay?',
-      'Validators allow cheap no-body confirmations keeping cached entries fresh logically.',
+        'How does a `304` response differ from a `200` response?',
+      'A `304 Not Modified` response confirms the cached representation is still valid without sending the body again. A `200` sends a fresh representation.',
       ),
       card(
         'Why layered caches matter?',
-      'Memory warm hits cost microseconds disk hits microseconds-milliseconds BFCache instantaneous navigation resume.',
+      'Different cache layers have different latency and behavior: memory is fastest, disk survives longer, CDNs reduce origin load, and BFCache can restore whole pages instantly.',
       ),
       card(
-        'Service Worker mention succinctly?',
-      'May override network stack offline layer—still interplay with upstream headers unless bypassed purposely.',
+        'How should Service Workers be considered with HTTP caching?',
+      'A Service Worker can intercept requests and implement offline or custom caching, but it still needs a deliberate strategy for upstream HTTP cache headers.',
       ),
       card(
-        'BFCache disqualifiers?', 
-      'Unload listeners lingering timers media complexity may evict disqualify careful audit.',
+        'What can disqualify a page from BFCache?', 
+      'Pages can miss BFCache because of `unload` listeners, active connections, media state, or other lifecycle issues. Use browser diagnostics to confirm eligibility.',
       ),
       card(
-        'Cache bust misuse query strings?', 
-      'Fingerprint filenames beat `?cachebust=`—CDNs reuse identical payloads cross tenants easier.',
+        'Why are query-string cache busters often misused?', 
+      'Hashed filenames are safer than ad hoc query-string cache busting because they create immutable asset URLs tied to exact content.',
       ),
       card(
-        'stale-if-error humane angle?',
-      'During origin outage responsibly serve tolerant stale artefacts monitor ethics.',
+        'When is `stale-if-error` helpful?',
+      '`stale-if-error` can keep tolerant pages available during origin failures, but it should not serve stale data where correctness is critical.',
       ),
     ],
     apis: [
@@ -1293,32 +1293,32 @@ export default function buildInternetSkills() {
     [
       [
         card(
-          'Danger `Vary: Authorization` naively?',
-          'Explodes cardinality per token—prefer split routes or keyed caches.',
+          'Why is naive `Vary: Authorization` dangerous?',
+          '`Vary: Authorization` can create one cache entry per token and destroy cache efficiency. Prefer private responses, route separation, or explicit keyed caching.',
         ),
       ],
       [
         card(
-          '304 body expectations?',
-          'Should carry no entity body yet clients hydrate from caches carefully.',
+          'Should a `304` response include a body?',
+          'A `304` should not include a response body. Clients reuse the already cached body and update metadata from the 304 headers.',
         ),
       ],
       [
         card(
-          'BFCache + timers?',
-          'Restored snapshots replay timers watchers—must idempotent teardown setup.',
+          'How should BFCache restores handle timers?',
+          'BFCache restores a frozen page snapshot, so timers, subscriptions, and observers need idempotent pause/resume handling.',
         ),
       ],
       [
         card(
-          'stale-if-error ethically?',
-          'Serving stale transactional states misleads traders—observe domain nuance.',
+          'When is `stale-if-error` ethically risky?',
+          'Serving stale data is unacceptable for many transactional or financial states. Apply `stale-if-error` only where stale content is safer than failure.',
         ),
       ],
       [
         card(
-          'immutable mis-deploy?',
-          'Users stuck indefinitely until clearing site data—coordinate release switches.',
+          'What happens if `immutable` is mis-deployed?',
+          'If an unhashed asset is served with `immutable`, users may keep the wrong file until the cache is cleared or the URL changes.',
         ),
       ],
     ],
@@ -1332,39 +1332,39 @@ export default function buildInternetSkills() {
     whenUsed:
       'Video conferencing telemetry streaming gaming-adjacent features bridging native SIP worlds cautiously.',
     gotchas:
-      'Codec SDP negotiation nightmares symmetric NAT breakage silent black feeds mobile thermal throttling heavy encoders.',
+      'Codec and SDP negotiation can fail subtly; symmetric NATs may require TURN, media tracks can go silent, and mobile encoders can throttle under heat or battery pressure.',
     flashcards: [
       card(
-        'Why SDP offers/answers serialised?', 
-      'Stateful machine forbids malformed transitions signalling server must correlate IDs.',
+        'Why must SDP offers and answers be serialized?', 
+      'SDP offer/answer follows a strict state machine, so signaling must preserve order and correlate messages to the correct peer connection.',
       ),
       card(
-        'Purpose STUN?', 
-      'Determines reflexive NAT mapped addresses enabling direct candidates.',
+        'What is the purpose of STUN?', 
+      'STUN discovers the public mapped address for a client behind NAT, allowing WebRTC to try direct peer-to-peer candidates.',
       ),
       card(
-        'Purpose TURN?',
-      'Relays payloads when symmetric NAT forbids punching costlier bandwidth billed.',
+        'What is the purpose of TURN?',
+      'TURN relays media or data when direct connectivity fails, such as behind restrictive NATs or firewalls. It is reliable but costs bandwidth and latency.',
       ),
       card(
-        'ICE nomination completion?', 
-      'Chooses workable candidate pairs subject to continual network mobility.',
+        'What happens when ICE nomination completes?', 
+      'ICE tests candidate pairs and nominates the pair that can actually carry traffic, then may adapt if network conditions change.',
       ),
       card(
         'Why permissions gating?', 
-      'Mitigates drive-by microphone capture aligns autoplay restrictions.',
+      'Browser permission prompts prevent silent microphone, camera, or screen capture and align media access with user intent.',
       ),
       card(
-        'Simulcast vs layering?',
-      'Adaptive encode layers degrade gracefully watchers bandwidth variance.',
+        'How does simulcast help adaptive media delivery?',
+      'Simulcast sends multiple encodings so receivers or SFUs can choose a stream that fits each viewer bandwidth and device capacity.',
       ),
       card(
-        'DataChannel unordered mode?',
-      'Mimics lossy realtime telemetry preferring freshest samples over staleness guarantees.',
+        'When is unordered DataChannel mode useful?',
+      'Unordered DataChannels are useful when fresh messages matter more than sequence, such as telemetry, game state hints, or live cursors.',
       ),
       card(
-        'Headless testing hack?',
-      'Fake media devices CLI flags unblock CI sparingly—they mask real UX.',
+        'What is the limitation of fake media devices in headless tests?',
+      'Fake media-device flags can unblock CI tests, but they do not validate real permission prompts, device failures, or user experience.',
       ),
     ],
     apis: [
@@ -1453,38 +1453,38 @@ export default function buildInternetSkills() {
     [
       [
         card(
-          'Renegotiation triggers?', 
-          'Adding tracks toggling codecs simulcast toggles SDP again—coordinate polite renegotiations.',
+          'What triggers WebRTC renegotiation?', 
+          'Adding or removing tracks, changing codec preferences, or enabling simulcast can require a new SDP negotiation. Use a polite renegotiation flow.',
         ),
       ],
       [
         card(
-          'Symmetric NAT behaviour?',
-          'Changes mapping per destination punching fails—relay via TURN.',
+          'How does symmetric NAT affect WebRTC?',
+          'A symmetric NAT creates different mappings per destination, so peer punching often fails and TURN relay is usually required.',
         ),
       ],
       [
         card(
-          'Bundle-only transport risks?',
-          'Shared connection couples failure blast radius consciously accept tradeoff.',
+          'What are the risks of bundle-only WebRTC transport?',
+          'Bundling media on one transport reduces setup overhead, but a transport failure can affect multiple tracks at once.',
         ),
       ],
       [
         card(
-          'ICE restart?', 
-          'Reboots connectivity post network flap faster than teardown entire PC.',
+          'What does an ICE restart do?', 
+          'An ICE restart gathers and checks new candidates after a network change without rebuilding the entire peer connection.',
         ),
       ],
       [
         card(
-          'Prefer stop vs enabled false?',
-          'stop releases hardware captures saving battery mute merely silences amplitude.',
+          'When should `stop()` be preferred over `enabled = false`?',
+          '`track.stop()` releases the capture device. Setting `enabled = false` only mutes or disables output while keeping the track and hardware session alive.',
         ),
       ],
       [
         card(
-          'BufferedAmount monitoring?',
-          'Detect backpressure backlog before overflowing channel causing silent stalls.',
+          'Why monitor `bufferedAmount`?',
+          'Monitor `bufferedAmount` so sends slow down before the DataChannel backlog grows enough to cause stalls or memory pressure.',
         ),
       ],
     ],
