@@ -59,7 +59,7 @@ export default function buildBackendSkills() {
 
   [
     ['Event Loop & Concurrency',
-      'Long synchronous work blocks the loop — heavy CPU tasks, sync I/O (fs.readFileSync), large JSON.parse — stalls all other I/O and timers. Concurrency assumed but never measured; under load, event loop lag spikes invisibly until everything times out.',
+      'Synchronous CPU work, sync I/O, or large JSON parsing blocks the event loop. Under load this shows up as event-loop lag and request timeouts.',
       'No sync fs/crypto calls in request paths. CPU-heavy work delegated to worker threads. Event loop lag exposed via /metrics. Async patterns consistent (no nested promise chains where async/await reads cleaner).'],
     ['Modules & Package Management',
       'Mixed CJS/ESM (require vs import in same project), unpinned dependency ranges causing reproducible-build failures, transitive vulnerabilities ignored. Lockfile drift between local and CI is a common culprit.',
@@ -69,16 +69,16 @@ export default function buildBackendSkills() {
       '`pipe()` preferred over manual stream wiring. Every stream has error handler attached. Sync fs methods banned in request paths. File operations validate paths (no directory traversal) and check size before reading.'],
     ['Process & Environment',
       'Process exits silently on unhandled promise rejection (default in modern Node), env vars assumed present without validation, signals (SIGTERM, SIGINT) not handled — container kill = abrupt shutdown, lost in-flight requests.',
-      'All env vars validated at boot (Zod/envalid) with fail-fast on missing required. Graceful shutdown on SIGTERM (stop accepting connections, drain in-flight, close DB pool). Unhandled rejection / uncaughtException logged and process exits cleanly.'],
+      'Validate env vars at boot, fail fast on missing config, handle SIGTERM gracefully, and log fatal errors before exiting.'],
     ['Error Handling Patterns',
-      'Errors swallowed with empty catch blocks, async errors lost (no await on a function that throws), or all errors treated as 500 — no distinction between user errors (400-class) and server errors (500-class). Production sees errors that never reach logs.',
+      'Empty catch blocks, missing `await`, and mapping every failure to 500 hide real causes. Separate user errors from server errors and log both.',
       'Typed error classes with HTTP status codes built in. Single error middleware maps errors to response envelopes. Unhandled rejection / uncaughtException at process level always logs + exits (not silent recovery). No empty catch blocks.'],
     ['Worker Threads',
       'Sharing JS objects across threads — workers only share ArrayBuffer/SharedArrayBuffer, not regular objects. Devs assume reference semantics, get value copies, are confused when "updates" don\'t propagate.',
       'Workers used only for CPU-bound work, not I/O. Message protocol typed and validated. No leaked workers — every spawn paired with cleanup on completion or error. Worker pool bounded, not unlimited.'],
     ['Testing Node Services',
-      'Integration tests sharing DB state between runs — flaky tests, order-dependent passes. Or tests mocking everything (including the unit under test) — passes don\'t reflect real behavior. Or test suites taking 20+ minutes — CI bypassed under deadline.',
-      'Tests use real DB with per-test isolation (transactions, schema reset). Mocks only at external boundaries (third-party APIs). Test pyramid respected — many fast unit tests, fewer integration, fewer e2e. Coverage tracked but not the only gate.'],
+      'Shared DB state causes flaky tests. Over-mocking hides real behavior. Slow suites get skipped when pressure rises.',
+      'Use a real DB with per-test isolation, mock only external systems, keep most tests fast, and reserve e2e tests for critical flows.'],
   ].forEach(([name, a1, a2]) => {
     skills.push(
       mk(name, 'backend', node.id, {
@@ -145,20 +145,20 @@ export default function buildBackendSkills() {
       'All routes in app.js — single 2000-line file. Or catch-all `app.use` blocks placed before specific routes — they swallow downstream requests. Or path strings hardcoded everywhere — refactoring becomes find-and-replace nightmare.',
       'Routes split into feature-based Router modules, mounted on app with consistent prefixes. URL conventions (kebab-case, plural nouns) enforced via lint rules. OpenAPI spec generated from routes — single source of truth.'],
     ['Validation & Sanitization',
-      'Validation logic scattered across route handlers (inline if/throw for each field). Or trust client-side validation — backend assumes data is well-formed. Or sanitize for one threat (XSS) and forget another (SQL injection, prototype pollution).',
-      'Schema-based validation (Zod, Joi, ajv) applied as middleware before handlers run. Single source of truth for input shape. Sanitization explicit per data path (HTML output → escape, DB query → parameterize). Rejected inputs return consistent 422 with field-level errors.'],
+      'Scattered inline checks, trusting client validation, or sanitizing for only one threat lets bad data reach business logic.',
+      'Use one schema per input, validate before handlers, sanitize by sink, and return consistent 422 errors with field details.'],
     ['Auth Middleware',
       'Auth middleware mounted globally with route-by-route exemptions in handlers. Easy to miss an exemption → wrong default. Or auth tied to a specific JWT library — swap = rewrite everywhere.',
       'Single auth middleware attaches `req.user`; downstream handlers never re-implement auth. Token validation centralized. Failures return consistent 401 envelope. Permissions checked via separate authorization middleware (RBAC/ABAC).'],
     ['Error Handling',
       'try/catch in every controller doing the same error mapping. Or errors caught and swallowed silently. Or stack traces leaked to clients in 500 responses. Centralize in a single error middleware (4-arg signature: `err, req, res, next`).',
-      'Typed error classes (NotFoundError, ValidationError, AuthError) with status codes built in. Single error middleware maps them to consistent JSON envelope. Stack traces never leaked to clients in production. Errors logged with request context (traceId, userId).'],
+      'Use typed errors, one error middleware, consistent JSON envelopes, no production stack leaks, and logs with request context.'],
     ['Security Hardening',
       'Default Express setup left in production — `X-Powered-By` header leaks framework, no helmet, verbose error stacks in 500 responses, no request timeouts. Each is a fingerprinting or attack surface.',
       '`helmet()` middleware globally, `X-Powered-By` disabled, request timeouts set, body size limits enforced, CORS configured explicitly (not `*`), security headers verified via automated scan (OWASP ZAP).'],
     ['Observability & Logging',
-      'console.log everywhere with no structure — can\'t filter, can\'t search, can\'t correlate. Or logging PII (tokens, passwords) into log aggregator without scrubbing. Or no traceId — debugging a request across services means manual log-stitching.',
-      'Structured logging (JSON) with pino/winston. Every request assigned a traceId (header or generated), included in every log line. PII scrubbing rules defined centrally. Log levels respected per environment (debug in dev, info in prod). Metrics exposed via /metrics endpoint.'],
+      'Unstructured `console.log`, PII in logs, and missing trace IDs make production debugging slow and risky.',
+      'Use JSON logs, request trace IDs, central PII scrubbing, environment-specific log levels, and `/metrics` for service health.'],
   ].forEach(([name, a1, a2]) => {
     skills.push(
       mk(name, 'backend', express.id, {
@@ -234,8 +234,8 @@ export default function buildBackendSkills() {
       'No versioning at all → first breaking change ships and breaks every consumer. Or version in query param (`?v=2`) that gets cached differently than path versioning, causing inconsistent client experiences.',
       'URL path versioning (`/v1`, `/v2`) for clarity. Deprecation timeline announced 6+ months before breaking changes. Deprecation headers returned on deprecated endpoints. Client telemetry shows version usage before sunset.'],
     ['Caching & Conditional Requests',
-      'No caching headers → every client hits origin on every request, expensive endpoints overwhelmed. Or aggressive caching with no invalidation → stale data shown for hours. Or caching personalized responses (logged-in pages) at CDN → leaked data between users.',
-      'ETag / Last-Modified on responses, clients send If-None-Match / If-Modified-Since for 304s. Cache-Control set explicitly per endpoint (private vs public, max-age tuned). Personalized responses marked `Cache-Control: private`. CDN cache keys include relevant headers (Vary).'],
+      'Missing headers overload origin; aggressive caching serves stale data; caching personalized responses at CDN can leak user data.',
+      'Set ETag or Last-Modified, require conditional requests, choose Cache-Control per endpoint, and mark user-specific data `private`.'],
     ['Rate Limiting',
       'Single-instance rate limit counters in a horizontally scaled service — each instance enforces independently, real limit = N × intended. Or no rate limit on expensive endpoints (search, exports) → first abusive client takes down the API.',
       'Distributed counter store (Redis with INCR + EXPIRE). Limits applied per user, per IP, per endpoint — tiered. 429 responses include Retry-After header. Limits logged and alerted when 429 rate spikes.'],
@@ -303,11 +303,11 @@ export default function buildBackendSkills() {
       'Schema changes go through PR review with breaking-change linting (graphql-inspector). Deprecation directive used before removal. Schema versioned in source control. Field-level metrics show actual usage — informs what to deprecate.'],
     ['Resolvers & Data Sources',
       'Resolvers doing DB queries individually per field, per object → exponential query count for nested selections. Looks fine in dev with 10 records; melts in prod with 10k. DataLoader batching mandatory at scale.',
-      'Per-resolver metrics (latency, error rate, call count). N+1 detection in dev via query count assertions in tests. Resolver tests verify expected DB queries for representative selection sets. Data sources abstracted (DB, REST, gRPC) so resolvers stay thin.'],
+      'Track resolver latency/error/count, assert query counts in tests, and keep resolvers thin behind data-source abstractions.'],
     ['N+1 & Batching',
       'DataLoader instance shared across requests — caches results from one user\'s session and serves them to another → data leak. Or per-request DataLoader forgotten → defaults back to N+1. Each is a different production failure mode.',
       'DataLoader instances created per-request, never global. Tests verify batch size > 1 for nested selections. Query count assertions in tests catch N+1 regressions. Production metrics track resolver-level DB call count.'],
-    ['Auth & Authorization',
+    ['GraphQL Auth & Authorization',
       'Auth checks done in resolvers, scattered across the codebase. Adding a new field requires remembering to add auth. Missed checks ship without anyone noticing. Authorization is a cross-cutting concern that belongs in middleware/directives.',
       'Auth via schema directives (`@auth`, `@hasRole`) so every protected field is visibly tagged. Default-deny: any field without an auth directive treated as authenticated-only. Audit script flags untagged fields in CI.'],
     ['Query Cost Control',
@@ -326,7 +326,7 @@ export default function buildBackendSkills() {
         codeExample:
           name === 'N+1 & Batching'
             ? "const loaders = {\n  userById: new DataLoader((ids) => repo.users.byIds(ids)),\n};"
-            : name === 'Auth & Authorization'
+            : name === 'GraphQL Auth & Authorization'
               ? "if (!ctx.user || ctx.user.id !== parent.ownerId) {\n  throw new Error('forbidden');\n}"
               : 'type Query { health: String! }',
         flashcards: [
@@ -382,7 +382,7 @@ export default function buildBackendSkills() {
       'Zombie connections — TCP-level connection held open but client-side state died (app backgrounded, network changed). Server keeps "subscriber" alive, wastes memory, fires events into the void. Without heartbeat, undetectable until restart.',
       'Heartbeat ping every 30–60s; missing pong → close connection. Per-connection memory cap. Logging on connect/disconnect with reason. Metrics for connection count, churn rate, and avg lifetime.'],
     ['Pub/Sub Fan-out',
-      'Single-server pub/sub — clients on server A miss messages from clients on server B. Or fan-out without filtering — every subscriber gets every message, then filters client-side, wasting bandwidth and battery. Or pub/sub backend overloaded by high fan-out ratios.',
+      'In-memory pub/sub misses clients on other servers. Unfiltered fan-out wastes bandwidth and can overload the broker.',
       'Redis pub/sub or Kafka for cross-instance fan-out. Server-side filtering before send (don\'t ship messages clients will drop). Topic granularity tuned (too broad = waste, too narrow = topic explosion). Metrics on fan-out ratio per topic.'],
     ['Presence & Heartbeats',
       'Presence (who\'s online) drifts — clients disconnect ungracefully, server still shows them online for minutes. Or heartbeat too aggressive on mobile → drains battery. Or presence broadcast on every change → N² message storm in large rooms.',
@@ -732,7 +732,7 @@ Mixing RPC-style verbs in URIs (/getUser, /deleteOrder) instead of resource + me
 Returning 400 for semantic validation failures instead of 422 — they mean different things to clients.`,
     flashcards: [
       card('What is an API?', 'Application Programming Interface — a contract for how one program talks to another. In backend context, usually HTTP endpoints (REST/GraphQL) or RPC interfaces (gRPC).'),
-      card('REST vs GraphQL — when each?', "REST: multiple endpoints, fixed shapes, HTTP-native caching, simpler. GraphQL: single endpoint, client chooses fields, no overfetching, but caching is harder and complexity is higher. Pick REST for CRUD; GraphQL when many clients with varying data needs."),
+      card('REST vs GraphQL — when each?', 'Use REST for simple resource CRUD and HTTP caching. Use GraphQL when clients need flexible field selection across related data.'),
       card('HTTP methods → which are idempotent?', "GET, PUT, DELETE, HEAD, OPTIONS are idempotent. POST and PATCH typically are not. Idempotency matters for retries — POSTing twice creates two resources unless you add an idempotency key."),
       card('HTTP vs HTTPS — what changes on the wire?', 'HTTPS wraps HTTP in TLS — encryption, integrity, and server authentication via certificates. Port 443 vs 80. Modern web is HTTPS-everywhere; HTTP only for internal trusted networks.'),
       card('When should you use 201 vs 200 vs 204?', '201 Created — POST creating a resource (return Location header). 200 OK — success with body. 204 No Content — success with no body (typical for DELETE).'),
@@ -867,10 +867,10 @@ Not verifying the algorithm in JWT header — algorithm confusion attacks can by
     flashcards: [
       card('Authentication vs authorization?', 'Authentication = "who are you?" (login). Authorization = "what can you do?" (permission check). Authn happens first, then authz. Different layers, different failure modes.'),
       card('What is JWT?', "JSON Web Token — `header.payload.signature` base64url-encoded. Server signs, anyone can read, only server can verify. Stateless auth — server doesn't need to look up sessions."),
-      card('Where to store JWT in browser?', "Prefer an httpOnly, Secure cookie for browser sessions because JavaScript cannot read it directly, reducing token theft from XSS. Cookies still need CSRF protection with SameSite and/or CSRF tokens. localStorage is easier to use but readable by any injected script."),
+      card('Where to store JWT in browser?', 'Prefer httpOnly, Secure cookies plus SameSite/CSRF protection. Avoid localStorage for sensitive tokens because injected JS can read it.'),
       card('How to revoke a JWT before it expires?', "Pure JWT is stateless — you can't. Options: short access token TTL (15 min) + refresh token rotation, maintain a server-side blocklist of revoked jti claims, or fall back to session-based auth where revocation is trivial."),
-      card('Session-based vs JWT — pick which?', 'Sessions: server holds session state, easy revocation, requires sticky sessions or shared store (Redis). JWT: stateless, scales horizontally trivially, harder to revoke. Pick sessions for internal apps; JWT for distributed systems and mobile.'),
-      card('OAuth 2.0 authorization code flow steps?', 'Client redirects the user to the authorization server. User logs in and consents. The authorization server redirects back with a code. A backend/BFF exchanges the code for tokens; public SPA/mobile clients use Authorization Code + PKCE. The app then calls the resource API with the access token.'),
+      card('Session-based vs JWT — pick which?', 'Sessions centralize revocation but need shared storage. JWTs reduce server state but are harder to revoke. Pick by revocation and client needs.'),
+      card('OAuth 2.0 authorization code flow steps?', 'Redirect to auth server, user consents, app receives a code, exchanges it for tokens, then calls APIs with the access token. Public clients use PKCE.'),
       card('Why use a refresh token?', 'Access tokens are short-lived (15 min) to limit blast radius if leaked. Refresh tokens are long-lived (days/weeks) and stored more securely. Exchanging refresh → new access lets users stay logged in without re-auth.'),
       card('RBAC vs ABAC?', 'RBAC (role-based): "admin can edit" — coarse, simple. ABAC (attribute-based): "user can edit if user.id === post.authorId AND post.status === draft" — fine-grained, expressive, complex. Start RBAC, escalate when role explosion happens.'),
       card('API keys vs OAuth — when each?', "API keys: server-to-server, simple, long-lived, hard to revoke per user. OAuth: user-delegated access, scoped permissions, revocable per consent. Don't use API keys for end-user authorization."),
@@ -932,7 +932,7 @@ Missing NoSQL injection protection — MongoDB operators in user input can bypas
 Using SHA-256 for password hashing — too fast; use bcrypt or Argon2id with a proper work factor.`,
     flashcards: [
       card('What is CORS and where is it enforced?', 'Cross-Origin Resource Sharing — browser policy controlled by response headers (`Access-Control-Allow-Origin`, etc.). Enforced by the browser, not the server. Server-to-server calls ignore CORS.'),
-      card('CSRF — what is it and how to prevent?', "Cross-site request forgery — attacker's site triggers requests to your site using the user's cookies. Prevent with SameSite=Strict/Lax cookies, CSRF tokens on state-changing requests, or by requiring custom headers (which CORS blocks cross-origin)."),
+      card('CSRF — what is it and how to prevent?', 'CSRF makes a browser send authenticated requests from another site. Prevent with SameSite cookies, CSRF tokens, or custom headers.'),
       card('SQL injection prevention?', "Always use parameterized queries / prepared statements. Never concatenate user input into SQL strings. ORMs do this by default but raw queries are the danger zone."),
       card('NoSQL injection — does it exist?', 'Yes. MongoDB takes operator objects — `{ username: req.body.username }` becomes `{ username: { $ne: null } }` if the client sends `{$ne:null}`. Validate types or use libraries that strip operators from user input.'),
       card('How to handle secrets in production?', 'Never in code or env files committed to git. Use a secrets manager (Vault, AWS Secrets Manager, Doppler, GCP Secret Manager). Inject at runtime. Rotate regularly. Audit access.'),
@@ -994,7 +994,7 @@ No connection pool — each request opens a new TCP + auth handshake, exhausting
 Over-normalizing hot read paths — expensive multi-table joins on every request; denormalize where justified.
 Running migrations inside app startup — causes deployment races; run migrations as a separate pre-deploy step.`,
     flashcards: [
-      card('SQL vs NoSQL — pick which when?', 'SQL (Postgres, MySQL): relational data, joins, strong schema, transactions. NoSQL document (MongoDB): flexible schema, denormalized reads, easy horizontal scale. Key-value (Redis): cache, rate limit. Pick by data model and query pattern, not hype.'),
+      card('SQL vs NoSQL — pick which when?', 'Use SQL for relational data, joins, schemas, and transactions. Use NoSQL for document/key-value access patterns and flexible scaling.'),
       card('Primary key vs unique constraint?', 'Primary key — uniquely identifies each row, usually one per table, typically clustered (storage order). Unique constraint — any column(s) that must be unique; you can have multiple per table.'),
       card('What is a foreign key?', 'A column whose values must exist as primary keys in another table. Enforces referential integrity. DB rejects orphan rows unless you allow null or cascade.'),
       card('How does a B-tree index help?', 'Stores keys in sorted tree → O(log n) lookup vs O(n) full scan. Range queries (`WHERE created > X`) and ORDER BY use it. Cost: writes update the index (write amplification).'),
@@ -1056,7 +1056,7 @@ CQRS without ordering guarantees on the event bus — the read model processes e
     flashcards: [
       card('What is a database transaction?', 'A sequence of operations executed as a single unit — either all commit or all roll back. Provides ACID guarantees. Use for any multi-step write that must be atomic (bank transfer, order + line items).'),
       card('Explain ACID.', "Atomicity (all or nothing), Consistency (constraints hold before and after), Isolation (concurrent txns don't see each other's incomplete state), Durability (committed data survives crashes)."),
-      card('SQL isolation levels and their anomalies?', 'Read Uncommitted can allow dirty reads. Read Committed prevents dirty reads but can allow non-repeatable reads. Repeatable Read prevents non-repeatable reads; phantom behavior depends on the database engine. Serializable gives the strongest isolation, usually with lower concurrency.'),
+      card('SQL isolation levels and their anomalies?', 'Read Uncommitted allows dirty reads. Read Committed allows non-repeatable reads. Repeatable Read limits them. Serializable is strongest but reduces concurrency.'),
       card('What is a race condition in DB?', 'Two transactions read same value, both decide to modify based on it, both write — one update is lost or invariant violated. Classic example: two users buying the last item in stock.'),
       card('Optimistic vs pessimistic locking?', 'Pessimistic: lock the row (`SELECT FOR UPDATE`) until txn commits — blocks others. Optimistic: read with version, write with `WHERE version = X` — retry on conflict. Optimistic wins under low contention; pessimistic under high contention.'),
       card('What is database sharding?', 'Horizontal partitioning — split data across multiple DBs by a shard key (user_id, geo, hash). Each shard holds a subset. Scales writes beyond a single machine. Cost: cross-shard queries are expensive or impossible.'),
@@ -1355,7 +1355,7 @@ Distributed lock without fencing tokens — two holders during a partition both 
 Two-phase commit for long-running workflows — coordinator failure blocks all participants indefinitely; prefer sagas.
 At-most-once delivery (fire-and-forget) for critical events — missed events are unrecoverable; prefer at-least-once + idempotent consumers.`,
     flashcards: [
-      card('State the CAP theorem.', "In a network partition, a distributed system can guarantee at most two of: Consistency (all nodes see the same data), Availability (every request gets a response), Partition tolerance (works despite network failures). Network partitions are inevitable, so you really choose between CP and AP."),
+      card('State the CAP theorem.', 'During a network partition, a distributed system must trade consistency against availability. Partition tolerance is assumed for distributed systems.'),
       card('What is eventual consistency?', 'Updates propagate asynchronously; nodes converge to the same state given enough time without new writes. Common in distributed DBs (Cassandra, DynamoDB, Mongo with weak read concerns), CDNs, replicated caches.'),
       card('How to make a POST endpoint idempotent?', 'Client sends an `Idempotency-Key` header per logical request. Server stores key + result for some TTL. If same key arrives again, return stored result instead of re-processing. Stripe-style.'),
       card('Distributed locking — why is it controversial?', "Easy to think you have a lock but a network partition + clock skew can mean two clients hold the lock simultaneously (split-brain). Redis Redlock claims to solve this; Martin Kleppmann's critique argues you need fencing tokens."),
