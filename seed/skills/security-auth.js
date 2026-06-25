@@ -27,14 +27,14 @@ export default function buildSecuritySkills() {
     gotchas:
       'Not validating `aud`, `iss`, and algorithm opens token confusion attacks.\nLong-lived access tokens increase blast radius if stolen.\nStoring tokens in localStorage increases XSS extraction risk.\nPutting sensitive PII in JWT payload leaks data to any party with token visibility.',
     flashcards: [
-      card('Why is JWT often paired with short-lived access token + refresh token?', 'Short access TTL limits compromise window while refresh flow preserves UX and supports rotation/revocation controls.'),
-      card('What is algorithm confusion in JWT validation?', 'Accepting unexpected algorithms (or `none`) can let attackers bypass signature verification in weak implementations.'),
-      card('Why should JWT payload be considered readable?', 'JWT is base64url encoded, not encrypted by default; anyone with token can decode claims.'),
-      card('When is server-side session preferable over pure JWT stateless auth?', 'When immediate revocation, strict device/session management, and central control are primary requirements.'),
-      card('Why include `jti` in JWT designs?', 'It enables token tracking/replay detection and targeted revocation lists.'),
-      card('What is a safe browser storage strategy for JWT?', 'Prefer secure httpOnly sameSite cookies and CSRF mitigations rather than JS-readable storage.'),
-      card('Why is clock skew important for JWT expiry checks?', 'Distributed systems can disagree on time; small leeway prevents false-negative validations.'),
-      card('What does token introspection solve that self-contained JWT does not?', 'Centralized active-state checks for revocation and policy decisions.'),
+      card('Why is JWT often paired with short-lived access token + refresh token?', 'Use a 5-15 minute access token for API calls and a longer-lived refresh token to obtain new access tokens; this limits stolen access-token lifetime while preserving login UX and enabling refresh-token rotation/revocation.'),
+      card('What is algorithm confusion in JWT validation?', 'A verifier trusts the token header alg instead of pinning allowed algorithms, so an attacker may switch RS256 to HS256, use a public key as an HMAC secret, or try alg=none to bypass verification.'),
+      card('Why should JWT payload be considered readable?', 'JWT header and payload are base64url-encoded JSON, not encrypted; anyone with the token can decode claims unless the token is a JWE.'),
+      card('When is server-side session preferable over pure JWT stateless auth?', 'Use server-side sessions when you need instant logout, per-device session kill, central risk checks, or server-controlled session state on every request.'),
+      card('Why include `jti` in JWT designs?', '`jti` is a unique token ID; store it in allow/deny lists to detect replay, revoke one token, or trace a token family during incident response.'),
+      card('What is a safe browser storage strategy for JWT?', 'Prefer Secure, httpOnly, SameSite=Lax/Strict cookies so JavaScript cannot read the token; pair with CSRF protection for unsafe methods.'),
+      card('Why is clock skew important for JWT expiry checks?', 'Servers may differ by seconds; allow a small leeway, commonly 30-120 seconds, for exp/nbf checks while keeping token lifetimes short.'),
+      card('What does token introspection solve that self-contained JWT does not?', 'It lets the resource server ask the authorization server whether a token is currently active, revoked, expired, and what metadata/scopes apply.'),
     ],
     apis: [
       api('jwt.sign', 'jwt.sign(payload, secretOrPrivateKey, options?)', 'Creates signed JWT.', 'payload, key, algorithm/exp options', 'token string', "const t = jwt.sign({ sub: uid }, secret, { expiresIn: '15m' });", 'Avoid weak secrets and uncontrolled expiry durations.'),
@@ -92,14 +92,14 @@ export default function buildSecuritySkills() {
     gotchas:
       'Skipping state validation allows CSRF on authorization response.\nUsing implicit flow in modern SPAs increases token leakage risk.\nOver-broad scopes grant unnecessary privilege.\nToken exchange over insecure redirect URI leaks credentials.',
     flashcards: [
-      card('Why is PKCE required even for public clients?', 'It prevents authorization code interception from being exchanged by attackers.'),
-      card('What is the difference between OAuth and OIDC?', 'OAuth handles delegated authorization; OIDC adds identity/authentication layer over OAuth.'),
-      card('Why should redirect URIs be exact-matched?', 'Loose matching enables open redirect abuse and token/code leakage.'),
-      card('What does `state` protect against in OAuth?', 'Cross-site request forgery and response mix-up.'),
-      card('Why are refresh tokens risky on public clients?', 'If stolen, they enable long-lived access unless rotation/binding protections exist.'),
-      card('What is token audience in multi-API systems?', 'It constrains where a token is valid, preventing cross-resource token reuse.'),
-      card('When should client credentials grant be used?', 'Machine-to-machine service auth where no end user is involved.'),
-      card('Why is scope minimization a security control?', 'It enforces least privilege and reduces impact of compromised tokens.'),
+      card('Why is PKCE required even for public clients?', 'PKCE binds the authorization request to the token request with a high-entropy code_verifier, so a stolen authorization code cannot be exchanged without the verifier.'),
+      card('What is the difference between OAuth and OIDC?', 'OAuth grants API access with access tokens and scopes; OIDC adds authentication by returning an ID token with user identity claims such as sub and email.'),
+      card('Why should redirect URIs be exact-matched?', 'Exact matching prevents attackers from registering lookalike or open-redirect URLs that receive authorization codes or tokens.'),
+      card('What does `state` protect against in OAuth?', '`state` is a random nonce stored before redirect and checked on callback; it prevents CSRF and helps bind the response to the original login attempt.'),
+      card('Why are refresh tokens risky on public clients?', 'Public clients cannot keep secrets; a stolen refresh token can mint new access tokens until it expires or is detected by rotation/reuse checks.'),
+      card('What is token audience in multi-API systems?', '`aud` identifies the intended resource server; each API should reject tokens whose audience does not include that API.'),
+      card('When should client credentials grant be used?', 'Use client credentials only for service-to-service access where the client authenticates as itself, not on behalf of a user.'),
+      card('Why is scope minimization a security control?', 'Request only scopes needed for the action, e.g. read:orders instead of admin:*, so stolen or over-issued tokens have limited authority.'),
     ],
     apis: [
       api('Authorization Code Flow', 'GET /authorize -> code -> POST /token', 'Most secure user-agent flow for web/mobile with backend exchange.', 'client_id, redirect_uri, scope, state, PKCE', 'access/refresh/id tokens', 'Use code + PKCE, not implicit flow.', 'State and PKCE checks are mandatory.'),
@@ -155,14 +155,14 @@ export default function buildSecuritySkills() {
     gotchas:
       'Incorrect realm/client configuration causes subtle token/audience mismatches.\nRole mapping not mirrored in backend checks leads to authorization gaps.\nNot planning token refresh and session timeout UX causes random user disruptions.\nMisconfigured redirect/logout URIs can leak auth context or break login flows.',
     flashcards: [
-      card('Why is Keycloak realm design important?', 'Realm boundaries define identity trust and policy scope; poor partitioning complicates multi-tenant governance.'),
-      card('What is the difference between realm roles and client roles?', 'Realm roles are global; client roles are app-specific and should map to service authorization needs.'),
-      card('Why should backend still validate tokens with Keycloak setup?', 'Frontend login state is not authorization; APIs must independently verify and enforce claims/roles.'),
-      card('What does offline token access imply?', 'Long-lived refresh capability requiring stronger controls and revocation governance.'),
-      card('Why use Keycloak events/audit logs?', 'They provide traceability for auth actions, suspicious activity, and compliance reporting.'),
-      card('How does identity brokering help enterprises?', 'It integrates external IdPs while centralizing policy and token issuance.'),
-      card('What breaks often during Keycloak upgrades?', 'Theme/custom SPI/plugin compatibility and changed defaults around tokens/sessions.'),
-      card('Why is client secret handling critical?', 'Leaked confidential client secrets enable unauthorized token exchanges.'),
+      card('Why is Keycloak realm design important?', 'A realm isolates users, clients, roles, sessions, and policies; use separate realms when tenants/environments must not share identity policy or admin blast radius.'),
+      card('What is the difference between realm roles and client roles?', 'Realm roles apply across the realm; client roles belong to one application/client and should model that app API permissions.'),
+      card('Why should backend still validate tokens with Keycloak setup?', 'The API must verify signature, issuer, audience, expiry, and required roles/scopes; a logged-in frontend alone does not authorize API access.'),
+      card('What does offline token access imply?', 'An offline token is a long-lived refresh token usable without an active SSO session, so it needs explicit consent, secure storage, monitoring, and revocation.'),
+      card('Why use Keycloak events/audit logs?', 'They record login, logout, token, admin, and error events, enabling incident investigation, anomaly detection, and compliance evidence.'),
+      card('How does identity brokering help enterprises?', 'Keycloak can trust external IdPs such as Azure AD or Google, map their claims/roles, and issue local tokens with one central policy layer.'),
+      card('What breaks often during Keycloak upgrades?', 'Custom themes, SPIs/extensions, protocol mappers, token/session defaults, and deprecated adapter behavior often need regression testing.'),
+      card('Why is client secret handling critical?', 'A leaked confidential-client secret lets an attacker authenticate to the token endpoint as that client and request tokens within its allowed grants/scopes.'),
     ],
     apis: [
       api('Realm', 'admin console realm configuration', 'Top-level isolation unit for users, clients, roles, policies.', 'realm name/settings', 'identity domain boundary', 'realm: skillup-prod', 'Mixing environments in one realm increases blast radius.'),
@@ -219,14 +219,14 @@ export default function buildSecuritySkills() {
     gotchas:
       'No backup/recovery codes can lock out legitimate users permanently.\nLarge clock drift tolerance windows can weaken OTP security.\nStoring raw OTP secrets without encryption increases compromise impact.\nSkipping brute-force throttling on OTP verification enables online guessing.',
     flashcards: [
-      card('Why does TOTP require secure secret storage?', 'Compromised shared secret allows attacker to generate valid codes indefinitely.'),
-      card('What does verification `window` parameter trade off?', 'Larger window improves tolerance for time drift but increases acceptance surface for replay/guessing.'),
-      card('Why should OTP attempts be rate-limited?', 'Six-digit spaces are small enough for feasible online brute force without throttling.'),
-      card('What are recovery codes for?', 'Emergency account access when device is lost, while maintaining MFA posture.'),
-      card('Why should enrollment require current primary auth?', 'It prevents attacker from silently binding their own second factor.'),
-      card('How does TOTP differ from SMS OTP in threat model?', 'TOTP avoids telecom interception/SIM swap vectors but still depends on device security.'),
-      card('What is replay concern in OTP systems?', 'Reusing same valid code within acceptance window unless one-time semantics are enforced.'),
-      card('Why monitor OTP failure patterns?', 'Spikes can indicate credential stuffing or targeted account takeover attempts.'),
+      card('Why does TOTP require secure secret storage?', 'The shared secret is enough to generate every future code; encrypt it at rest, limit admin access, and rotate/re-enroll if exposed.'),
+      card('What does verification `window` parameter trade off?', 'A window of 1 usually accepts the previous/current/next 30-second step; larger windows tolerate drift but give attackers more valid codes and replay time.'),
+      card('Why should OTP attempts be rate-limited?', 'A 6-digit TOTP has only 1,000,000 possibilities; throttle by account and IP/device so online guessing cannot try many codes per time step.'),
+      card('What are recovery codes for?', 'They are single-use backup factors for lost authenticator devices; store only salted hashes and invalidate each code after use.'),
+      card('Why should enrollment require current primary auth?', 'Requiring a fresh password/session check prevents an attacker with a stolen session from adding their own authenticator silently.'),
+      card('How does TOTP differ from SMS OTP in threat model?', 'TOTP removes carrier/SIM-swap and SMS interception risk, but still fails if the device, seed, or phishing-resistant login flow is compromised.'),
+      card('What is replay concern in OTP systems?', 'A valid TOTP may work for the whole accepted window; track the last accepted time step per user to reject reuse.'),
+      card('Why monitor OTP failure patterns?', 'Many failures for one account, IP, ASN, or device fingerprint can indicate credential stuffing, MFA fatigue attempts, or targeted takeover.'),
     ],
     apis: [
       api('generateSecret', 'speakeasy.generateSecret(options)', 'Generates TOTP shared secret and otpauth URI.', 'issuer/account naming options', 'secret object', "const secret = speakeasy.generateSecret({ name: 'SkillUp:user@x.com' });", 'Secret lifecycle must be encrypted and access-controlled.'),
@@ -280,10 +280,10 @@ export default function buildSecuritySkills() {
     gotchas:
       'Collision attacks are practical enough to break trust assumptions.\nMD5 with salt is still not acceptable for password hashing.\nUsing MD5 for file integrity against active attackers is insecure.',
     flashcards: [
-      card('Why is MD5 still seen in software despite being broken?', 'Legacy protocols/checksum use cases persist where collision resistance is not threat-critical.'),
-      card('Can MD5 ever be acceptable in modern auth/security?', 'No for security-critical integrity/signature/password contexts; use SHA-2/3 + proper constructions.'),
-      card('Why is fast hash bad for password storage?', 'Fast hashes enable high-rate brute force on leaked hashes; use adaptive KDFs like Argon2/bcrypt/scrypt.'),
-      card('What is the main cryptographic failure in MD5?', 'Collision resistance is broken, enabling two different inputs with same digest.'),
+      card('Why is MD5 still seen in software despite being broken?', 'It persists in legacy protocols and non-adversarial checksums such as old ETags or cache keys, where inputs are trusted and collisions do not affect security decisions.'),
+      card('Can MD5 ever be acceptable in modern auth/security?', 'No. Do not use MD5 for passwords, signatures, certificates, MACs, or attacker-controlled integrity checks; use SHA-256/HMAC-SHA256 or a password KDF as appropriate.'),
+      card('Why is fast hash bad for password storage?', 'After a database leak, attackers can test huge password lists offline; use Argon2id, bcrypt, or scrypt so each guess costs time and memory.'),
+      card('What is the main cryptographic failure in MD5?', 'MD5 has practical collision attacks: attackers can craft two different inputs with the same digest, breaking trust in signatures or integrity checks.'),
     ],
     apis: [
       api('crypto.createHash("md5")', 'crypto.createHash("md5").update(data).digest("hex")', 'Computes MD5 digest.', 'input bytes/string and output encoding', 'digest string/buffer', "const md5 = crypto.createHash('md5').update(buf).digest('hex');", 'Do not use for signatures/password security.'),
@@ -308,14 +308,14 @@ export default function buildSecuritySkills() {
     gotchas:
       'Using plain SHA for password hashing is insecure due to speed.\nConfusing hash with encryption leads to incorrect data-protection designs.\nNot using constant-time comparison on signatures enables timing attacks.',
     flashcards: [
-      card('Why is HMAC-SHA256 stronger than plain SHA256 for message authenticity?', 'HMAC uses a secret key and resists length-extension and forgery attacks.'),
-      card('What is the difference between hashing and encryption?', 'Hashing is one-way integrity fingerprinting; encryption is reversible confidentiality with key.'),
-      card('Why can SHA-256 still fail for password storage?', 'It is computationally fast; attackers can brute force rapidly without adaptive memory-hard cost.'),
-      card('When should SHA-512 be preferred over SHA-256?', 'When policy/compliance requires it; practical security difference is usually workload/context dependent.'),
-      card('What does salting prevent in password hashing?', 'Precomputed rainbow-table attacks and identical-hash leakage for equal passwords.'),
-      card('Why should signature comparison use constant-time functions?', 'Naive string comparison can leak information via timing side channels.'),
-      card('What is length-extension attack relevance?', 'Some constructions using raw hash(secret || msg) are vulnerable; HMAC avoids this pattern.'),
-      card('What is a secure replacement for plain SHA password storage?', 'Argon2id (preferred), bcrypt, or scrypt with proper cost parameters and salt.'),
+      card('Why is HMAC-SHA256 stronger than plain SHA256 for message authenticity?', 'HMAC-SHA256 uses a secret key, so only key holders can create a valid tag; plain SHA-256 only proves the message has a digest, not who created it.'),
+      card('What is the difference between hashing and encryption?', 'Hashing is one-way and used for fingerprints/integrity; encryption is reversible with a key and used to protect confidentiality.'),
+      card('Why can SHA-256 still fail for password storage?', 'SHA-256 is designed to be fast, so leaked hashes can be brute-forced cheaply; password storage needs a salted, slow, memory-hard KDF.'),
+      card('When should SHA-512 be preferred over SHA-256?', 'Use SHA-512 when a protocol, compliance rule, or 64-bit performance profile calls for it; otherwise SHA-256 is usually sufficient for modern integrity/HMAC use.'),
+      card('What does salting prevent in password hashing?', 'A unique random salt per password prevents rainbow-table reuse and ensures two users with the same password have different stored hashes.'),
+      card('Why should signature comparison use constant-time functions?', 'Constant-time comparison avoids revealing how many bytes matched, which can otherwise help attackers guess valid MAC/signature bytes.'),
+      card('What is length-extension attack relevance?', 'Raw hash(secret || message) can let attackers append data and forge a valid-looking digest; HMAC is designed to prevent that.'),
+      card('What is a secure replacement for plain SHA password storage?', 'Use Argon2id where available, or bcrypt/scrypt/PBKDF2 with strong parameters, unique salts, and periodic cost tuning.'),
     ],
     apis: [
       api('crypto.createHash("sha256")', 'crypto.createHash("sha256").update(data).digest("hex")', 'Computes SHA-256 digest.', 'input bytes and encoding', 'digest output', "const digest = crypto.createHash('sha256').update(data).digest('hex');", 'Digest alone does not provide authenticity.'),
@@ -360,12 +360,12 @@ export default function buildSecuritySkills() {
         card('What is the difference between registered, public, and private claims?', 'Registered claims (iss, sub, aud, exp, nbf, iat, jti) are standardised. Public claims are collision-resistant names. Private claims are custom — agreed between issuer and consumer.'),
       ],
       'Signing Algorithms (HS/RS/ES)': [
-        card('Why is ES256 (ECDSA) increasingly preferred over RS256?', 'ES256 produces shorter signatures (~64 bytes vs ~256 bytes) with equivalent security, reducing token size and verification overhead.'),
+        card('Why is ES256 (ECDSA) increasingly preferred over RS256?', 'ES256 provides strong security with much shorter signatures than RS256, reducing JWT size for mobile/API traffic; choose it only when libraries and key management support ECDSA correctly.'),
         card('Why must the `alg: none` algorithm be explicitly rejected?', 'The none algorithm means no signature is verified — an attacker can craft arbitrary claims if your library accepts it without explicit rejection.'),
       ],
       'Access vs Refresh Tokens': [
         card('What is the recommended access token lifetime?', '5–15 minutes — short enough to limit the window of misuse if stolen, long enough to avoid excessive refresh overhead.'),
-        card('Why should refresh tokens be stored server-side in a database?', 'Server storage enables immediate revocation — you can invalidate a refresh token without waiting for it to expire, critical for logout and compromise response.'),
+        card('Why should refresh tokens be stored server-side in a database?', 'Store a hashed refresh token or token-family record server-side so logout, rotation reuse, and compromise response can revoke it before expiry.'),
       ],
       'Revocation Strategies': [
         card('Why is stateless JWT revocation inherently difficult?', 'JWTs are self-contained and valid until expiry — the only ways to revoke are short expiry + refresh, a server-side denylist keyed on jti, or using opaque tokens with introspection.'),
@@ -422,7 +422,7 @@ export default function buildSecuritySkills() {
     if (s.parentId !== keycloak.id) return;
     const specific = {
       'Realm & Client Configuration': [
-        card('What is Valid Redirect URIs and why must it be exact?', 'Keycloak only redirects auth codes to URIs on this allowlist — wildcard entries like https://app.example.com/* can allow open-redirect attacks that exfiltrate auth codes.'),
+        card('What are Valid Redirect URIs and why must they be exact?', 'Keycloak only redirects auth codes to URIs on this allowlist; exact entries prevent wildcard/open-redirect abuse that can leak authorization codes.'),
         card('What is the difference between public and confidential client access types?', 'Confidential clients authenticate with a client secret on the token endpoint; public clients (SPAs, mobile) cannot hold secrets and rely on PKCE.'),
       ],
       'Role-Based Access Control': [
@@ -442,7 +442,7 @@ export default function buildSecuritySkills() {
         card('Why do long access token lifetimes increase risk?', 'A stolen access token remains valid until expiry — no server-side revocation for standard JWT access tokens. Short lifetimes limit the exposure window.'),
       ],
       'Admin Automation': [
-        card('How do you authenticate against the Keycloak Admin REST API?', 'Obtain a token from the master realm using client credentials (grant_type=client_credentials) with a service account that has realm management roles.'),
+        card('How do you authenticate against the Keycloak Admin REST API?', 'Obtain an admin access token for a service account with the required realm-management roles, then send it as Bearer auth to /admin/realms/... endpoints.'),
         card('What should you export from Keycloak for disaster recovery?', 'Full realm export (users, clients, roles, identity providers, flows) — store it versioned in source control and test importing regularly.'),
       ],
     };
@@ -519,9 +519,9 @@ export default function buildSecuritySkills() {
     definition: 'Raw SHA-256 is inadequate for password storage because it is too fast — enabling high-speed brute-force attacks on leaked hashes. Dedicated password hashing algorithms add deliberate computational cost and memory hardness.',
     codeExample: "// WRONG — fast hash, brute-forceable:\nconst bad = createHash('sha256').update(password + salt).digest('hex');\n\n// CORRECT — memory-hard, cost-tunable:\nimport argon2 from 'argon2';\nconst hash = await argon2.hash(password, {\n  type: argon2.argon2id,\n  memoryCost: 65536, // 64 MB\n  timeCost: 3,\n  parallelism: 1,\n});",
     flashcards: [
-      card('What is the difference between Argon2d, Argon2i, and Argon2id?', 'Argon2d maximises GPU resistance; Argon2i resists side-channel attacks; Argon2id is the hybrid — NIST recommends Argon2id for password hashing.'),
+      card('What is the difference between Argon2d, Argon2i, and Argon2id?', 'Argon2d uses password-dependent memory access, Argon2i uses password-independent access, and Argon2id combines both; Argon2id is the commonly recommended default for password hashing.'),
       card('What cost parameters should you tune in Argon2id?', 'memoryCost (RAM used — higher is better), timeCost (iterations), and parallelism. Target ~300–500ms on your target hardware; adjust as hardware improves over time.'),
-      card('What is peppering and how does it complement hashing?', 'A pepper is a server-side secret mixed into the hash before storage — even if the database leaks, hashes cannot be cracked without the pepper from the application configuration.'),
+      card('What is peppering and how does it complement hashing?', 'A pepper is a secret stored outside the database, often in a KMS or config secret, and combined with password verification so a DB-only leak is harder to crack offline.'),
     ],
   });
   skills.push(shaFamily, shaHmac, shaPasswords);
