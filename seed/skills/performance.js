@@ -41,35 +41,35 @@ export default function buildPerformanceSkills() {
     flashcards: [
       card(
         'When does `React.memo` actually pay off?',
-        'When parent re-renders frequently yet props stay shallow-equal—otherwise comparison tax exceeds saved work.',
+        "When parents re-render often and props usually stay the same.",
       ),
       card(
         'Why can `useCallback` backfire?',
-        'If dependencies churn every render you rebuild callbacks anyway—stabilize upstream data or drop the hook.',
+        "If dependencies change every render, the callback changes too.",
       ),
       card(
         'What does `useDeferredValue` trade?',
-        'Defers expensive UI to keep input snappy—may show slightly stale visual until React catches up.',
+        "It keeps urgent UI responsive by showing slower UI a little later.",
       ),
       card(
         'Profiler “commit” meaning?',
-        'DOM/React Native host updates applied for subtree—long commits correlate with jank risk.',
+        "React has applied updates to the screen or native view.",
       ),
       card(
         'Why virtualization beats pure memo on giant lists?',
-        'Memo still walks virtual DOM for off-screen rows; virtualization caps mounted nodes + layout thrash.',
+        "It renders only visible rows instead of keeping every row mounted.",
       ),
       card(
         'Context performance smell?',
-        'Single mega-context mixing volatile + stable values forces needless consumer re-renders—split contexts or selectors.',
+        "One large context with fast-changing values re-renders too many consumers.",
       ),
       card(
         'How does `startTransition` differ from raw `setState`?',
-        'Marks updates interruptible yielding to urgent interactions—ideal for expensive non-blocking visual refreshes.',
+        "It marks updates as non-urgent so React can keep interactions responsive.",
       ),
       card(
         'Concurrent double render in dev?',
-        'Strict mode intentionally duplicates renders to expose impure effects—measure prod builds for real timing.',
+        "Strict Mode does this to catch impure render and effect code.",
       ),
     ],
     apis: [
@@ -178,37 +178,37 @@ export default function buildPerformanceSkills() {
       [
         card(
           'False positive profiler rows?',
-          'HOC wrappers or suspense fallbacks inflate component names—normalize before blaming leaf nodes.',
+          "Wrappers and fallbacks can hide the real slow component.",
         ),
       ],
       [
         card(
           'useMemo dependency array traps?',
-          'Objects created in render unless wrapped still renew each pass—flatten or lift stable references.',
+          "New objects or arrays in dependencies break the cache every render.",
         ),
       ],
       [
         card(
           'FlashList vs legacy lists RN?',
-          'Recycler views estimate sizes—wrong estimates cause scroll jank; measure carefully.',
+          "FlashList recycles rows better, but bad size estimates still cause jank.",
         ),
       ],
       [
         card(
           'Suspense without route boundary?',
-          'Micro boundaries increase waterfall risk—group related lazy imports above fold intentionally.',
+          "Too many tiny boundaries can create loading waterfalls.",
         ),
       ],
       [
         card(
           'startTransition on every keystroke?',
-          'Still schedules work—pair with input debouncing for network backed search fields.',
+          "It still schedules work; debounce network-heavy searches too.",
         ),
       ],
       [
         card(
           'Why avoid anonymous inline components in lists?',
-          'They remount every parent render destroying internal state and killing memoization.',
+          "They remount often, lose state, and defeat memoization.",
         ),
       ],
     ],
@@ -228,35 +228,35 @@ export default function buildPerformanceSkills() {
     flashcards: [
       card(
         'INP vs legacy FID nuance?',
-        'INP captures slowest meaningful interaction latency across entire visit—not merely first input delay snapshot.',
+        "INP measures interaction latency across the whole visit, not just the first input.",
       ),
       card(
         'LCP element typical culprits?',
-        'Hero image/video poster, oversized text blocks, background images without priority hints.',
+        "Usually the hero image, poster, background image, or large text block.",
       ),
       card(
         'CLS formula intuition?',
-        'Sum impact fraction × distance fraction for unexpected shifts between frames.',
+        "It measures how much content moved and how far it moved.",
       ),
       card(
         'Why prefer field data over synthetic lab for ranking guardrails?',
-        'Search ranking signals emphasise real users on diverse networks/devices not dev laptop Wi-Fi.',
+        "Field data reflects real users, devices, and networks.",
       ),
       card(
         'TTFB vs LCP relationship?',
-        'Great TTFB still fails LCP when client renders huge JS before painting hero.',
+        "Fast server response can still have slow LCP if rendering is heavy.",
       ),
       card(
         'What is “good” INP threshold ballpark?',
-        'Google currently cites ≤200ms as good at 75th percentile—treat docs as evolving and confirm current guidance.',
+        "Good INP is about 200 ms or less at the 75th percentile.",
       ),
       card(
         'How does soft navigation affect Vitals?',
-        'SPA transitions may need `web-vitals` soft-nav builds or router instrumentation—default navigation timing alone incomplete.',
+        "SPA route changes need extra instrumentation beyond normal page-load timing.",
       ),
       card(
         'Why log attribution on INP?',
-        'Identify event type + long task culprit + script origin to prioritise fixes vs guessing.',
+        "It shows which event, task, or script caused the delay.",
       ),
     ],
     apis: [
@@ -343,31 +343,31 @@ export default function buildPerformanceSkills() {
       [
         card(
           'Why client-side nav breaks classic navigation timing?',
-          'Soft navigations need explicit router hooks or Performance API longtask pairing.',
+          "SPA navigation does not create a full browser navigation entry.",
         ),
       ],
       [
         card(
           'How do iframes pollute CLS?',
-          'Embedded ads without reserved space shift parent layout—sandbox dimensions contractually.',
+          "Ads or embeds without reserved space can push page content around.",
         ),
       ],
       [
         card(
           'Can optimistic UI harm INP?',
-          'If optimistic transitions still block main thread with huge DOM writes INP still suffers.',
+          "Yes, if the optimistic update still does heavy main-thread work.",
         ),
       ],
       [
         card(
           'CrUX vs RUM sampling bias?',
-          'Chrome-only field data plus opt-in population—complement with first-party beacons.',
+          "CrUX is Chrome-only field data; RUM adds your own user coverage.",
         ),
       ],
       [
         card(
           'Why log deviceMemory / connection?',
-          'Segment vitals by hardware class to avoid mis-prioritising desktop-only fixes.',
+          "It helps separate low-end device issues from general regressions.",
         ),
       ],
     ],
@@ -385,35 +385,35 @@ export default function buildPerformanceSkills() {
     flashcards: [
       card(
         'What enables effective tree shaking?',
-        'ESM static imports + `sideEffects: false` honest package.json + bundler scope analysis.',
+        "Static ESM imports, honest side-effect metadata, and bundler analysis.",
       ),
       card(
         'Why analyse before splitting?',
-        'Random dynamic imports fragment without reducing critical path—profile largest modules first.',
+        "Split the largest real bottlenecks, not random modules.",
       ),
       card(
         'moment.js vs luxon/dayjs lesson?',
-        'Locale packs explode bundles—prefer modular date libs or explicit locale imports.',
+        "Avoid shipping huge locale data when a smaller date library works.",
       ),
       card(
         'How does browserslist influence bundle size?',
-        'Modern targets skip legacy polyfills transforms shrinking helper injections.',
+        "Modern targets need fewer polyfills and transforms.",
       ),
       card(
         'Why dedupe matters in monorepos?',
-        'Two React copies balloon hook state weirdness and double framework tax.',
+        "Duplicate packages add bytes and can break shared state, especially React.",
       ),
       card(
         'What is “package import” linting value?',
-        'Forces explicit import paths preventing accidental kitchen-sink imports.',
+        "It prevents broad imports that pull in too much code.",
       ),
       card(
         'Server components / RSC impact?',
-        'Moves logic server-side trimming client graph—still watch server bundle cost.',
+        "They keep more logic off the client bundle.",
       ),
       card(
         'When does manual chunking beat defaults?',
-        'Vendor stability vs app volatility differs—separating rarely changing libs improves long-term caching.',
+        "When stable vendor code and changing app code cache better separately.",
       ),
     ],
     apis: [
@@ -500,31 +500,31 @@ export default function buildPerformanceSkills() {
       [
         card(
           'Barrel file anti-pattern?',
-          '`export *` re-exports drag entire package surface into graph—split entry points.',
+          "`export *` can pull too much code into the bundle.",
         ),
       ],
       [
         card(
           'Dynamic import inside loop hazard?',
-          'Parallel chunk storms—batch or prefetch consciously.',
+          "It can trigger many chunk downloads at once.",
         ),
       ],
       [
         card(
           'Why gzip size still matters?',
-          'Transfer shrinks but parse/compile still follows raw module count—watch both.',
+          "Transfer shrinks, but parsing still depends on shipped JavaScript.",
         ),
       ],
       [
         card(
           'Dual package hazard?',
-          'CJS+ESM duplicates can ship both forms—verify resolution in bundler stats.',
+          "A bundle may include both CJS and ESM versions of the same library.",
         ),
       ],
       [
         card(
           'Manual chunk `react` separate always good?',
-          'If app updates often separate vendor chunk may churn less than naively assumed—simulate caching.',
+          "Not always; test caching behavior before forcing chunks.",
         ),
       ],
     ],
@@ -542,35 +542,35 @@ export default function buildPerformanceSkills() {
     flashcards: [
       card(
         'Why pairing `loading="lazy"` + explicit dimensions?',
-        'Placeholder sizing prevents CLS while deferring decode network until proximity.',
+        "Dimensions reserve space so lazy loading does not cause layout shift.",
       ),
       card(
         'IntersectionObserver thresholds tuning?',
-        'Too-early prefetch wastes bandwidth—too-late defeats purpose; align rootMargin with UX.',
+        "Load early enough to feel instant, but not so early that bandwidth is wasted.",
       ),
       card(
         'React.lazy vs route-level split?',
-        'Route-level lumps related UI—component-level trims further but raises Suspense granularity costs.',
+        "Route splits are simpler; component splits are finer but add boundary cost.",
       ),
       card(
         'Prefetch vs preload subtlety?',
-        'Prefetch lower priority speculative fetch preload critical soon-used resources.',
+        "Preload is for needed-soon assets; prefetch is speculative and low priority.",
       ),
       card(
         '`fetchpriority` high when?',
-        'Only for decisive LCP resources—spamming highs starves competing assets.',
+        "Use it only for the main LCP resource.",
       ),
       card(
         'Below-the-fold data fetching pattern?',
-      'Defer with viewport hooks or prioritized queries after skeleton paint—avoid blocking hydration.',
+      "Fetch after first paint or when the section nears the viewport.",
       ),
       card(
         'Native module preload hook?',
-      '`<link rel="modulepreload">` warms critical ESM graph—pair with router awareness.',
+      "`modulepreload` warms important ESM modules before execution.",
       ),
       card(
         'RN analogue?',
-      '`FlatList` windowing plus lazy attachment of nested heavy cells mirrors web lazy philosophies.',
+      "Use windowed lists and defer heavy nested cell work.",
       ),
     ],
     apis: [
@@ -648,31 +648,31 @@ export default function buildPerformanceSkills() {
       [
         card(
           'Why avoid lazy on hero images?',
-          'Delayed discovery postpones LCP hurting vitals—even if technically lazy capable.',
+          "It delays discovery of the image that likely drives LCP.",
         ),
       ],
       [
         card(
           'Decode async tradeoff?',
-          'Offloads main-thread decode latency but delays paint—coordinate with placeholders.',
+          "It reduces main-thread blocking but can delay final paint.",
         ),
       ],
       [
         card(
           'Too many observers?',
-          'Reuse single observer multiplexing tracked elements not per-pixel observers.',
+          "Reuse one observer for many elements when possible.",
         ),
       ],
       [
         card(
           'Prefetch on metered networks?',
-          'Respect Save-Data and connectionSaveData hints—ethical bandwidth stewardship.',
+          "Respect Save-Data and avoid spending user bandwidth unnecessarily.",
         ),
       ],
       [
         card(
           'Suspense fallbacks CLS risk?',
-          'Jumping shimmer heights shift layout—lock minimum heights.',
+          "Fallbacks with different heights can shift layout.",
         ),
       ],
     ],
@@ -692,35 +692,35 @@ export default function buildPerformanceSkills() {
     flashcards: [
       card(
         'Stale-while-revalidate intuition?',
-      'Serve cached snapshot immediately enqueue background refresh marrying snappy UX with eventual correctness.',
+      "Show cached data now, then refresh it in the background.",
       ),
       card(
         'cache-first vs network-first picking?',
-      'Read-heavy dashboards vs financial authorisation mutations—choose policy per endpoint domain split.',
+      "Use cache-first for stable reads and network-first for fresh critical data.",
       ),
       card(
         'Why normalised entity stores?',
-      'Avoid gigantic nested trees duplication causing broad invalidations hard partial updates.',
+      "They reduce duplicate data and make targeted updates easier.",
       ),
       card(
         'Service worker versioning mistake?',
-      'Ship new SW without bumping hashed assets staleness indefinite—coordinate activation messaging.',
+      "Old cached assets can stick around if versions and activation are not coordinated.",
       ),
       card(
         'Mutations vs optimistic updates caveat?',
-      'Rollback paths must reconcile server truth—observe conflict resolution UX.',
+      "Always handle rollback when the server rejects the change.",
       ),
       card(
         'Memory caches vs IndexedDB?',
-      'Memory fastest but ephemeral; IndexedDB survives reload but slower async API surface.',
+      "Memory is fastest but temporary; IndexedDB persists but is async and slower.",
       ),
       card(
         'Double fetching hydration?',
-      'Server prefetched queries must hydrate client cache keyed identically avoiding duplicate waterfalls.',
+      "Use the same cache keys on server and client.",
       ),
       card(
         'Rate limit interplay?',
-      `Background revalidation spikes can trip 429 — apply jitter backoff + global inflight guards`,
+      "Background refreshes need jitter, backoff, and in-flight dedupe.",
       ),
     ],
     apis: [
@@ -798,31 +798,31 @@ export default function buildPerformanceSkills() {
       [
         card(
           'Global cache bust on logout?',
-          'Hard reset query caches AND SW controlled pages to strip personalised entries.',
+          "Clear query caches and private service-worker data on logout.",
         ),
       ],
       [
         card(
           'Background sync abuse?',
-          'Queues must idempotently reconcile—risk double posting payments.',
+          "Queued writes must be idempotent to avoid duplicate actions.",
         ),
       ],
       [
         card(
           'Why avoid caching GraphQL arbitrarily?',
-          `Variables explode cardinality—prefer normalized stores keyed by typename/id.`,
+          "Many variable combinations create too many cache entries.",
         ),
       ],
       [
         card(
           'IndexedDB deadlock symptom?',
-          'Transactions left open stall writes—instrument open/complete handlers.',
+          "Open transactions can stall later reads or writes.",
         ),
       ],
       [
         card(
           'Feature flag interplay?',
-          'Stale flags hide toggles—invalidate keyed segments on rollout completion.',
+          "Stale cached flags can hide or show the wrong experience.",
         ),
       ],
     ],
@@ -840,35 +840,35 @@ export default function buildPerformanceSkills() {
     flashcards: [
       card(
         'Left-prefix composite rule?', 
-      'Filtering only trailing columns skips index—it must honour leading columns ordering.',
+      "A composite index works best when queries use its leading columns.",
       ),
       card(
         'Covering index meaning?',
-      'Index leaf contains projections answering query wholly avoiding heap/table lookups.',
+      "The index contains all columns needed to answer the query.",
       ),
       card(
         'Tradeoff write amplification?',
-      'Every insert/update adjusts index pages plus WAL pressure—budget indexes narrowly.',
+      "Each extra index makes writes more expensive.",
       ),
       card(
         'Partial index benefit?',
-      'Indexes subset meeting predicate shrinking size speeding hot paths conditional uniqueness.',
+      "It indexes only matching rows, making hot queries smaller and faster.",
       ),
       card(
         'Why `EXPLAIN (ANALYZE, BUFFERS)` priceless?',
-      'Shows actual timings buffer hits—not just hypothetical planner guesses.',
+      "It shows real execution time and buffer usage.",
       ),
       card(
         'Mongo `_id` default index implications?',
-      'Always present—design shard keys interplay carefully for distribution.',
+      "Every collection has it, so design other indexes and shards around it.",
       ),
       card(
         'Index-only scan vs sequential?',
-      'Planner picks cheaper path based on statistics—stale stats mis-fire.',
+      "The planner chooses based on cost and statistics.",
       ),
       card(
         'B-tree vs hash index - which is more general purpose?',
-      'B-tree is the general-purpose default because it supports equality, range queries, ordering, and prefix-style access. Hash indexes are mainly for equality lookups and are less broadly useful.',
+      "B-tree supports equality, ranges, sorting, and prefixes; hash is mainly equality.",
       ),
     ],
     apis: [
@@ -946,31 +946,31 @@ export default function buildPerformanceSkills() {
       [
         card(
           'Correlation vs independence assumption?',
-          'Planner cost estimates skew when column stats inaccurate—schedule ANALYZE.',
+          "Bad or stale stats can make the planner choose the wrong index.",
         ),
       ],
       [
         card(
           'Index merge vs composite?',
-          'Multiple single-column indexes merging costlier often than purposeful composite.',
+          "A good composite index is often faster than merging single-column indexes.",
         ),
       ],
       [
         card(
           'Partial unique constraints?',
-          'Perfect for soft-delete uniqueness where null rows excluded.',
+          "They enforce uniqueness only for rows matching a condition.",
         ),
       ],
       [
         card(
           'Read replica staleness interplay?',
-          'Indexes help but replicas still lag—observe replication metrics when tuning.',
+          "Indexes speed reads, but replicas can still lag behind writes.",
         ),
       ],
       [
         card(
           'Mongo compound shard key caveat?',
-          'Hot shard on monotonic keys—hash/split patterns needed.',
+          "Monotonic keys can overload one shard.",
         ),
       ],
     ],
@@ -988,35 +988,35 @@ export default function buildPerformanceSkills() {
     flashcards: [
       card(
       'Classic `setInterval` leak symptom?',
-      'CPU + heap creep after navigating away route—missing cleanup frees neither timers nor closures.',
+      "CPU and memory keep rising after leaving the screen.",
       ),
       card(
       'Why Detached DOM nodes linger?',
-      'JS references retained (arrays maps) keep layout trees pinned though visually removed.',
+      "JavaScript references still point to removed nodes.",
       ),
       card(
       'EventTarget listener leak?',
-      'Global singleton DOM nodes need `.removeEventListener` mirror registration signature capture options object identity.',
+      "Listeners on global targets must be removed with the matching handler/options.",
       ),
       card(
       'WeakRef pattern role?',
-      'Hold auxiliary caches that should not prolong primary object lifetime—paired with cleanup finalizers cautiously.',
+      "It lets cache metadata avoid keeping the main object alive.",
       ),
       card(
       'React effect missing deps phantom?',
-      'Stale closures masking leak vs logic bug—use eslint exhaustive deps thoughtfully.',
+      "Stale closures can look like leaks or hide real cleanup bugs.",
       ),
       card(
       'Subscription leak in Redux?',
-      'Store.subscribe without teardown on unmount floods listeners duplication.',
+      "Forgotten unsubscribe calls leave duplicate listeners active.",
       ),
       card(
       'Native module bridging?',
-      'RN event emitter listeners accumulate if components remount aggressively—unregister on teardown.',
+      "React Native event listeners must be removed on unmount.",
       ),
       card(
       'Heap snapshot interpretation?',
-      'Compare before/after forcing GC distinguishing true leak versus intentional cache growth.',
+      "Compare snapshots after forced GC to separate leaks from intentional cache growth.",
       ),
     ],
     apis: [
@@ -1084,37 +1084,37 @@ export default function buildPerformanceSkills() {
       [
         card(
         'IntersectionObserver leaked?',
-        'Forgotten `.disconnect()` when deps change—reuse observer multiplex targets.',
+        "Call `disconnect()` when the observer is no longer needed.",
         ),
       ],
       [
         card(
         'Global `window.__DATA` hoarding?',
-        'Debug dumps left shipped leak entire sessions across SPA navigations.',
+        "Large debug globals can keep whole sessions in memory.",
         ),
       ],
       [
         card(
         'Redux selectors recompute hoard?',
-        `Reselect caches unbounded nested maps—expire intentionally`,
+        "Unbounded selector caches should be limited or expired.",
         ),
       ],
       [
         card(
         'WebSocket silent leak?',
-        'Open connections keep buffers—close on logout route change.',
+        "Close sockets on logout, unmount, or route change.",
         ),
       ],
       [
         card(
         'Profiling noise from devtools?',
-        'Heap snapshots inflate when extensions inject scripts—clean profile.',
+        "Extensions and tooling can add memory that is not from your app.",
         ),
       ],
       [
         card(
           'Why avoid capturing entire state in closures?',
-          'Huge snapshots stick around until closure dies—narrow captured fields.',
+          "The closure keeps that whole state object alive.",
         ),
       ],
     ],
@@ -1132,35 +1132,35 @@ export default function buildPerformanceSkills() {
     flashcards: [
       card(
       'Main thread vs worker profiling?',
-      'Heavy web workers offload CPU—but profile them separately—they still cost battery.',
+      "Workers move work off the main thread, but still need separate profiling.",
       ),
       card(
       'Flame chart reading tip?',
-      'Width shows time—not depth alone—widest stacks deserve first scepticism.',
+      "Focus on the widest blocks; width means time.",
       ),
       card(
       'React Profiler “actual duration”?',
-      'Time spent this commit not including suspense waiting children—paired with subtree flags.',
+      "Time React spent rendering that update.",
       ),
       card(
       'Lighthouse variability causes?',
-      'CPU throttling network simulation nondeterministic ads—capture multiple median runs.',
+      "Throttling, network simulation, ads, and randomness can change scores.",
       ),
       card(
       'Node `--inspect` heap snapshot caution?',
-      'Pauses prod unless isolated—prefer diagnostic containers traffic mirrored.',
+      "Heap snapshots can pause the process.",
       ),
       card(
       'clinic.js flame value?',
-      'Auto-suggests hotspots in Node event loop heavy stacks—different lens than browser.',
+      "It highlights expensive Node.js event-loop and CPU work.",
       ),
       card(
       'Why disable extensions profiling?',
-      'Injected content scripts overshadow app flame charts massively.',
+      "Extension scripts can appear in traces and hide app costs.",
       ),
       card(
       'Hermes Sampling vs timeline?',
-      'Different granularity—timeline good for stalls sampling for JS hotspots.',
+      "Timeline shows stalls; sampling shows hot JavaScript functions.",
       ),
     ],
     apis: [
@@ -1238,37 +1238,37 @@ export default function buildPerformanceSkills() {
       [
         card(
         'Why sample rate production traces?',
-        'Full fidelity always logging explodes infra cost biases perf itself.',
+        "Full tracing for every user is costly and can hurt performance.",
         ),
       ],
       [
         card(
         'Dev throttling unrealistic?',
-      'Tune CPU 4× slowdown mobile profile still cooler than dusty Android Go devices—but better than none.',
+      "It is imperfect, but still helps approximate slower devices.",
         ),
       ],
       [
         card(
         'Ignore idle synthetic tasks?',
-      'Often timer coalescence—confirm correlation with visible jank recordings.',
+      "Confirm they match visible jank before treating them as bugs.",
         ),
       ],
       [
         card(
       'profiler onRender misuse?',
-      'Logging huge props arrays each commit kills perf—narrow payload.',
+      "Logging large data on every commit can create the slowdown.",
       ),
       ],
       [
         card(
         'Safari profiler differences?',
-        'Instrumentation hooks differ subtle—cross-browser verify hotspots.',
+        "Browser profilers differ, so verify important findings across browsers.",
       ),
       ],
       [
       card(
         'Source map security?',
-        `Upload privately never expose publicly—may leak IP`,
+        "Upload source maps privately because public maps can leak source code.",
       ),
       ],
     ],
@@ -1286,35 +1286,35 @@ export default function buildPerformanceSkills() {
     flashcards: [
       card(
       'AVIF vs WebP trade?',
-      `AVIF often smaller but slower encode/decode on low-end GPUs—fallback stack critical`,
+      "AVIF is often smaller; WebP is usually faster and safer as fallback.",
       ),
       card(
       'Why `sizes` attribute matters?',
-      'Guides SRCSET selection widths reducing overserving huge retina assets to tiny CSS boxes.',
+      "It helps the browser choose the right image width.",
       ),
       card(
       'CDN image resizing params?',
-      'Edge transformations avoid shipping original 6000px master to mobile—but watch auth abuse.',
+      "Resize at the edge so mobile users do not download huge originals.",
       ),
       card(
       'Aspect ratio CLS tie-in?',
-      'Explicit width height or CSS aspect-ratio boxes reserve layout during decode.',
+      "A fixed ratio reserves image space before it loads.",
       ),
       card(
       'Priority hints interplay?',
-      `Only one decisive LCP image should wield fetchpriority high per view`,
+      "Only the key LCP image should get high priority.",
       ),
       card(
       'Decode=async tradeoff?',
-      'Defers main-thread decode—good if placeholder stable else delayed LCP.',
+      "It reduces main-thread blocking but can delay final paint.",
       ),
       card(
       'RN `expo-image` benefit?',
-      'Disk caching + blurhash integration + efficient native decoders—still mind remote allowlist.',
+      "It adds native caching, placeholders, and efficient decoding.",
       ),
       card(
       'Vector vs raster choice?',
-      'Icons/logos crisp via SVG simple shapes; photo textures via raster codecs.',
+      "Use SVG for simple logos/icons and raster formats for photos.",
       ),
     ],
     apis: [
@@ -1392,31 +1392,31 @@ export default function buildPerformanceSkills() {
       [
         card(
         'Double downloading picture bug?',
-        'Incorrect `type` attributes cause fallback extra fetch—validate MIME coverage.',
+        "Wrong `type` or source setup can make browsers fetch fallback too.",
         ),
       ],
       [
         card(
         'HDR wide-gamut delivery?',
-        'Need colorspace metadata aware viewers—test iOS Safari vs Chrome differences.',
+        "Color support varies, so test on real target browsers.",
         ),
       ],
       [
         card(
         'GPU memory blowups?',
-        'Massive decoded textures in RN lists crash—downsample to display pixel bounds.',
+        "Huge decoded images can crash lists; downsample to display size.",
         ),
       ],
       [
         card(
         'Third-party stock CDN latency?',
-        'Evaluate TTFB vs self-hosted optimised—marketing CDNs not always faster.',
+        "Measure it; third-party image CDNs are not always faster.",
         ),
       ],
       [
         card(
         'Accessible alt vs decorative?',
-        'Empty alt only when truly decorative—don’t strip meaning chasing bytes.',
+        "Use empty alt only for images with no meaning.",
         ),
       ],
     ],
@@ -1436,35 +1436,35 @@ export default function buildPerformanceSkills() {
     flashcards: [
       card(
       'HTTP/2 multiplex practical limit?',
-      'Still one congestion context per connection—large single-stream downloads can still starve without prioritization hints.',
+      "One large stream can still compete with others on the same connection.",
       ),
       card(
       'HTTP/3 user-visible win often?',
-      'Better lossy network behaviour + faster connection setup on mobile switching radios—field verify not assumed.',
+      "It often helps on lossy mobile networks and connection changes.",
       ),
       card(
       'Preload vs preconnect ordering?',
-      'Preconnect early for critical origins before issuing high-priority preloads—sequencing matters in parser.',
+      "Preconnect the origin early, then preload the critical asset.",
       ),
       card(
       'Brotli vs gzip tradeoff?',
-      'Brotli smaller text assets but slower compress CPU—precompress static at build time not per request hot path.',
+      "Brotli is smaller, but precompress it to avoid runtime CPU cost.",
       ),
       card(
       'TLS session resumption benefit?',
-      'Skips full handshake RTT—ties back to TLS skill; watch session ticket rotation security.',
+      "It saves round trips on repeat connections.",
       ),
       card(
       'Why limit concurrent preconnects?',
-      'Spec caps + socket churn—spamming wastes DNS/TCP budget.',
+      "Too many preconnects waste sockets and network setup work.",
       ),
       card(
       'Server push replacement mindset?',
-      'Prefer `preload`/`103 Early Hints` patterns—push largely retired.',
+      "Use preload or 103 Early Hints instead of HTTP/2 push.",
       ),
       card(
       'Third-party script `async` vs `defer`?',
-      'Execution order + parser blocking differ—choose based on dependency graph.',
+      "`async` runs when ready; `defer` runs after parsing in order.",
       ),
     ],
     apis: [
@@ -1551,31 +1551,31 @@ export default function buildPerformanceSkills() {
       [
         card(
           'Why fewer connections can still saturate?',
-          'One TCP/ QUIC congestion window shared—elephant flows still starve multiplexed streams without priorities.',
+          "A shared connection can still be dominated by one large transfer.",
         ),
       ],
       [
         card(
           'prefetch etiquette on constrained devices?',
-          'Respect Save-Data and Network Information hints— speculative bytes cost real money.',
+          "Avoid speculative downloads when Save-Data or poor networks are present.",
         ),
       ],
       [
         card(
           'Early Hints failure mode?',
-          'If intermediary strips 103 hints, fall back to inlined critical CSS or SSR streaming.',
+          "Some intermediaries strip 103 hints, so keep normal fallbacks.",
         ),
       ],
       [
         card(
           'When is gzip preferable to brotli at runtime?',
-          'Tiny assets where compression CPU exceeds byte savings—or when origin CPU is bottlenecked.',
+          "For tiny assets or CPU-bound origins, gzip may be cheaper.",
         ),
       ],
       [
         card(
           'Connect to “too many” origins?',
-          'Each new origin retriggers DNS+TLS—even HTTP/3—budget third-party proliferation.',
+          "Each origin adds DNS, TLS, and connection overhead.",
         ),
       ],
     ],
